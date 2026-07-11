@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://novarisesa.com/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://novarisesa.com/about</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://novarisesa.com/services</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://novarisesa.com/services/civil</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/services/power</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/services/rental</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/services/manpower</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/services/it</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/services/trading</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/capabilities</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/projects</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://novarisesa.com/projects/neom</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/red-sea-global</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/amaala</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/jafurah</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/afif</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/red-sea-aluminium</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/durma-pp12</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/taiba-1</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/rumah-1</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/qassim-1</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/nairiyah-1</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/projects/yanbu-3</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/requirements</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://novarisesa.com/careers</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/blog</loc><priority>0.6</priority></url>
+  <url><loc>https://novarisesa.com/contact</loc><priority>0.7</priority></url>
+  <url><loc>https://novarisesa.com/rfq</loc><priority>0.7</priority></url>
+</urlset>

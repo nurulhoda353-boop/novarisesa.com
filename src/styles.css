@@ -1,0 +1,417 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@source "../app";
+@import "tw-animate-css";
+
+/* Google Fonts loaded via <link> tags in app/layout.tsx */
+
+/* Brand display font — GC Protage */
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-Thin.ttf") format("truetype"); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-ExtraLight.ttf") format("truetype"); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-Light.ttf") format("truetype"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-Regular.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-Medium.ttf") format("truetype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-SemiBold.ttf") format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-Bold.ttf") format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "GC Protage"; src: url("/fonts/gcprotage/GCPROTAGEDEMO-ExtraBold.ttf") format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-display: var(--font-poppins), "Poppins", system-ui, sans-serif;
+  --font-sans: var(--font-poppins), "Poppins", system-ui, sans-serif;
+  --font-arabic: var(--font-noto-kufi), "Noto Kufi Arabic", system-ui, sans-serif;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-navy-deep: var(--navy-deep);
+  --color-sand: var(--sand);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+:root {
+  --radius: 0.5rem;
+
+  /* Brand — NOVARISE */
+  --navy: oklch(0.32 0.072 256);          /* #1c335c */
+  --navy-foreground: oklch(0.98 0.01 80);
+  --navy-deep: oklch(0.22 0.058 258);
+  --gold: oklch(0.755 0.135 75);          /* #dfa247 */
+  --gold-foreground: oklch(0.20 0.05 258);
+  --sand: oklch(0.97 0.012 80);
+
+  --background: oklch(0.99 0.005 80);
+  --foreground: oklch(0.22 0.058 258);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.058 258);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.058 258);
+  --primary: oklch(0.32 0.072 256);
+  --primary-foreground: oklch(0.98 0.01 80);
+  --secondary: oklch(0.755 0.135 75);
+  --secondary-foreground: oklch(0.22 0.058 258);
+  --muted: oklch(0.96 0.008 250);
+  --muted-foreground: oklch(0.48 0.04 256);
+  --accent: oklch(0.755 0.135 75);
+  --accent-foreground: oklch(0.22 0.058 258);
+  --destructive: oklch(0.6 0.2 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.91 0.012 250);
+  --input: oklch(0.91 0.012 250);
+  --ring: oklch(0.755 0.135 75);
+
+  /* Premium gradients & shadows */
+  --gradient-hero: linear-gradient(135deg, oklch(0.20 0.05 258 / 0.92) 0%, oklch(0.32 0.072 256 / 0.78) 50%, oklch(0.22 0.058 258 / 0.55) 100%);
+  --gradient-gold: linear-gradient(135deg, oklch(0.79 0.14 80) 0%, oklch(0.72 0.13 70) 100%);
+  --gradient-navy: linear-gradient(135deg, oklch(0.32 0.072 256) 0%, oklch(0.22 0.058 258) 100%);
+  --shadow-elegant: 0 20px 50px -20px oklch(0.22 0.058 258 / 0.35);
+  --shadow-gold: 0 10px 30px -8px oklch(0.755 0.135 75 / 0.45);
+  --shadow-card: 0 4px 24px -8px oklch(0.22 0.058 258 / 0.10);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11", "cv02", "cv03";
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  p {
+    line-height: 1.7;
+    color: oklch(0.36 0.04 256);
+  }
+
+  h1 { font-family: var(--font-display); font-weight: 800; letter-spacing: -0.035em; }
+  h2 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.028em; }
+  h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.022em; }
+  h4, h5, h6 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.018em; }
+
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+    color: var(--gold);
+  }
+
+  .font-arabic {
+    font-family: var(--font-arabic);
+  }
+}
+
+@layer utilities {
+  /* Custom cursor: hide native on fine pointers */
+  @media (hover: hover) and (pointer: fine) {
+    html.has-custom-cursor,
+    html.has-custom-cursor * { cursor: none !important; }
+  }
+
+  .container-wide {
+    max-width: 1400px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  @media (min-width: 1024px) {
+    .container-wide {
+      padding-inline: 3rem;
+    }
+  }
+
+  .gradient-hero { background: var(--gradient-hero); }
+  .gradient-gold { background: var(--gradient-gold); }
+  .gradient-navy { background: var(--gradient-navy); }
+  .shadow-elegant { box-shadow: var(--shadow-elegant); }
+  .shadow-gold { box-shadow: var(--shadow-gold); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+
+  .text-gradient-gold {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .grid-lines {
+    background-image:
+      linear-gradient(to right, oklch(1 0 0 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 0.05) 1px, transparent 1px);
+    background-size: 80px 80px;
+  }
+
+  /* Premium dark surface — gradient depth + a single subtle diagonal beam, NO grid texture */
+  .dark-premium {
+    background-color: var(--navy-deep);
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, oklch(0.755 0.135 75 / 0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, oklch(0.32 0.072 256 / 0.55), transparent 55%),
+      linear-gradient(115deg, transparent 0 49.6%, oklch(0.755 0.135 75 / 0.14) 49.75% 49.85%, transparent 49.95%);
+  }
+
+  /* Premium soft warm surface — used to differentiate adjacent light sections */
+  .bg-sand-soft {
+    background-color: var(--sand);
+    background-image:
+      radial-gradient(900px 500px at 100% 0%, oklch(0.755 0.135 75 / 0.06), transparent 55%),
+      radial-gradient(700px 400px at 0% 100%, oklch(0.32 0.072 256 / 0.04), transparent 60%);
+  }
+
+  /* Extra-bright wrapper — applied to the middle of a 3-light group for contrast */
+  .section-bright > section {
+    background-color: oklch(0.995 0.003 80) !important;
+    background-image: none !important;
+  }
+
+  .section-edge {
+    height: 1px;
+    background: linear-gradient(to right, transparent, oklch(0.32 0.072 256 / 0.12) 30%, oklch(0.755 0.135 75 / 0.5) 50%, oklch(0.32 0.072 256 / 0.12) 70%, transparent);
+  }
+
+  .gold-divider {
+    height: 1px;
+    background: linear-gradient(to right, transparent, oklch(0.755 0.135 75 / 0.7), transparent);
+  }
+
+  .reveal {
+    animation: reveal 1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes reveal {
+    from { opacity: 0; transform: translateY(20px); filter: blur(8px); }
+    to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  .marquee { animation: marquee 40s linear infinite; }
+  .animate-marquee { animation: marquee 32s linear infinite; }
+  .animate-marquee:hover { animation-play-state: paused; }
+
+  /* ── Ambient, eye-cooling motion ───────────────────────── */
+  @keyframes float-slow {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50%      { transform: translate3d(0, -14px, 0) scale(1.03); }
+  }
+  @keyframes drift {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50%      { transform: translate3d(20px, -10px, 0); }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50%      { opacity: 0.95; transform: scale(1.04); }
+  }
+  @keyframes shimmer-x {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 oklch(0.755 0.135 75 / 0.0); }
+    50%      { box-shadow: 0 0 36px 4px oklch(0.755 0.135 75 / 0.35); }
+  }
+
+  .anim-float-slow { animation: float-slow 11s ease-in-out infinite; will-change: transform; }
+  .anim-drift      { animation: drift 14s ease-in-out infinite; will-change: transform; }
+  .anim-breathe    { animation: breathe 7s ease-in-out infinite; will-change: opacity, transform; }
+  .anim-glow-pulse { animation: glow-pulse 5.5s ease-in-out infinite; }
+
+  .text-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--foreground) 0%, var(--foreground) 40%,
+      oklch(0.86 0.12 80) 50%,
+      var(--foreground) 60%, var(--foreground) 100%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer-x 6s linear infinite;
+  }
+
+  .hover-lift {
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 48px -22px oklch(0.22 0.058 258 / 0.30);
+  }
+
+  /* ── Editorial typography accents ─────────────────────── */
+  .lead-paragraph::first-letter {
+    float: left;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 3.6em;
+    line-height: 0.85;
+    padding: 0.08em 0.12em 0 0;
+    margin-right: 0.04em;
+    color: var(--gold);
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .section-num {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    -webkit-text-stroke: 1.2px oklch(0.755 0.135 75 / 0.55);
+    color: transparent;
+    line-height: 0.9;
+  }
+
+  /* Subtle blueprint texture for dark sections */
+  .blueprint-bg {
+    background-image:
+      linear-gradient(to right, oklch(0.755 0.135 75 / 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.755 0.135 75 / 0.045) 1px, transparent 1px);
+    background-size: 120px 120px;
+  }
+
+  /* Animated gold underline (decorative, paints on view) */
+  @keyframes underline-draw {
+    0%   { transform: scaleX(0); }
+    100% { transform: scaleX(1); }
+  }
+  .underline-draw {
+    position: relative;
+    display: inline-block;
+  }
+  .underline-draw::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -0.08em;
+    height: 2px;
+    background: var(--gradient-gold);
+    border-radius: 999px;
+    transform-origin: left center;
+    transform: scaleX(0);
+    animation: underline-draw 1.2s 1.4s cubic-bezier(0.22,1,0.36,1) forwards;
+  }
+
+  /* Global heading entrance — first-time reveal for every h1/h2 in <main> */
+  @keyframes title-reveal-in {
+    0% {
+      opacity: 0;
+      transform: translateY(22px);
+      filter: blur(10px);
+      clip-path: inset(0 0 100% 0);
+      letter-spacing: 0.04em;
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+      clip-path: inset(0 0 0 0);
+      letter-spacing: normal;
+    }
+  }
+  .title-reveal {
+    opacity: 0;
+    will-change: transform, opacity, filter, clip-path;
+  }
+  .title-reveal-in {
+    animation: title-reveal-in 1.15s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .anim-float-slow, .anim-drift, .anim-breathe,
+    .anim-glow-pulse, .text-shimmer, .marquee {
+      animation: none !important;
+    }
+    .underline-draw::after { transform: scaleX(1); animation: none; }
+    .title-reveal { opacity: 1; }
+    .title-reveal-in { animation: none; }
+  }
+}
+
+/* RTL / Arabic typography */
+html[dir="rtl"] {
+  font-family: var(--font-noto-kufi), var(--font-poppins), "Noto Kufi Arabic", system-ui, sans-serif;
+}
+html[dir="rtl"] body {
+  font-family: var(--font-noto-kufi), var(--font-poppins), "Noto Kufi Arabic", system-ui, sans-serif;
+}
+/* Keep display headings still readable in Arabic */
+html[dir="rtl"] h1,
+html[dir="rtl"] h2,
+html[dir="rtl"] h3,
+html[dir="rtl"] h4 {
+  font-family: var(--font-noto-kufi), var(--font-poppins), "Noto Kufi Arabic", system-ui, sans-serif;
+  letter-spacing: 0 !important;
+}
+
+/* Arabic needs more vertical room — Latin-tight leading crashes diacritics
+   into the line above. Override Tailwind's tight leading utilities under RTL. */
+html[dir="rtl"] h1 { line-height: 1.55 !important; }
+html[dir="rtl"] h2 { line-height: 1.5 !important; }
+html[dir="rtl"] h3,
+html[dir="rtl"] h4 { line-height: 1.55 !important; }
+html[dir="rtl"] .leading-\[0\.95\],
+html[dir="rtl"] .leading-\[0\.9\],
+html[dir="rtl"] .leading-\[1\],
+html[dir="rtl"] .leading-\[1\.05\],
+html[dir="rtl"] .leading-\[1\.1\],
+html[dir="rtl"] .leading-none,
+html[dir="rtl"] .leading-tight { line-height: 1.5 !important; }
+html[dir="rtl"] .leading-snug { line-height: 1.65 !important; }
+
+/* The animated gold underline sits 0.08em below the baseline — fine for
+   Latin but it clips the dots of ب ت ث ج خ ش ي etc. Drop it lower in RTL. */
+html[dir="rtl"] .underline-draw::after {
+  bottom: -0.32em;
+}
+
+/* Word-by-word stagger uses inline-block + mr-[0.22em]; in RTL that pushes
+   the space to the wrong side and visually merges words. Flip it. */
+html[dir="rtl"] .mr-\[0\.22em\] {
+  margin-right: 0 !important;
+  margin-left: 0.22em;
+}
+
+/* Tabular Latin numerals embedded in RTL Arabic copy — keep them LTR so
+   "+2,500" / "25M" don't get mirrored next to Arabic labels. */
+html[dir="rtl"] .tabular-nums { direction: ltr; unicode-bidi: isolate; }

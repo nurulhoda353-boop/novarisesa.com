@@ -1,0 +1,2146 @@
+{
+  "nav": {
+    "home": "Home",
+    "about": "About",
+    "projects": "Projects",
+    "services": "Services",
+    "requirements": "Requirements",
+    "requirementsAll": "Urgent Requirements",
+    "requirementsDesc": "Open manpower roles hiring now",
+    "careers": "Careers",
+    "careersDesc": "Join our team of experts",
+    "blog": "Blog & Events",
+    "contact": "Contact",
+    "requestRfq": "Request RFQ",
+    "navigate": "Navigate",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "services": {
+    "civil": {
+      "label": "Civil Construction",
+      "desc": "Industrial & megaproject engineering"
+    },
+    "power": {
+      "label": "Power Plants",
+      "desc": "Power generation & electrical infra"
+    },
+    "rental": {
+      "label": "Heavy Equipment Rental",
+      "desc": "Cranes, manlifts & machinery"
+    },
+    "manpower": {
+      "label": "Manpower Supply",
+      "desc": "2,500+ certified workforce"
+    },
+    "it": {
+      "label": "IT Solutions",
+      "desc": "Industrial IT & automation"
+    },
+    "trading": {
+      "label": "Materials Trading",
+      "desc": "Steel, cement, safety & more"
+    }
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "arabic": "العربية"
+  },
+  "hero": {
+    "tagline": "نوفارايز للتجارة والمقاولات",
+    "title": {
+      "line1": "Engineering",
+      "line2": "the Kingdom’s",
+      "line3": "Future."
+    },
+    "subtitle": "From Saudi Aramco refineries to SABIC plants — NOVARISE delivers world-class manpower, equipment and contracting solutions to the Kingdom's most ambitious industrial megaprojects.",
+    "cta": "Discover Our Capabilities",
+    "glance": "At a Glance",
+    "scroll": "Scroll",
+    "stats": {
+      "workforce": "Skilled Workforce",
+      "turnover": "SAR Annual Turnover",
+      "years": "Years Excellence",
+      "verticals": "Industry Verticals",
+      "specialists": "Specialists",
+      "hours": "Man-hours Logged"
+    }
+
+
+  },
+  "trustBar": {
+    "label": "Endorsed by the Kingdom's industry titans"
+  },
+  "about": {
+    "eyebrow": "About NOVARISE",
+    "title": {
+      "l1": "Built on",
+      "l2": "trust.",
+      "l3": "Rising on",
+      "l4": "excellence."
+    },
+    "p1": "Founded in 2019 in the Kingdom of Saudi Arabia, NOVARISE Trading and Contracting Company has emerged as a trusted partner for the region's largest industrial, petrochemical and infrastructure megaprojects.",
+    "p2Prefix": "Our endorsements from ",
+    "p2Brands": "Saudi Aramco, SABIC, Samsung Engineering, Hyundai E&C and Doosan",
+    "p2Suffix": " reflect a singular commitment: delivering qualified manpower, certified equipment and end-to-end contracting services that meet the most rigorous industrial standards.",
+    "stats": {
+      "established": "Established",
+      "headquartered": "Headquartered",
+      "verticals": "Industry Verticals",
+      "riyadh": "Riyadh"
+    }
+  },
+  "capabilities": {
+    "eyebrow": "What We Do",
+    "titleA": "Six pillars.",
+    "titleB": "One trusted partner.",
+    "desc": "From specialized contracting to integrated industrial support — every service is engineered around the demands of Saudi Arabia's industrial landscape.",
+    "activeBadge": "Active sites",
+    "engineeringKsa": "Engineering KSA",
+    "since": "2019 — today",
+    "explore": "Explore",
+    "pillars": {
+      "civil": "Comprehensive civil engineering for industrial, public and private sector megaprojects across the Kingdom.",
+      "power": "Specialized contracting and skilled workforce supply for power generation and electrical infrastructure.",
+      "rental": "Modern fleet of excavators, cranes, loaders and machinery — fully maintained, project-ready.",
+      "manpower": "2,500+ qualified engineers, QAQC, safety personnel, welders and operators with valid Saudi credentials.",
+      "it": "Industrial IT integration, automation systems and digital infrastructure for modern operations.",
+      "trading": "Reliable supply of steel, cement, electrical, plumbing, safety gear and construction chemicals."
+    }
+  },
+  "industries": {
+    "eyebrow": "Industries We Serve",
+    "title": {
+      "l1": "Trusted across",
+      "l2": "the Kingdom's",
+      "l3": "heaviest sectors."
+    },
+    "imgEyebrow": "Sectors served",
+    "imgTitle": "Six industries.\nOne operating standard.",
+    "badgeBrand": "Aramco",
+    "badgeText": "Approved Vendor",
+    "list": {
+      "oilGas": {
+        "name": "Oil & Gas",
+        "desc": "Upstream, midstream and downstream support across Aramco assets."
+      },
+      "petrochem": {
+        "name": "Petrochemicals",
+        "desc": "SABIC plant maintenance, turnarounds and EPC sub-contracting."
+      },
+      "power": {
+        "name": "Power & Utilities",
+        "desc": "Generation, transmission and substation construction support."
+      },
+      "infra": {
+        "name": "Infrastructure",
+        "desc": "Roads, bridges and large-scale civil works for public projects."
+      },
+      "mining": {
+        "name": "Mining & Minerals",
+        "desc": "Manpower and equipment for Ma'aden and regional mining ops."
+      },
+      "marine": {
+        "name": "Marine & Ports",
+        "desc": "Coastal construction, port utilities and offshore logistics."
+      }
+    }
+  },
+  "numbers": {
+    "eyebrow": "By the Numbers",
+    "titleA": "Scale that speaks",
+    "titleB": "for itself.",
+    "desc": "A decade of disciplined execution across the Kingdom's most demanding industrial environments — measured in people, projects and trust earned.",
+    "liveBadge": "Live operations",
+    "onGround": "On the ground",
+    "personnelLine": "2,500+ certified personnel\ndeployed Kingdom-wide.",
+    "stats": {
+      "years": {
+        "label": "Years of Excellence",
+        "desc": "Building since 2019"
+      },
+      "workforce": {
+        "label": "Skilled Workforce",
+        "desc": "Engineers & operators"
+      },
+      "turnover": {
+        "label": "SAR Annual Turnover",
+        "desc": "Sustained growth"
+      },
+      "projects": {
+        "label": "Major Projects",
+        "desc": "Construction · power · oil"
+      }
+    }
+  },
+  "process": {
+    "eyebrow": "How We Work",
+    "title": {
+      "l1": "From RFQ to handover.",
+      "l2": "A disciplined five-step path."
+    },
+    "steps": {
+      "rfq": {
+        "title": "RFQ & Scoping",
+        "desc": "Receive your scope, confirm specs, deliver a transparent quote within 72 hours."
+      },
+      "planning": {
+        "title": "Planning & Permits",
+        "desc": "Full method statements, HSE plans and Saudi-compliant documentation."
+      },
+      "mobilization": {
+        "title": "Mobilization",
+        "desc": "Certified manpower and equipment dispatched to site — Kingdom-wide."
+      },
+      "execution": {
+        "title": "Execution",
+        "desc": "Daily QAQC reporting, on-site supervision and milestone-based delivery."
+      },
+      "handover": {
+        "title": "Handover",
+        "desc": "Snag clearance, documentation pack and post-completion warranty support."
+      }
+    }
+  },
+  "vision": {
+    "tileEyebrow": "Vision 2030",
+    "horizon": "National Transformation Horizon",
+    "ksa": "KSA",
+    "aligned": "Aligned with the Kingdom's national agenda",
+    "eyebrow": "Vision 2030 Commitment",
+    "title": {
+      "l1": "A partner in the",
+      "l2": "Kingdom's",
+      "l3": "renaissance."
+    },
+    "desc": "NOVARISE is engineered to support the Kingdom's transformation — through localized expertise, sustainable practices, and deep alignment with the national agenda for industrial sovereignty.",
+    "kpis": {
+      "saudization": "Saudization Rate",
+      "local": "Local Content",
+      "hse": "Certified HSE"
+    },
+    "pillars": {
+      "expertise": {
+        "title": "Localized Expertise",
+        "desc": "Building Saudi talent across every project tier."
+      },
+      "sustainable": {
+        "title": "Sustainable Operations",
+        "desc": "Energy-efficient equipment and waste-reduction protocols."
+      },
+      "economic": {
+        "title": "Economic Diversification",
+        "desc": "Supporting non-oil industrial growth across new sectors."
+      }
+    }
+  },
+  "projects": {
+    "eyebrow": "Featured Projects",
+    "title": {
+      "l1": "A track record",
+      "l2": "written in steel."
+    },
+    "prevAria": "Previous",
+    "nextAria": "Next",
+    "viewAll": "View all projects",
+    "viewDetails": "View details",
+    "featured": "Featured",
+    "rankLabel": "Rank",
+    "back": "Back to all projects",
+    "overview": "Project Overview",
+    "notFound": "Project not found.",
+    "ctaContact": "Discuss your project",
+    "featuredLabel": "Flagship Programs",
+    "moreLabel": "More Active Projects",
+    "highlightsTitle": "Project Highlights",
+    "highlightsEyebrow": "What We Deliver",
+    "faqTitle": "Frequently Asked",
+    "faqEyebrow": "Project FAQ",
+    "contactTitle": "Talk to our team about this project",
+    "contactEyebrow": "Get In Touch",
+    "details": {
+      "client": "Client",
+      "location": "Location",
+      "value": "Project Value",
+      "duration": "Duration"
+    },
+    "items": {
+      "power": {
+        "sector": "Power & Energy",
+        "title": "Combined Cycle Power Plant Support",
+        "client": "Saudi Electricity Company",
+        "location": "Eastern Province, KSA",
+        "value": "SAR 12.5M",
+        "duration": "24 Months",
+        "scope": "Specialized manpower, QAQC personnel, and skilled welders deployed for turbine installation and commissioning."
+      },
+      "civil": {
+        "sector": "Civil Construction",
+        "title": "Riyadh Industrial City Expansion",
+        "client": "Royal Commission",
+        "location": "Riyadh, KSA",
+        "value": "SAR 8.2M",
+        "duration": "18 Months",
+        "scope": "Heavy equipment rental, civil contracting and full-cycle manpower supply for high-rise industrial complex."
+      },
+      "petro": {
+        "sector": "Petrochemical",
+        "title": "Refinery Maintenance & Shutdown",
+        "client": "Saudi Aramco / SABIC",
+        "location": "Jubail, KSA",
+        "value": "SAR 15.8M",
+        "duration": "Ongoing",
+        "scope": "Permit receivers, piping crews, GRE/FPI laminators and certified safety personnel for major turnaround."
+      },
+      "neom": {
+        "sector": "Megacity & Urban Development",
+        "title": "NEOM Megacity Development",
+        "client": "NEOM Company / PIF",
+        "location": "Tabuk Province, KSA",
+        "value": "USD 500B+",
+        "duration": "Multi-phase",
+        "scope": "Manpower mobilization and contracting support for one of the world's largest urban-development megaprojects."
+      },
+      "afif": {
+        "sector": "Renewable Energy",
+        "title": "Afif Solar PV Project (4.2 GW)",
+        "client": "PIF / Developer Consortium",
+        "location": "Near Riyadh, KSA",
+        "value": "4.2 GW",
+        "duration": "2025 – 2027",
+        "scope": "Afif 1 (1.8–2.4 GW) and Afif 2 (2.4 GW) utility-scale PV with advanced tracking — powering 1.5M+ homes under Vision 2030."
+      },
+      "taiba1": {
+        "sector": "CCGT Power",
+        "title": "Taiba 1 IPP — 1,800 MW CCGT",
+        "client": "ACWA Power & SEC Consortium",
+        "location": "Madinah, KSA",
+        "value": "1,800 MW",
+        "duration": "25-Year PPA",
+        "scope": "Decarbonized Combined Cycle Gas Turbine Independent Power Project with 25-year planned operations."
+      },
+      "rumah1": {
+        "sector": "CCGT Power",
+        "title": "Rumah 1 — 1,800 MW CCGT",
+        "client": "Remal Energy (ACWA · SEC · KEPCO)",
+        "location": "Riyadh Province, KSA",
+        "value": "USD 2B",
+        "duration": "Completion 2028",
+        "scope": "1,800 MW Combined Cycle Gas Turbine power plant under construction; $2B investment scheduled for completion around 2028."
+      },
+      "qassim1": {
+        "sector": "CCGT Power",
+        "title": "Qassim 1 IPP — 1,800 MW CCGT",
+        "client": "ACWA Power",
+        "location": "Al-Qassim, KSA",
+        "value": "1,800 MW",
+        "duration": "IPP",
+        "scope": "1,800 MW Combined Cycle Gas Turbine Independent Power Project developed by ACWA Power in Al-Qassim."
+      },
+      "nairiyah1": {
+        "sector": "CCGT Power",
+        "title": "Nairiyah 1 IPP — 1,800 MW CCGT",
+        "client": "ACWA Power",
+        "location": "Eastern Province, KSA",
+        "value": "1,800 MW",
+        "duration": "IPP",
+        "scope": "1,800 MW Combined Cycle Gas Turbine Independent Power Project developed by ACWA Power."
+      },
+      "durma": {
+        "sector": "CCGT Expansion",
+        "title": "Durma PP12 Expansion CCGT IPP",
+        "client": "Saudi Electricity Company",
+        "location": "Riyadh, KSA",
+        "value": "1,863 MW",
+        "duration": "Vision 2030",
+        "scope": "Major 1,863 MW expansion of Riyadh Power Plant No. 12 (PP12) — diversifying energy sources and strengthening grid reliability."
+      },
+      "jafurah": {
+        "sector": "Unconventional Gas",
+        "title": "Jafurah Shale Gas Field",
+        "client": "Saudi Aramco",
+        "location": "Eastern Province, KSA",
+        "value": "USD 100B",
+        "duration": "Multi-phase",
+        "scope": "Saudi Arabia's largest unconventional shale gas field development — $100B investment, ~229 Tcf of raw gas reserves."
+      },
+      "redSeaAluminium": {
+        "sector": "Industrial / Aluminium",
+        "title": "Red Sea Aluminium — Yanbu",
+        "client": "Public Investment Fund (PIF)",
+        "location": "Yanbu, KSA",
+        "value": "Strategic PIF",
+        "duration": "From 2026",
+        "scope": "Fully integrated downstream aluminium complex positioning the Kingdom as a regional hub for high-value aluminium products."
+      },
+      "yanbu3": {
+        "sector": "Power & Desalination",
+        "title": "Yanbu-3 Power & Desalination",
+        "client": "Saline Water Conversion Corp.",
+        "location": "Yanbu, KSA",
+        "value": "Power + Water",
+        "duration": "Operational",
+        "scope": "Oil-fired power generation paired with large-scale desalination capacity operated by SWCC."
+      },
+      "amaala": {
+        "sector": "Luxury Tourism · Giga-project",
+        "title": "AMAALA — Ultra-Luxury Wellness Destination",
+        "client": "Red Sea Global / PIF",
+        "location": "Prince Mohammed bin Salman Nature Reserve, KSA",
+        "value": "USD 8B+",
+        "duration": "Multi-phase to 2027",
+        "scope": "4,200 km² ultra-luxury wellness giga-destination spanning Triple Bay, Coastal Development and The Island — 25+ hotels, marina, yacht club and a private airport."
+      },
+      "redSeaGlobal": {
+        "sector": "Regenerative Tourism · Giga-project",
+        "title": "Red Sea Global — The Red Sea Destination",
+        "client": "Red Sea Global / PIF",
+        "location": "Tabuk Province — Red Sea Coast, KSA",
+        "value": "USD 16B+",
+        "duration": "Phased to 2030",
+        "scope": "PIF giga-project across 90+ pristine islands and 200 km of Red Sea coast — 50 luxury resorts, private airport, over-water villas and full off-grid renewable power."
+      }
+    }
+  },
+  "hse": {
+    "certified": "Certified",
+    "isoLine": "ISO 45001 · OSHA",
+    "eyebrow": "Health, Safety & Environment",
+    "titleA": "Zero harm.",
+    "titleB": "Every shift.",
+    "desc": "Safety isn't a department at NOVARISE — it's the operating system. Every worker completes mandatory HSE induction, every site runs on documented method statements, and every incident gets root-cause reviewed.",
+    "stats": {
+      "manHours": "Safe Man-Hours",
+      "lti": "LTI This Year",
+      "training": "HSE Training Hours",
+      "ppe": "PPE Compliance"
+    }
+  },
+  "certifications": {
+    "eyebrow": "Certifications & Compliance",
+    "titleA": "Quality. Safety. Reliability.",
+    "titleB": "Independently verified.",
+    "items": {
+      "iso9001": "Quality Management",
+      "iso14001": "Environmental Management",
+      "iso45001": "Occupational H&S",
+      "osha": "Workplace Safety",
+      "aramco": "Approved Vendor",
+      "gosi": "Active Registration",
+      "zatca": "VAT Registered",
+      "moc": "Saudi CR Active"
+    }
+  },
+  "testimonials": {
+    "eyebrow": "What Our Clients Say",
+    "titleA": "Endorsed where it",
+    "titleB": "matters most.",
+    "disclaimer": "Quotes paraphrased from project correspondence · Names withheld per NDA",
+    "items": {
+      "aramco": {
+        "q": "NOVARISE consistently delivers qualified manpower on schedule. Their QAQC documentation is among the cleanest we receive from regional sub-contractors.",
+        "name": "Project Manager",
+        "org": "Saudi Aramco · Refinery Programme"
+      },
+      "sabic": {
+        "q": "Reliable equipment, certified operators, zero downtime escalations. Exactly the kind of contracting partner large-scale petrochemical builds need.",
+        "name": "Construction Lead",
+        "org": "SABIC · Jubail Expansion"
+      },
+      "samsung": {
+        "q": "Their mobilization speed is genuinely rare in the Kingdom. From RFQ to crew on site in under three weeks for a critical turnaround.",
+        "name": "Procurement Director",
+        "org": "Samsung Engineering · KSA"
+      }
+    }
+  },
+  "leadership": {
+    "eyebrow": "Message from the CEO",
+    "quotePre": "\"At NOVARISE, we don't just build infrastructure — we",
+    "quoteAccent": " engineer the future",
+    "quotePost": ". Our commitment to innovation and client success is the cornerstone of every project we undertake.\"",
+    "body": "As the Kingdom accelerates toward Vision 2030, NOVARISE stands as a pivotal partner in this economic and infrastructural renaissance — committed to localizing expertise, fostering sustainable development, and delivering world-class solutions across our contracting, trading and technology divisions.",
+    "name": "MD Mamun Miaji",
+    "role": "Chief Executive Officer"
+  },
+  "whyUs": {
+    "eyebrow": "Why Choose NOVARISE",
+    "titleA": "Six reasons we're the",
+    "titleB": "Kingdom's quiet workhorse.",
+    "items": {
+      "approved": {
+        "title": "Aramco & SABIC Approved",
+        "desc": "Pre-qualified vendor status with the Kingdom's most demanding operators — clearance you can build on."
+      },
+      "mobilize": {
+        "title": "Mobilization in Days",
+        "desc": "From signed RFQ to certified crew on site in under three weeks, even for emergency turnarounds."
+      },
+      "workforce": {
+        "title": "2,500+ Skilled Workforce",
+        "desc": "Multi-disciplinary manpower bench — welders, riggers, scaffolders, electricians, technicians on standby."
+      },
+      "fleet": {
+        "title": "Owned Equipment Fleet",
+        "desc": "Cranes, manlifts, generators, compressors maintained in-house. No third-party rental delays."
+      },
+      "hse": {
+        "title": "Zero-Compromise HSE",
+        "desc": "ISO 45001 certified. 12M+ safe man-hours. LTIFR consistently below industry benchmark."
+      },
+      "vision": {
+        "title": "Vision 2030 Aligned",
+        "desc": "Saudization-forward hiring, local content compliant, growing in lockstep with the Kingdom's roadmap."
+      }
+    }
+  },
+  "faq": {
+    "eyebrow": "Frequently Asked",
+    "titleA": "Answers, before",
+    "titleB": "you ask.",
+    "desc": "Procurement, mobilization, certifications, equipment — the questions clients most often raise during pre-qualification.",
+    "stillCurious": "Still curious?",
+    "talkTitle": "Talk directly to our\ncommercial team.",
+    "talkDesc": "We respond to RFQs and pre-qualification packs within one business day.",
+    "items": [
+      {
+        "q": "Is NOVARISE pre-qualified with Saudi Aramco and SABIC?",
+        "a": "Yes. We hold active vendor approvals with Saudi Aramco, SABIC, Ma'aden and several EPC majors operating in the Kingdom. Our QA/QC, HSE and commercial documentation is pre-cleared for direct purchase orders and sub-contracting scopes."
+      },
+      {
+        "q": "How quickly can you mobilize manpower to a site?",
+        "a": "For standard scopes we typically have certified crews on site within 14–21 days of a signed RFQ. For emergency turnarounds and shutdowns we maintain a stand-by bench that can deploy in under 96 hours."
+      },
+      {
+        "q": "What trades and disciplines do you supply?",
+        "a": "Welders (6G, TIG, MIG), pipe-fitters, riggers, scaffolders (Aramco-certified), electricians, instrumentation technicians, mechanical fitters, HVAC crews, civil labor and supervisory staff. All third-party certified where the scope requires."
+      },
+      {
+        "q": "Do you rent equipment, or only supply manpower?",
+        "a": "Both. We own and maintain a fleet of cranes (up to 250T), manlifts, telehandlers, generators, compressors and welding machines. Equipment can be rented bare or with certified operators bundled."
+      },
+      {
+        "q": "What is your safety track record?",
+        "a": "ISO 45001:2018 certified. We have logged 12M+ safe man-hours across recent megaprojects with an LTIFR consistently below the regional industry benchmark. Full HSE statistics are shared in pre-qualification packs on request."
+      },
+      {
+        "q": "Are you compliant with Saudization and local-content rules?",
+        "a": "Yes — we are aligned with Vision 2030 localization targets, actively grow our Saudi national workforce, and maintain a Nitaqat status that supports clients' own local-content scorecards."
+      },
+      {
+        "q": "How do I request a quote or start a vendor evaluation?",
+        "a": "Send your scope, location and indicative timeline to our commercial team via the contact form below. We respond to RFQs within one business day and can issue a full pre-qualification pack the same week."
+      }
+    ]
+  },
+  "partners": {
+    "eyebrow": "Clients & Partners",
+    "titleA": "The names that build",
+    "titleAccent": "the Kingdom",
+    "titleB": "build with us.",
+    "disclaimer": "Stylized vendor marks · Brand assets property of respective owners"
+  },
+  "news": {
+    "eyebrow": "Insights & News",
+    "title": "From the field.",
+    "allArticles": "All articles",
+    "items": [
+      {
+        "cat": "Vision 2030",
+        "date": "May 2026",
+        "title": "How localized manpower is reshaping Saudi Arabia's industrial supply chain",
+        "read": "6 min read"
+      },
+      {
+        "cat": "Safety",
+        "date": "Apr 2026",
+        "title": "ISO 45001 in practice: lessons from a 2,500-strong frontline workforce",
+        "read": "8 min read"
+      },
+      {
+        "cat": "Energy",
+        "date": "Mar 2026",
+        "title": "Powering the Kingdom: skilled trades behind every megawatt",
+        "read": "5 min read"
+      }
+    ]
+  },
+  "cta": {
+    "letsBuild": "Let’s Build.",
+    "saudiCr": "Saudi CR",
+    "crStatus": "Active · ZATCA Registered",
+    "available": "Available for new RFQs",
+    "eyebrow": "Let's Build Together",
+    "titleA": "Have a project",
+    "titleB": "that demands",
+    "titleAccent": "excellence?",
+    "desc": "Submit an RFQ, request our capability statement, or schedule a consultation with our project leadership team.",
+    "submitRfq": "Submit RFQ",
+    "capability": "Capability Statement",
+    "contact": {
+      "call": "Call",
+      "email": "Email",
+      "visit": "Visit",
+      "visitValue": "Umluj 48313, KSA"
+    }
+  },
+  "careersTeaser": {
+    "eyebrow": "Careers · Join the Team",
+    "titleA": "Build the Kingdom",
+    "titleB": "with us.",
+    "desc": "2,500+ certified professionals. Aramco-grade safety. Real career progression. We're hiring engineers, supervisors and skilled tradesmen across the Kingdom.",
+    "stat1Value": "2,500+",
+    "stat1Label": "Workforce",
+    "stat2Value": "12+",
+    "stat2Label": "Active Sites",
+    "stat3Value": "100%",
+    "stat3Label": "Iqama Support",
+    "cta": "Explore Careers",
+    "ctaCv": "Send Your CV",
+    "imageBadge": "Now Hiring · KSA"
+  },
+  "footer": {
+    "tagline": "A Saudi-based Trading & Contracting company delivering manpower, equipment and specialized services to the Kingdom's largest industrial projects.",
+    "downloadProfile": "↓ Download Company Profile (PDF)",
+    "company": "Company",
+    "servicesHeading": "Services",
+    "allServices": "All Services",
+    "getInTouch": "Get in Touch",
+    "viewMap": "View map ↗",
+    "addressLine1": "2124 King Faisal Road, Al Bathaa",
+    "addressLine2": "Umluj 48313, Saudi Arabia",
+    "officeHours": "Office hours · KSA · GMT+3",
+    "sunThu": "Sun — Thu",
+    "sunThuHours": "08:00 — 17:00",
+    "friSat": "Fri — Sat",
+    "byAppointment": "By appointment",
+    "copyright": "© {{year}} NOVARISE Trading and Contracting Company. All rights reserved.",
+    "crLabel": "CR:",
+    "vatLabel": "VAT:",
+    "estLabel": "Est.",
+    "social": "Social",
+    "links": {
+      "about": "About",
+      "capabilities": "Capabilities",
+      "requirements": "Requirements",
+      "blog": "Blog & Events",
+      "careers": "Careers",
+      "contact": "Contact",
+      "rfq": "Request RFQ"
+    }
+  },
+  "careersPage": {
+    "hero": {
+      "eyebrow": "Careers · Join Us",
+      "title": "Build the Kingdom's Future With Us.",
+      "description": "Join 2,500+ certified professionals delivering Saudi Arabia's most ambitious industrial megaprojects — from Aramco refineries to SABIC plants. We hire engineers, tradesmen, supervisors and leaders who take pride in world-class execution.",
+      "crumb": "Careers",
+      "ctaApply": "Send Your CV",
+      "ctaOpenings": "View Open Roles"
+    },
+    "why": {
+      "eyebrow": "Why NOVARISE",
+      "titleA": "A workplace built",
+      "titleB": "for craftsmen and leaders.",
+      "lead": "We invest in the people who build the Kingdom. Certified training, safe sites, on-time wages and real career progression — because reputation is built on how we treat our team."
+    },
+    "benefits": {
+      "safety": { "title": "World-Class HSE", "desc": "Aramco-grade safety culture, certified PPE, and zero-tolerance HSE standards across every project site." },
+      "training": { "title": "Certified Training", "desc": "Trade certifications, NEBOSH, IOSH, scaffolding and welding tickets — fully sponsored by NOVARISE." },
+      "growth": { "title": "Career Growth", "desc": "Clear progression from technician to supervisor, foreman and project leadership — promoted on merit." },
+      "welfare": { "title": "Worker Welfare", "desc": "Clean accommodation, quality meals, on-time wages, medical cover and Iqama support — guaranteed." },
+      "scale": { "title": "Megaproject Scale", "desc": "Work alongside Saudi Aramco, SABIC, Ma'aden, Samsung E&C and Hyundai on landmark Vision 2030 projects." },
+      "team": { "title": "Multinational Team", "desc": "Diverse, professional and respectful crews from across South Asia, the Philippines and the Middle East." }
+    },
+    "openings": {
+      "eyebrow": "Open Positions",
+      "titleA": "Current",
+      "titleB": "Openings",
+      "lead": "Active vacancies across our project sites in the Kingdom. Don't see your role? Send us your CV — we mobilize fast for shutdowns and new awards.",
+      "apply": "Apply Now"
+    },
+    "roles": {
+      "site-engineer": {
+        "title": "Site Engineer — Civil",
+        "location": "Jubail / Yanbu",
+        "type": "Full-time",
+        "desc": "Lead civil execution on refinery and petrochemical scopes. Min. 5 yrs Aramco/SABIC experience required."
+      },
+      "qaqc-inspector": {
+        "title": "QA/QC Inspector",
+        "location": "Multiple sites · KSA",
+        "type": "Full-time",
+        "desc": "CSWIP / ASNT certified inspectors for welding, NDT and structural QC on industrial projects."
+      },
+      "scaffolder": {
+        "title": "Certified Scaffolders",
+        "location": "Multiple sites · KSA",
+        "type": "Contract",
+        "desc": "Aramco-approved scaffolders and supervisors for shutdown and turnaround mobilizations."
+      },
+      "electrician": {
+        "title": "Industrial Electricians",
+        "location": "Yanbu / Jubail / Riyadh",
+        "type": "Contract",
+        "desc": "HV/LV electricians with industrial experience — substation, cabling and instrumentation scopes."
+      },
+      "hse-officer": {
+        "title": "HSE Officer",
+        "location": "Project sites · KSA",
+        "type": "Full-time",
+        "desc": "NEBOSH IGC + IOSH MS certified HSE professionals for refinery and petrochemical sites."
+      },
+      "project-manager": {
+        "title": "Project Manager — EPC",
+        "location": "Riyadh HQ",
+        "type": "Full-time",
+        "desc": "Senior PM with 10+ yrs in oil & gas / power EPC. PMP preferred. Lead multi-disciplinary teams end-to-end."
+      }
+    },
+    "spontaneous": {
+      "eyebrow": "Don't see your role?",
+      "title": "Send us your CV anyway.",
+      "desc": "We keep a vetted talent pool for upcoming awards. Skilled tradesmen, supervisors and engineers — we'll reach out when a matching scope opens.",
+      "cta": "Email Your CV"
+    }
+  },
+  "aboutPage": {
+    "hero": {
+      "num": "02",
+      "eyebrow": "About · Company",
+      "title": "About NOVARISE",
+      "description": "Founded in 2019 in Riyadh, NOVARISE Trading and Contracting has grown into a multi-vertical industrial partner trusted by Saudi Aramco, SABIC and leading EPC majors across the Kingdom.",
+      "crumb": "About",
+      "ctaProfile": "Company Profile",
+      "ctaSales": "Speak to Sales"
+    },
+    "profile": {
+      "eyebrow": "Company Profile",
+      "titleA": "A Saudi enterprise",
+      "titleB": "engineered",
+      "titleC": "for scale.",
+      "imageEyebrow": "On the ground",
+      "imageBadge": "Active across 12+ sites",
+      "lead": "NOVARISE Trading and Contracting Company is a Saudi-registered enterprise headquartered in Riyadh, delivering integrated industrial solutions across the Kingdom's most demanding sectors — oil & gas, petrochemicals, power, civil infrastructure and heavy equipment.",
+      "bodyStart": "Established in 2019, we operate as a single accountable partner for clients who need certified workforce, owned equipment and end-to-end contracting under one commercial umbrella. Our QA/QC, HSE and commercial documentation is pre-cleared with",
+      "bodyClients": " Saudi Aramco, SABIC, Ma'aden, Samsung Engineering, Hyundai E&C and Doosan",
+      "bodyEnd": ", enabling rapid mobilization to greenfield, brownfield and turnaround scopes.",
+      "stats": {
+        "workforce": "Skilled Workforce",
+        "hours": "Safe Man-hours",
+        "turnover": "SAR Turnover",
+        "verticals": "Industry Verticals"
+      },
+      "pillars": {
+        "civil": "Civil & Industrial Contracting",
+        "manpower": "Certified Manpower Supply",
+        "rental": "Equipment Rental & Trading",
+        "vision": "Vision 2030 Partner"
+      }
+    },
+    "ceo": {
+      "eyebrow": "Message from the CEO",
+      "headingA": "\"Trust is the foundation",
+      "headingB": "we build on.\"",
+      "role": "Chief Executive Officer",
+      "name": "MD Mamun Miaji",
+      "company": "NOVARISE Trading & Contracting Co.",
+      "quoteStart": "When we founded NOVARISE in 2019, we had a single conviction —",
+      "quoteHighlight": " the Kingdom deserved a contracting partner that delivered with integrity, every single time.",
+      "p1": "Today, that conviction has grown into a workforce of more than 2,500 skilled professionals, an owned equipment fleet, and active vendor approvals with the most demanding operators in the region. But our purpose has not changed.",
+      "p2": "Every project we mobilize — from a major Aramco turnaround to a SABIC plant expansion — is built on the same foundation: certified people, certified equipment, transparent commercial conduct, and an HSE culture that refuses to compromise.",
+      "p3": "As Saudi Arabia accelerates Vision 2030, we are proud to grow alongside the Kingdom — investing in Saudi nationals, in local content, and in the industrial leadership that will define the next decade.",
+      "signatureRole": "CEO & Managing Director",
+      "cta": "Connect with leadership"
+    },
+    "mv": {
+      "eyebrow": "Mission & Vision",
+      "headingA": "What we stand for.",
+      "headingB": "Where we're going.",
+      "missionTag": "Our Mission",
+      "missionTitle": "Deliver industrial excellence — every site, every shift.",
+      "missionBody": "To provide Saudi Arabia's industrial and infrastructure sectors with certified manpower, dependable equipment and end-to-end contracting that meet the most rigorous safety, quality and commercial standards.",
+      "missionPoints": [
+        "Single accountable partner for clients",
+        "Certified workforce, mobilized in days",
+        "Zero-compromise HSE on every scope"
+      ],
+      "missionFooter": "How we deliver",
+      "visionTag": "Our Vision",
+      "visionTitle": "To be the Kingdom's most trusted industrial contracting partner.",
+      "visionBody": "We aspire to stand among the leading Saudi-owned trading and contracting companies — recognized for engineering integrity, operational reliability and an unwavering commitment to Vision 2030.",
+      "visionPoints": [
+        "Aramco-grade reliability at every level",
+        "Saudization-led growth, year on year",
+        "A workforce engineered for the next decade"
+      ],
+      "visionFooter": "Where we're heading"
+    }
+  },
+  "servicesPage": {
+    "hero": {
+      "eyebrow": "Services · Overview",
+      "title": "Our Services",
+      "description": "End-to-end industrial solutions under a single accountable partner — from civil construction and power-plant works to manpower, equipment, IT and materials trading. One commercial umbrella, one quality standard.",
+      "crumb": "Services",
+      "ctaQuote": "Request Quote",
+      "ctaSales": "Speak to Sales"
+    },
+    "overview": {
+      "eyebrow": "What We Deliver",
+      "titleA": "Six verticals.",
+      "titleB": "One accountable partner.",
+      "serviceLabel": "Service",
+      "learnMore": "Learn more"
+    },
+    "process": {
+      "eyebrow": "How We Work",
+      "titleA": "From RFQ to handover —",
+      "titleB": "a process you can audit.",
+      "steps": {
+        "rfq": {
+          "title": "RFQ & Scoping",
+          "desc": "Send scope, location and timeline. We respond within one business day with a structured proposal and pre-qualification pack."
+        },
+        "mob": {
+          "title": "Mobilization",
+          "desc": "Certified crews, equipment and HSE documentation mobilized within 14–21 days — under 96 hours for emergency turnarounds."
+        },
+        "exec": {
+          "title": "Execution",
+          "desc": "Aramco-grade QA/QC, daily progress reports, transparent communication and zero-compromise HSE on every shift."
+        },
+        "handover": {
+          "title": "Handover",
+          "desc": "Full documentation pack, as-built records, sign-off protocols and warranty support. Ready for your next scope."
+        }
+      }
+    },
+    "industries": {
+      "eyebrow": "Industries We Serve",
+      "titleA": "Trusted across the",
+      "titleB": "Kingdom's heaviest sectors.",
+      "items": {
+        "oilGas": {
+          "label": "Oil & Gas",
+          "desc": "Refineries, upstream, midstream"
+        },
+        "petrochem": {
+          "label": "Petrochemical",
+          "desc": "SABIC plants, polymers"
+        },
+        "power": {
+          "label": "Power",
+          "desc": "Generation & transmission"
+        },
+        "infra": {
+          "label": "Infrastructure",
+          "desc": "Civil & mega-developments"
+        },
+        "manufacturing": {
+          "label": "Manufacturing",
+          "desc": "Industrial facilities"
+        },
+        "logistics": {
+          "label": "Logistics",
+          "desc": "Ports, depots & yards"
+        }
+      }
+    },
+    "trust": {
+      "eyebrow": "Why Trust Our Services",
+      "titleA": "Numbers behind",
+      "titleB": "the promises.",
+      "items": {
+        "hours": {
+          "label": "Safe man-hours",
+          "desc": "ISO 45001 certified — LTIFR consistently below the regional benchmark."
+        },
+        "approvals": {
+          "label": "Major operator approvals",
+          "desc": "Aramco · SABIC · Ma'aden · Samsung E&C · Hyundai E&C · Doosan."
+        },
+        "emergency": {
+          "label": "Emergency mobilization",
+          "desc": "Stand-by manpower & equipment bench for turnarounds & shutdowns."
+        }
+      }
+    },
+    "detail": {
+      "home": "Home",
+      "services": "Services",
+      "liveCapability": "Live capability",
+      "requestQuote": "Request Quote",
+      "speakSales": "Speak to Sales",
+      "overviewBadge": "Overview",
+      "onsiteCap": "On-site capability",
+      "checklist": [
+        "Single accountable partner",
+        "QA/QC documentation pre-cleared",
+        "Self-performed crews & equipment",
+        "24/7 dispatch & field support"
+      ],
+      "whatWeDo": "What We Do",
+      "insideScopePre": "Inside our",
+      "insideScopePost": "scope.",
+      "capSnapshot": "Capability snapshot",
+      "capIntroPre": "The numbers behind the scope — owned resources, certifications and standards we deliver against on every",
+      "capIntroPost": "engagement.",
+      "capCta": "Request a detailed capability statement",
+      "refProjects": "Reference Projects",
+      "recentPre": "Recent",
+      "recentPost": "we've delivered.",
+      "delivered": "Delivered",
+      "howEngage": "How We Engage",
+      "fromInquiry": "From inquiry to handover.",
+      "noHandoffs": "No hand-offs.",
+      "standards": "Standards & Approvals",
+      "precleared": "Pre-cleared for the Kingdom's most demanding clients.",
+      "faqEyebrow": "FAQ",
+      "faqTitleA": "Questions clients ask",
+      "faqTitleB": "before signing.",
+      "faqDesc": "Don't see your question? Our commercial team usually replies within one business day.",
+      "askQuestion": "Ask a question",
+      "relatedEyebrow": "Related Services",
+      "relatedTitleA": "Explore our other",
+      "relatedTitleB": "verticals."
+    }
+  },
+  "serviceDetails": {
+    "civil": {
+      "title": "Civil Construction",
+      "eyebrow": "Civil & Structural",
+      "tagline": "Industrial civil works, engineered to megaproject standards.",
+      "lead": "Foundations, structural concrete, industrial buildings and site infrastructure for the Kingdom's most demanding sites.",
+      "intro": "From greenfield refinery plots to brownfield expansions inside live SABIC plants, our civil teams deliver concrete, rebar, structural steel and site works to QA/QC standards pre-cleared by Saudi Aramco, SABIC, Ma'aden and the major EPC contractors operating across the Kingdom.",
+      "statLabels": [
+        "Safe Man-hours",
+        "Civil Projects",
+        "Active Sites",
+        "Concrete Poured"
+      ],
+      "subServices": [
+        {
+          "title": "Heavy Foundations & Piling",
+          "desc": "Pile caps, raft foundations and deep foundations for industrial loads."
+        },
+        {
+          "title": "Structural Concrete",
+          "desc": "Formwork, rebar fixing and high-grade concrete pours to ACI / ASTM specs."
+        },
+        {
+          "title": "Steel Structure Erection",
+          "desc": "Pre-engineered buildings, pipe racks and process structures."
+        },
+        {
+          "title": "Industrial Buildings",
+          "desc": "Warehouses, workshops, control rooms and substation buildings."
+        },
+        {
+          "title": "Roads, Paving & Grading",
+          "desc": "Site preparation, asphalt, kerbing and internal plant roads."
+        },
+        {
+          "title": "Drainage & Underground Utilities",
+          "desc": "Storm drainage, sewerage and underground service corridors."
+        }
+      ],
+      "capabilities": {
+        "heading": "Civil delivery capability",
+        "rows": [
+          {
+            "label": "Concrete capacity / day",
+            "value": "Up to 1,200 m³"
+          },
+          {
+            "label": "Owned formwork systems",
+            "value": "PERI / Doka equivalent"
+          },
+          {
+            "label": "Tower cranes deployable",
+            "value": "6 (50T–80T)"
+          },
+          {
+            "label": "QA/QC standards",
+            "value": "ACI, ASTM, SAES-Q-001"
+          },
+          {
+            "label": "Concurrent active sites",
+            "value": "Up to 12"
+          },
+          {
+            "label": "Mobilization window",
+            "value": "14–21 days"
+          }
+        ]
+      },
+      "projects": [
+        {
+          "name": "Refinery Tank Farm Foundations",
+          "client": "EPC for Saudi Aramco",
+          "scope": "12,000 m³ structural concrete + piling"
+        },
+        {
+          "name": "Petrochemical Process Building",
+          "client": "SABIC affiliate",
+          "scope": "Steel structure erection, 4,200 T"
+        },
+        {
+          "name": "Industrial Warehouse Complex",
+          "client": "Private developer, Jubail",
+          "scope": "32,000 m² PEB + civil"
+        }
+      ],
+      "process": [
+        {
+          "title": "Inquiry & Site Survey",
+          "desc": "BOQ review, joint site walk-down and constraint mapping with the client engineering team."
+        },
+        {
+          "title": "Method Statement & Approvals",
+          "desc": "MS, ITP and HSE plan submission for client / EPC approval before mobilization."
+        },
+        {
+          "title": "Mobilization",
+          "desc": "Crews, equipment and site facilities mobilized to schedule with full QA/QC documentation."
+        },
+        {
+          "title": "Execution & Handover",
+          "desc": "Daily progress reporting, third-party inspection and snag-free handover with as-built documentation."
+        }
+      ],
+      "certifications": [
+        "ISO 9001:2015",
+        "ISO 45001 (OHS)",
+        "Saudi Aramco SAES-Q-001",
+        "SABIC SES Civil",
+        "Royal Commission (RCJY)"
+      ],
+      "faqs": [
+        {
+          "q": "Can NOVARISE work inside live operating plants?",
+          "a": "Yes. Our crews are trained on permit-to-work systems used by Aramco, SABIC and Ma'aden, including hot-work, confined-space and isolation procedures required for brownfield work."
+        },
+        {
+          "q": "What is your typical mobilization timeline for civil works?",
+          "a": "Standard mobilization is 14–21 days for medium-size scopes. Emergency or shutdown support can be mobilized within 96 hours from existing fleet and crews."
+        },
+        {
+          "q": "Do you self-perform or sub-contract concrete works?",
+          "a": "Concrete, rebar, formwork and structural steel erection are self-performed by our owned crews. Specialty scopes such as post-tensioning are delivered with audited specialist partners."
+        },
+        {
+          "q": "Which QA/QC standards do you work to?",
+          "a": "ACI 318, ASTM, BS EN, plus client-specific standards including SAES-Q-001 (Aramco), SABIC SES and Royal Commission specifications for Jubail and Yanbu."
+        }
+      ]
+    },
+    "power": {
+      "title": "Power Plants",
+      "eyebrow": "Power & Electrical",
+      "tagline": "Power generation & electrical infrastructure, end to end.",
+      "lead": "EPC support, substations, switchyards and plant maintenance — built to keep the Kingdom's grid running.",
+      "intro": "We support utility-scale and captive power projects with installation, testing and commissioning of substations, transformers and switchyards. Our electrical crews handle MV/HV cable laying, terminations and ongoing plant maintenance under live operating conditions across SEC, Marafiq and IPP assets.",
+      "statLabels": [
+        "Substations Delivered",
+        "MV/HV Cable Laid",
+        "IPP Clients",
+        "Uptime Record"
+      ],
+      "subServices": [
+        {
+          "title": "Substations & Switchyards",
+          "desc": "Installation, testing and commissioning up to 380 kV."
+        },
+        {
+          "title": "MV / HV Cable Works",
+          "desc": "Cable laying, jointing and terminations to IEC standards."
+        },
+        {
+          "title": "Transformer Installation",
+          "desc": "Power transformers, dry-type and oil-filled, with on-site testing."
+        },
+        {
+          "title": "Testing & Commissioning",
+          "desc": "Protection relay, partial discharge and SAT/FAT support."
+        },
+        {
+          "title": "Plant Maintenance",
+          "desc": "Planned and emergency maintenance under live operations."
+        },
+        {
+          "title": "EPC Sub-contracting",
+          "desc": "Specialist support to global EPCs on power and utility scopes."
+        }
+      ],
+      "capabilities": {
+        "heading": "Power delivery capability",
+        "rows": [
+          {
+            "label": "Voltage levels handled",
+            "value": "Up to 380 kV"
+          },
+          {
+            "label": "Certified electrical crews",
+            "value": "180+"
+          },
+          {
+            "label": "Test & commissioning teams",
+            "value": "6 mobile units"
+          },
+          {
+            "label": "Standards",
+            "value": "IEC, IEEE, SEC TCS"
+          },
+          {
+            "label": "Shutdown response",
+            "value": "<96 hours"
+          },
+          {
+            "label": "Partner OEMs",
+            "value": "ABB, Siemens, Schneider"
+          }
+        ]
+      },
+      "projects": [
+        {
+          "name": "132/13.8 kV GIS Substation",
+          "client": "SEC contractor",
+          "scope": "Installation, T&C and handover"
+        },
+        {
+          "name": "Refinery Captive Power Upgrade",
+          "client": "Aramco affiliate",
+          "scope": "MV switchgear + 14 km cable"
+        },
+        {
+          "name": "Industrial Park Distribution",
+          "client": "Marafiq",
+          "scope": "Underground HV network + 8 RMUs"
+        }
+      ],
+      "process": [
+        {
+          "title": "Scope & Single-line Review",
+          "desc": "Engineering review of SLDs, cable schedules and protection coordination."
+        },
+        {
+          "title": "Method & Safety Plan",
+          "desc": "LOTO, energization sequence and HSE plan agreed with operations."
+        },
+        {
+          "title": "Installation",
+          "desc": "Equipment install, cabling and pre-commissioning with daily QA records."
+        },
+        {
+          "title": "Testing & Energization",
+          "desc": "Protection testing, SAT and witnessed energization with as-built handover."
+        }
+      ],
+      "certifications": [
+        "ISO 9001:2015",
+        "ISO 45001",
+        "SEC Contractor Classification",
+        "Marafiq Approved Vendor",
+        "IEC / IEEE Compliance"
+      ],
+      "faqs": [
+        {
+          "q": "What voltage levels are you certified to work on?",
+          "a": "Our electrical division handles up to 380 kV transmission, including substation construction, GIS commissioning and cable jointing under SEC and IEC standards."
+        },
+        {
+          "q": "Do you provide testing and commissioning teams independently?",
+          "a": "Yes. We supply dedicated T&C teams with calibrated instruments for protection relay testing, primary injection, partial discharge and SAT support — either bundled with construction or as a standalone service."
+        },
+        {
+          "q": "Can you support live shutdown work?",
+          "a": "Yes. We routinely support refinery, IPP and Marafiq shutdowns with rapid mobilization, full LOTO compliance and 24/7 supervision."
+        }
+      ]
+    },
+    "rental": {
+      "title": "Heavy Equipment Rental",
+      "eyebrow": "Equipment & Fleet",
+      "tagline": "Owned fleet — rented bare or with certified operators.",
+      "lead": "Cranes up to 250T, manlifts, telehandlers, generators, compressors and welding machines — maintained in-house, dispatched on demand.",
+      "intro": "No third-party rental delays. Our owned fleet is maintained by in-house mechanics, third-party load-tested annually, and supplied with certified operators where the scope requires. We commit to mobilization timelines you can plan around — even during peak shutdown season.",
+      "statLabels": [
+        "Owned Units",
+        "Max Crane Capacity",
+        "Fleet Availability",
+        "Dispatch Support"
+      ],
+      "subServices": [
+        {
+          "title": "Mobile & Crawler Cranes",
+          "desc": "All-terrain and crawler cranes from 25T up to 250T capacity."
+        },
+        {
+          "title": "Manlifts & Telehandlers",
+          "desc": "Articulated booms, scissor lifts and telehandlers up to 45 m."
+        },
+        {
+          "title": "Forklifts & Material Handlers",
+          "desc": "Diesel and electric forklifts for plant and warehouse handling."
+        },
+        {
+          "title": "Generators & Compressors",
+          "desc": "Diesel gensets 50–1500 kVA and air compressors with full PMS."
+        },
+        {
+          "title": "Welding & Cutting Machines",
+          "desc": "Welding plants, plasma cutters and rectifiers with consumables."
+        },
+        {
+          "title": "Operator-Bundled Options",
+          "desc": "Certified operators, banksmen and riggers bundled on request."
+        }
+      ],
+      "capabilities": {
+        "heading": "Fleet & dispatch capability",
+        "rows": [
+          {
+            "label": "Owned fleet size",
+            "value": "180+ units"
+          },
+          {
+            "label": "Mobile cranes",
+            "value": "25T – 250T"
+          },
+          {
+            "label": "Maintenance",
+            "value": "In-house workshops"
+          },
+          {
+            "label": "Load testing",
+            "value": "Annual third-party"
+          },
+          {
+            "label": "Dispatch",
+            "value": "24/7 from Riyadh & Dammam"
+          },
+          {
+            "label": "Operator certifications",
+            "value": "Aramco / TUV / OSHA"
+          }
+        ]
+      },
+      "projects": [
+        {
+          "name": "Refinery Turnaround Lift Plan",
+          "client": "Aramco contractor",
+          "scope": "4× 250T cranes + 60-day support"
+        },
+        {
+          "name": "Mega-mall Steel Erection",
+          "client": "Riyadh developer",
+          "scope": "Crawler crane + manlift fleet"
+        },
+        {
+          "name": "Industrial Camp Power",
+          "client": "EPC contractor",
+          "scope": "8× 1000 kVA gensets, 18 months"
+        }
+      ],
+      "process": [
+        {
+          "title": "Lift / Power Plan Review",
+          "desc": "Joint review of lift plans, power load schedules or rental scope with client engineers."
+        },
+        {
+          "title": "Equipment Reservation",
+          "desc": "Equipment held against project schedule with documented availability commitment."
+        },
+        {
+          "title": "Mobilization & Inspection",
+          "desc": "Pre-dispatch inspection, third-party certificates and on-site handover to client."
+        },
+        {
+          "title": "On-call Support",
+          "desc": "24/7 mechanical support, planned PMS and rapid replacement on breakdown."
+        }
+      ],
+      "certifications": [
+        "Third-party Load Tested (Annual)",
+        "Aramco-certified Operators",
+        "ISO 45001 HSE",
+        "OSHA Trained Riggers",
+        "OEM-authorized Workshops"
+      ],
+      "faqs": [
+        {
+          "q": "Can you provide certified operators with the equipment?",
+          "a": "Yes. Aramco, TUV and OSHA-certified crane operators, riggers and banksmen are available bundled with the equipment or independently."
+        },
+        {
+          "q": "How quickly can equipment be dispatched?",
+          "a": "From our Riyadh and Dammam yards, standard equipment can be on-site within 24–72 hours. Specialized cranes are scheduled per the client's lift plan."
+        },
+        {
+          "q": "What happens if a unit breaks down on site?",
+          "a": "We provide 24/7 mechanical support and guarantee like-for-like replacement within agreed SLAs to minimize downtime."
+        }
+      ]
+    },
+    "manpower": {
+      "title": "Manpower Supply",
+      "eyebrow": "Workforce & Trades",
+      "tagline": "2,500+ certified workforce on standby — Aramco-grade trades.",
+      "lead": "Welders, pipe-fitters, riggers, scaffolders, electricians, instrumentation technicians — multi-disciplinary crews ready in days.",
+      "intro": "Every trade we supply is third-party certified where the scope requires. Aramco-certified scaffolders, 6G/TIG/MIG welders, riggers and supervisors are pre-screened, medically fit and visa-compliant — ready to mobilize within 14–21 days, or under 96 hours for shutdown emergencies.",
+      "statLabels": [
+        "Workforce Pool",
+        "Emergency Mobilization",
+        "Trade Disciplines",
+        "Visa-compliant"
+      ],
+      "subServices": [
+        {
+          "title": "Welders (6G, TIG, MIG)",
+          "desc": "ASME IX certified welders for pipeline, structural and pressure work."
+        },
+        {
+          "title": "Pipe-fitters & Rigger Crews",
+          "desc": "Process piping, hydrotest and rigging crews for shutdowns."
+        },
+        {
+          "title": "Aramco-certified Scaffolders",
+          "desc": "Tube & coupler and system scaffold teams for refineries and plants."
+        },
+        {
+          "title": "Electrical & Instrumentation",
+          "desc": "Cable pulling, terminations, loop checks and calibration techs."
+        },
+        {
+          "title": "HVAC & Mechanical Fitters",
+          "desc": "Ductwork, equipment install and rotating-equipment overhaul."
+        },
+        {
+          "title": "Civil Labor & Supervisors",
+          "desc": "Helpers, foremen and site supervisors for civil and finishing scopes."
+        }
+      ],
+      "capabilities": {
+        "heading": "Workforce & mobilization capability",
+        "rows": [
+          {
+            "label": "Total workforce pool",
+            "value": "2,500+"
+          },
+          {
+            "label": "Standard mobilization",
+            "value": "14–21 days"
+          },
+          {
+            "label": "Emergency mobilization",
+            "value": "<96 hours"
+          },
+          {
+            "label": "Welder certifications",
+            "value": "ASME IX (6G/TIG/MIG)"
+          },
+          {
+            "label": "Scaffold certifications",
+            "value": "Aramco SAES-A / SABIC"
+          },
+          {
+            "label": "Camps & transport",
+            "value": "Self-managed"
+          }
+        ]
+      },
+      "projects": [
+        {
+          "name": "Refinery Major Turnaround",
+          "client": "Aramco affiliate",
+          "scope": "420 trades for 45-day shutdown"
+        },
+        {
+          "name": "Petrochemical Plant Expansion",
+          "client": "SABIC affiliate",
+          "scope": "180 welders + supervisors"
+        },
+        {
+          "name": "Power Plant Maintenance",
+          "client": "IPP operator",
+          "scope": "120 multi-discipline crews"
+        }
+      ],
+      "process": [
+        {
+          "title": "Manpower Requisition",
+          "desc": "Trade-by-trade requisition reviewed against availability and certification matrix."
+        },
+        {
+          "title": "Pre-screening & Testing",
+          "desc": "Document verification, medical clearance and trade tests where required."
+        },
+        {
+          "title": "Mobilization",
+          "desc": "Visa, transport and accommodation handled — workforce on site within agreed window."
+        },
+        {
+          "title": "On-site Supervision",
+          "desc": "Site supervisors, timekeeping, payroll and replacement management included."
+        }
+      ],
+      "certifications": [
+        "ASME IX Welder Qualifications",
+        "Aramco SAES-A Scaffolding",
+        "SABIC Approved Trades",
+        "ISO 45001 HSE",
+        "OSHA 30 Supervisors"
+      ],
+      "faqs": [
+        {
+          "q": "How fast can you mobilize manpower for a shutdown?",
+          "a": "Emergency mobilization within 96 hours from our standby pool. Standard mobilization for new scopes is 14–21 days including documentation and transport."
+        },
+        {
+          "q": "Are workers third-party certified for Aramco / SABIC sites?",
+          "a": "Yes. Welders are ASME IX certified, scaffolders are Aramco SAES-A trained, and electrical / instrumentation techs hold OEM and client-specific certifications."
+        },
+        {
+          "q": "Do you handle accommodation and transport?",
+          "a": "Yes. We operate self-managed camps and transport across Riyadh, Jubail, Yanbu and Dammam regions, included in the supply rate."
+        },
+        {
+          "q": "What is your replacement policy for unsuitable workers?",
+          "a": "Free replacement within 7 days if a worker fails to meet the agreed scope, with documented performance review."
+        }
+      ]
+    },
+    "it": {
+      "title": "IT Solutions",
+      "eyebrow": "Industrial IT & Automation",
+      "tagline": "Industrial IT, automation and site connectivity.",
+      "lead": "Networking, SCADA support, hardware procurement and digital infrastructure for industrial environments.",
+      "intro": "From remote site connectivity to automation hardware on plant floors, our IT vertical supports the digital backbone of modern industrial operations — networking, SCADA integration support, server & endpoint procurement, and on-site technical staffing across Saudi Arabia.",
+      "statLabels": [
+        "Sites Connected",
+        "NOC Support",
+        "OEM Partners",
+        "Network Uptime"
+      ],
+      "subServices": [
+        {
+          "title": "Industrial Networking",
+          "desc": "LAN, WAN, fibre backbone and ruggedized switching for plants."
+        },
+        {
+          "title": "SCADA & Automation Support",
+          "desc": "Integration support and field services for SCADA / DCS systems."
+        },
+        {
+          "title": "Remote Site Connectivity",
+          "desc": "Microwave, VSAT and 4G/5G failover for remote operations."
+        },
+        {
+          "title": "Servers & Endpoint Hardware",
+          "desc": "Procurement, racking, OS install and asset management."
+        },
+        {
+          "title": "Cybersecurity Hardening",
+          "desc": "OT segmentation, firewall config and endpoint protection rollout."
+        },
+        {
+          "title": "On-site IT Staffing",
+          "desc": "Resident IT engineers and helpdesk for camp / plant operations."
+        }
+      ],
+      "capabilities": {
+        "heading": "Digital infrastructure capability",
+        "rows": [
+          {
+            "label": "OEM partnerships",
+            "value": "Cisco, HPE, Dell, Fortinet"
+          },
+          {
+            "label": "Field engineers",
+            "value": "40+ certified"
+          },
+          {
+            "label": "Coverage",
+            "value": "Riyadh, EP, WP"
+          },
+          {
+            "label": "Standards",
+            "value": "ISA-95, IEC 62443"
+          },
+          {
+            "label": "Response SLA",
+            "value": "4-hour on-site"
+          },
+          {
+            "label": "NOC",
+            "value": "24/7 monitoring"
+          }
+        ]
+      },
+      "projects": [
+        {
+          "name": "Refinery LAN Upgrade",
+          "client": "Aramco operator",
+          "scope": "Plant-wide fibre + access switching"
+        },
+        {
+          "name": "Remote Camp Connectivity",
+          "client": "EPC contractor",
+          "scope": "VSAT + Wi-Fi for 1,200 occupants"
+        },
+        {
+          "name": "Plant SCADA Field Support",
+          "client": "Petrochemical operator",
+          "scope": "Resident engineers, 24-month contract"
+        }
+      ],
+      "process": [
+        {
+          "title": "Discovery & Site Audit",
+          "desc": "Network audit, asset inventory and gap analysis against ISA-95 / IEC 62443."
+        },
+        {
+          "title": "Design & BoM",
+          "desc": "Topology, hardware BoM and migration plan agreed with the client OT/IT team."
+        },
+        {
+          "title": "Deployment",
+          "desc": "Cabling, install, configuration and cutover during planned maintenance windows."
+        },
+        {
+          "title": "Operate & Support",
+          "desc": "24/7 NOC monitoring, on-site engineers and SLA-backed support."
+        }
+      ],
+      "certifications": [
+        "ISO 27001 (planned)",
+        "Cisco / Fortinet / HPE Partners",
+        "IEC 62443 Awareness",
+        "ITIL Service Management",
+        "Vendor SLA Backed"
+      ],
+      "faqs": [
+        {
+          "q": "Do you support OT (operational technology) environments, not just IT?",
+          "a": "Yes. Our field engineers work across both IT and OT — including SCADA, DCS and PLC ecosystems — with awareness training on IEC 62443 and ISA-95 segmentation principles."
+        },
+        {
+          "q": "Can you provide resident engineers on long-term contracts?",
+          "a": "Yes. We place resident IT and SCADA engineers on 6, 12 and 24-month contracts at plant and camp sites across the Kingdom."
+        },
+        {
+          "q": "What is your typical response SLA for on-site issues?",
+          "a": "Standard SLA is 4-hour on-site response in Riyadh and Eastern Province, with 24/7 remote NOC support included."
+        }
+      ]
+    },
+    "trading": {
+      "title": "Materials Trading",
+      "eyebrow": "Procurement & Supply",
+      "tagline": "Steel, cement, safety and MEP — sourced reliably.",
+      "lead": "A trading arm built around the materials our contracting teams already know how to specify, source and inspect.",
+      "intro": "We trade structural steel, cement, aggregates, PPE, electrical and MEP materials directly to EPCs, sub-contractors and plant operators. Our procurement leverages long-standing supplier relationships across the GCC, Turkey, India and East Asia, with QA inspection and on-time logistics built in.",
+      "statLabels": [
+        "Vetted Suppliers",
+        "Source Markets",
+        "Material Categories",
+        "On-time Delivery"
+      ],
+      "subServices": [
+        {
+          "title": "Structural Steel Sections",
+          "desc": "Beams, channels, plates, hollow sections to ASTM / EN standards."
+        },
+        {
+          "title": "Cement & Aggregates",
+          "desc": "OPC, SRC and aggregates supplied to project specs and schedules."
+        },
+        {
+          "title": "PPE & Safety Equipment",
+          "desc": "Hard hats, harnesses, FR clothing and certified gas detectors."
+        },
+        {
+          "title": "MEP & Electrical Supplies",
+          "desc": "Cables, conduits, lighting, switchgear and panel components."
+        },
+        {
+          "title": "Pipes, Fittings & Valves",
+          "desc": "CS / SS pipe, butt-weld fittings and industrial valves."
+        },
+        {
+          "title": "Logistics & Inspection",
+          "desc": "Third-party inspection, freight forwarding and on-site delivery."
+        }
+      ],
+      "capabilities": {
+        "heading": "Procurement & supply capability",
+        "rows": [
+          {
+            "label": "Source markets",
+            "value": "GCC, TR, IN, CN, KR, EU"
+          },
+          {
+            "label": "Vetted suppliers",
+            "value": "120+"
+          },
+          {
+            "label": "Inspection",
+            "value": "TPI / Bureau Veritas"
+          },
+          {
+            "label": "Logistics",
+            "value": "Sea, road, last-mile"
+          },
+          {
+            "label": "Standards",
+            "value": "ASTM, EN, BS, JIS"
+          },
+          {
+            "label": "Lead time",
+            "value": "Stock + 4–10 weeks"
+          }
+        ]
+      },
+      "projects": [
+        {
+          "name": "Steel Supply for Process Plant",
+          "client": "EPC contractor",
+          "scope": "4,200 T structural steel + plates"
+        },
+        {
+          "name": "PPE Annual Supply Contract",
+          "client": "Refinery operator",
+          "scope": "Site-wide FR clothing + safety"
+        },
+        {
+          "name": "MEP Supply for Industrial Park",
+          "client": "Developer, Jubail",
+          "scope": "Cables, panels, lighting"
+        }
+      ],
+      "process": [
+        {
+          "title": "RFQ & Specification Review",
+          "desc": "Joint review of MTOs and specifications with the client procurement team."
+        },
+        {
+          "title": "Sourcing & Vendor Selection",
+          "desc": "Vendor selection from approved list with QA history and lead-time guarantee."
+        },
+        {
+          "title": "Inspection & Logistics",
+          "desc": "Third-party inspection at source, freight forwarding and customs clearance."
+        },
+        {
+          "title": "Delivery & Documentation",
+          "desc": "On-site delivery with MTCs, COCs and full documentation handed to QA/QC."
+        }
+      ],
+      "certifications": [
+        "ISO 9001:2015",
+        "Bureau Veritas / SGS Inspection",
+        "Saudi SASO Compliance",
+        "Approved EPC Vendor List",
+        "Manufacturer Authorizations"
+      ],
+      "faqs": [
+        {
+          "q": "Can you supply against EPC and end-client approved vendor lists?",
+          "a": "Yes. We work with manufacturer authorizations and approved vendor lists for Aramco, SABIC and the major EPCs operating in the Kingdom."
+        },
+        {
+          "q": "Do you arrange third-party inspection at source?",
+          "a": "Yes. TPI through Bureau Veritas, SGS or client-nominated agencies is arranged at the manufacturer before shipment."
+        },
+        {
+          "q": "What documentation comes with delivered materials?",
+          "a": "Mill Test Certificates (MTCs), Certificates of Conformance (COCs), packing lists and inspection reports — all handed to the client QA/QC team on delivery."
+        }
+      ]
+    }
+  },
+  "capabilitiesPage": {
+    "hero": {
+      "eyebrow": "Capabilities · Six Pillars",
+      "title": "Our Capabilities",
+      "description": "Six integrated verticals — civil contracting, certified manpower, owned heavy equipment, power infrastructure, industrial IT and materials trading — engineered for Saudi Arabia's most demanding sites.",
+      "crumb": "Capabilities",
+      "ctaPrimary": "Request Quote",
+      "ctaSecondary": "Speak to Sales"
+    }
+  },
+  "contactPage": {
+    "hero": {
+      "eyebrow": "Contact · Commercial Team",
+      "title": "Contact NOVARISE",
+      "description": "Whether it is a multi-million SAR EPC scope or a same-week mobilization, our commercial team responds within one business day. Reach out — we are listening.",
+      "crumb": "Contact"
+    },
+    "info": {
+      "liveNow": "Live now",
+      "headline": "Speak directly with\nour commercial desk.",
+      "sub": "For RFQs, pre-qualification packs and urgent mobilization needs.",
+      "responseTime": "Avg. response: under 1 business day",
+      "channels": {
+        "call": {
+          "label": "Call Us",
+          "sub": "Sun – Thu · 8am – 5pm KSA"
+        },
+        "email": {
+          "label": "Email",
+          "sub": "Replies within 1 business day"
+        },
+        "whatsapp": {
+          "label": "WhatsApp",
+          "sub": "For urgent mobilization"
+        },
+        "office": {
+          "label": "Head Office",
+          "value": "Umluj 48313, KSA",
+          "sub": "2124 King Faisal Rd, Al Bathaa District"
+        }
+      }
+    },
+    "form": {
+      "eyebrow": "Send a message",
+      "title": "Tell us about your scope.",
+      "sub": "We respond to inquiries within one business day — pre-qualification packs ready on request.",
+      "fields": {
+        "name": "Full name *",
+        "email": "Email *",
+        "company": "Company",
+        "phone": "Phone",
+        "subject": "Subject *",
+        "message": "Briefly describe your scope, timeline and location *"
+      },
+      "subjects": [
+        "General Inquiry",
+        "RFQ / Quote Request",
+        "Vendor Pre-qualification",
+        "Manpower Supply",
+        "Equipment Rental",
+        "Partnership / Other"
+      ],
+      "privacy": "We respect your privacy — no marketing spam.",
+      "submit": "Send Message",
+      "submitting": "Sending...",
+      "toastTitle": "Message received",
+      "toastDesc": "Our commercial team will respond within one business day.",
+      "errors": {
+        "nameShort": "Name is too short",
+        "emailInvalid": "Enter a valid email",
+        "subjectRequired": "Select a subject",
+        "messageMin": "Message must be at least 10 characters",
+        "messageMax": "Message is too long"
+      }
+    },
+    "map": {
+      "eyebrow": "Find Us",
+      "titleA": "Visit our headquarters",
+      "titleB": "in Umluj, Saudi Arabia.",
+      "badge": "NOVARISE HEAD OFFICE",
+      "name": "Umluj, Saudi Arabia",
+      "address": "Cafeteria Tahi Al Qimma, 2124 King Faisal Rd\nAl Bathaa District, Umluj 48313–6563, KSA",
+      "directions": "Get directions"
+    }
+  },
+  "rfqPage": {
+    "hero": {
+      "eyebrow": "Request for Quotation",
+      "title": "Request a Quote",
+      "description": "Share your scope, location and timeline. Our commercial team responds within one business day with a structured proposal and a full pre-qualification pack.",
+      "crumb": "Request RFQ",
+      "ctaPrimary": "Start RFQ",
+      "ctaSecondary": "Speak to Sales"
+    },
+    "form": {
+      "sections": {
+        "contact": "Your Contact",
+        "project": "Project Details",
+        "scope": "Scope of Work"
+      },
+      "fields": {
+        "name": "Full Name *",
+        "namePh": "Your name",
+        "email": "Work Email *",
+        "emailPh": "you@company.com",
+        "company": "Company *",
+        "companyPh": "Company name",
+        "phone": "Phone *",
+        "phonePh": "+966 ...",
+        "service": "Service Required *",
+        "servicePh": "Select a service",
+        "location": "Site Location *",
+        "locationPh": "e.g. Jubail, KSA",
+        "timeline": "Timeline *",
+        "timelinePh": "When do you need to start?",
+        "budget": "Indicative Budget",
+        "budgetPh": "Optional",
+        "scope": "Describe your scope *",
+        "scopePh": "Quantities, certifications required, site conditions, mobilization expectations..."
+      },
+      "services": [
+        "Civil Construction",
+        "Power Plants",
+        "Heavy Equipment Rental",
+        "Manpower Supply",
+        "IT Solutions",
+        "Materials Trading"
+      ],
+      "budgets": [
+        "Under 100k SAR",
+        "100k – 500k SAR",
+        "500k – 2M SAR",
+        "2M – 10M SAR",
+        "10M+ SAR",
+        "Prefer not to say"
+      ],
+      "timelines": [
+        "Emergency (under 1 week)",
+        "Short-term (2 – 4 weeks)",
+        "Medium (1 – 3 months)",
+        "Long-term (3 + months)"
+      ],
+      "privacy": "We respect your information — used only for this RFQ. No marketing spam.",
+      "submit": "Submit RFQ",
+      "submitting": "Submitting...",
+      "toastTitle": "RFQ received",
+      "toastDesc": "Our commercial team will respond within one business day with a structured proposal.",
+      "errors": {
+        "nameShort": "Name is too short",
+        "emailInvalid": "Enter a valid email",
+        "companyRequired": "Company is required",
+        "phoneInvalid": "Enter a valid phone",
+        "serviceRequired": "Select a service",
+        "locationRequired": "Site location is required",
+        "timelineRequired": "Select a timeline",
+        "scopeMin": "Please describe scope (min 20 chars)",
+        "scopeMax": "Scope description is too long"
+      }
+    },
+    "sidebar": {
+      "badge": "What happens next",
+      "title": "From RFQ to mobilization\n— a clear path.",
+      "steps": [
+        "We acknowledge your RFQ within hours.",
+        "Commercial team reviews scope & docs.",
+        "Structured proposal sent in 1 business day.",
+        "Mobilization in 14–21 days post sign-off."
+      ],
+      "trust": [
+        {
+          "title": "1 business day",
+          "desc": "Avg. RFQ response time across all scopes."
+        },
+        {
+          "title": "Pre-qualification pack",
+          "desc": "QA/QC, HSE, commercial docs ready on request."
+        },
+        {
+          "title": "Aramco · SABIC",
+          "desc": "Active vendor approvals with major operators."
+        }
+      ]
+    }
+  },
+  "blogPage": {
+    "hero": {
+      "eyebrow": "Blog & Events · Insights",
+      "title": "Blog & Events",
+      "description": "Field-tested perspectives on megaproject delivery, safety culture and the strategic shifts shaping Saudi Arabia's industrial landscape — plus the events where our team will be on the ground.",
+      "crumb": "Blog & Events",
+      "ctaPrimary": "Read Latest",
+      "ctaSecondary": "Upcoming Events"
+    },
+    "featured": {
+      "eyebrow": "Featured · Long Read",
+      "titleA": "Editor's",
+      "titleB": "pick",
+      "issueLabel": "Issue",
+      "issueValue": "№ 01 / 2026",
+      "minRead": "min read"
+    },
+    "grid": {
+      "eyebrow": "All Articles",
+      "titleA": "Field notes, case studies &",
+      "titleB": "industry signals",
+      "min": "min",
+      "loadMore": "Load More Articles",
+      "categories": {
+        "All": "All",
+        "Insights": "Insights",
+        "Case Study": "Case Study",
+        "Safety": "Safety",
+        "Vision 2030": "Vision 2030",
+        "Industry": "Industry"
+      }
+    },
+    "events": {
+      "eyebrow": "Upcoming Events",
+      "titleA": "Meet us at the Kingdom's most important",
+      "titleB": "industry stages",
+      "sub": "Conferences, exhibitions, site visits and webinars where our leadership shares what's working — and where you can meet our project team in person.",
+      "cta": "Request a Meeting",
+      "register": "Register",
+      "types": {
+        "Conference": "Conference",
+        "Exhibition": "Exhibition",
+        "Site Visit": "Site Visit",
+        "Webinar": "Webinar"
+      },
+      "statuses": {
+        "Upcoming": "Upcoming",
+        "Past": "Past"
+      },
+      "months": {
+        "JAN": "JAN",
+        "FEB": "FEB",
+        "MAR": "MAR",
+        "APR": "APR",
+        "MAY": "MAY",
+        "JUN": "JUN",
+        "JUL": "JUL",
+        "AUG": "AUG",
+        "SEP": "SEP",
+        "OCT": "OCT",
+        "NOV": "NOV",
+        "DEC": "DEC"
+      }
+    },
+    "newsletter": {
+      "brand": "The NOVARISE Brief",
+      "titleA": "Megaproject intelligence,",
+      "titleB": "delivered monthly.",
+      "sub": "Case studies, equipment market signals, safety insights and Vision 2030 updates — curated for project leaders, procurement heads and EPC executives.",
+      "emailLabel": "Work Email",
+      "emailPh": "you@company.com",
+      "subscribe": "Subscribe",
+      "footnote": "One email a month. No spam. Unsubscribe anytime.",
+      "successTitle": "You're subscribed.",
+      "successSub": "Look out for your first brief — straight from our leadership desk."
+    },
+    "authorRoles": {
+      "Chief Executive Officer": "Chief Executive Officer",
+      "HSE Director": "HSE Director",
+      "Project Director": "Project Director",
+      "Fleet Manager": "Fleet Manager",
+      "Manpower Operations Lead": "Manpower Operations Lead",
+      "Civil Construction Lead": "Civil Construction Lead",
+      "Head of Trading": "Head of Trading"
+    },
+    "posts": {
+      "novarise-vision-2030-megaprojects": {
+        "title": "Inside Saudi Arabia's Megaproject Decade: How Vision 2030 is Reshaping Industrial Contracting",
+        "excerpt": "From NEOM to the Red Sea Project, the Kingdom's industrial ambition is rewriting the rules of EPC contracting. We unpack what this means for manpower, equipment, and supply chains over the next five years.",
+        "date": "May 12, 2026"
+      },
+      "zero-harm-culture-aramco-sites": {
+        "title": "Building a Zero-Harm Culture on Aramco Sites",
+        "excerpt": "Behind every LTI-free milestone is a system. Here's how NOVARISE engineers safety into daily site operations for tier-1 operators.",
+        "date": "Apr 28, 2026"
+      },
+      "case-study-jubail-power-substation": {
+        "title": "Case Study: Delivering a 132kV Substation in Jubail — 11 Days Ahead of Schedule",
+        "excerpt": "How an integrated team of 240 certified workers, owned cranes, and a parallel commissioning approach cut critical-path time by 14%.",
+        "date": "Apr 14, 2026"
+      },
+      "heavy-equipment-rental-trends-2026": {
+        "title": "The 2026 Heavy Equipment Rental Outlook for KSA's Industrial Belt",
+        "excerpt": "Manlift demand up 38%. Crawler crane utilization at 91%. A data-driven look at what megaproject contractors should plan for.",
+        "date": "Apr 02, 2026"
+      },
+      "certified-manpower-mobilization-72-hours": {
+        "title": "From Request to Site in 72 Hours: Our Manpower Mobilization Playbook",
+        "excerpt": "Pre-cleared visas, in-house certification pipeline, and a 2,500-strong workforce — the operational stack behind rapid deployment.",
+        "date": "Mar 21, 2026"
+      },
+      "civil-construction-mega-foundations": {
+        "title": "Engineering Mega-Foundations: Lessons from a 14,000m³ Industrial Pour",
+        "excerpt": "Continuous pour logistics, thermal control, and rebar coordination — what it takes to deliver a flawless mat foundation at scale.",
+        "date": "Mar 09, 2026"
+      },
+      "oil-gas-shutdown-readiness": {
+        "title": "Shutdown & Turnaround Readiness: A Tier-1 Vendor's Perspective",
+        "excerpt": "Mobilizing 600+ skilled workers for a 21-day turnaround window — how preparation, not heroics, defines success.",
+        "date": "Feb 24, 2026"
+      },
+      "supply-chain-localization-vision-2030": {
+        "title": "Supply Chain Localization: Sourcing Steel & Cement Inside the Kingdom",
+        "excerpt": "How in-Kingdom procurement is becoming a competitive moat — and what NOVARISE's trading division is doing to lead it.",
+        "date": "Feb 10, 2026"
+      },
+      "psm-process-safety-management": {
+        "title": "Why Process Safety Management is the New Differentiator for KSA Contractors",
+        "excerpt": "Beyond LTIR: how PSM maturity is becoming a hard prequalification criterion for Aramco and SABIC vendors.",
+        "date": "Jan 28, 2026"
+      }
+    },
+    "eventItems": [
+      {
+        "title": "Saudi Construction Tech Summit 2026",
+        "date": "June 18 – 20, 2026",
+        "location": "Riyadh International Convention Center",
+        "description": "NOVARISE leadership will keynote on integrated megaproject delivery. Visit Booth A-42 for capability demos."
+      },
+      {
+        "title": "SABIC Vendor Excellence Forum",
+        "date": "July 09, 2026",
+        "location": "Jubail Industrial City",
+        "description": "Showcasing our manpower & equipment capabilities to SABIC procurement and project leadership teams."
+      },
+      {
+        "title": "Vision 2030 Industrial Localization Webinar",
+        "date": "August 05, 2026",
+        "location": "Online — Live + On-demand",
+        "description": "A 45-minute panel discussion on in-Kingdom sourcing strategy, hosted by our Head of Trading."
+      },
+      {
+        "title": "Aramco IKTVA Forum 2026",
+        "date": "September 22 – 24, 2026",
+        "location": "Dhahran Expo",
+        "description": "Meet our team at the Kingdom's flagship localization forum. Pre-book a meeting with our BD leadership."
+      }
+    ]
+  },
+  "urgentStrip": {
+    "aria": "Urgent manpower requirements",
+    "label": "{{count}} Urgent Requirements",
+    "nos": "Nos.",
+    "cta": "View All",
+    "ctaShort": "View"
+  },
+  "requirementsPage": {
+    "hero": {
+      "eyebrow": "Hiring · Live",
+      "crumb": "Urgent Requirements",
+      "title": "Urgent Manpower Requirements.",
+      "description": "Live openings across our Saudi Arabia projects. Aramco-approved trades, long-term contracts, monthly salary — apply directly via WhatsApp.",
+      "ctaView": "View Openings",
+      "ctaWhatsapp": "Apply on WhatsApp",
+      "waMessage": "Hello NOVARISE, I would like to apply for a position from your urgent requirements list."
+    },
+    "trust": {
+      "urgent": "Urgent Roles",
+      "verified": "Verified Projects",
+      "salary": "Salary Cycle",
+      "monthlyValue": "Monthly",
+      "response": "Avg. Response"
+    },
+    "list": {
+      "eyebrow": "Open Positions",
+      "titleA": "Apply today.",
+      "titleB": "Mobilise this week.",
+      "lead": "All positions are live and confirmed. WhatsApp is the fastest route to our recruitment desk — typical response under 4 working hours.",
+      "filterBy": "Filter",
+      "allProjects": "All Projects",
+      "showing": "Showing {{count}} of {{total}}",
+      "empty": "No positions match this filter right now."
+    },
+    "status": {
+      "urgent": "Urgent",
+      "active": "Active",
+      "closed": "Closed"
+    },
+    "card": {
+      "positions": "Positions",
+      "rate": "Hourly Rate",
+      "duration": "Duration",
+      "salary": "Salary",
+      "food": "Food",
+      "accommodation": "Accommodation",
+      "requiredDocs": "Required Documents",
+      "applyNow": "Apply Now",
+      "applyWhatsapp": "Or send via WhatsApp",
+      "waMessage": "Hello NOVARISE, I am interested in the {{position}} position for the {{project}}. Please share the next steps."
+    },
+    "applyForm": {
+      "eyebrow": "Application Form",
+      "sub": "Submit your details — our recruitment desk responds within 4 working hours.",
+      "fields": {
+        "position": "Position",
+        "project": "Project",
+        "name": "Full Name",
+        "phone": "Phone / WhatsApp",
+        "email": "Email (optional)",
+        "iqama": "Iqama / ID (optional)",
+        "experience": "Experience",
+        "message": "Short note (optional)"
+      },
+      "experiences": ["Less than 1 year", "1–3 years", "3–5 years", "5–10 years", "10+ years"],
+      "errors": {
+        "nameShort": "Name is too short",
+        "phoneInvalid": "Enter a valid phone / WhatsApp number",
+        "emailInvalid": "Invalid email address",
+        "experienceRequired": "Please select your experience"
+      },
+      "privacy": "Your details are used only for this application.",
+      "submit": "Submit Application",
+      "submitting": "Submitting…",
+      "sendWhatsapp": "Send via WhatsApp",
+      "waIntro": "Application via website:",
+      "toastTitle": "Application received",
+      "toastDesc": "Our recruitment desk will contact you within 4 working hours."
+    },
+    "process": {
+      "eyebrow": "How It Works",
+      "title": "From WhatsApp message to site mobilisation in days.",
+      "step1": {
+        "title": "Reach Out",
+        "desc": "Send your CV, Iqama copy and trade certificates via WhatsApp."
+      },
+      "step2": {
+        "title": "Screening Call",
+        "desc": "A short call with our recruitment desk to verify experience and approvals."
+      },
+      "step3": {
+        "title": "Offer & Documents",
+        "desc": "Formal offer letter, project briefing, and document verification."
+      },
+      "step4": {
+        "title": "Mobilisation",
+        "desc": "Travel, accommodation and PPE arranged — you arrive ready to work."
+      }
+    },
+    "items": {
+      "6g-welder-madina": {
+        "position": "6G Welder",
+        "approval": "Aramco Approved",
+        "project": "Madina Aramco Project",
+        "duration": "Long Term",
+        "salaryCycle": "Monthly",
+        "food": "Provided by company",
+        "accommodation": "Provided by company",
+        "documents": {
+          "0": "Valid Iqama",
+          "1": "Medical Insurance"
+        }
+      },
+      "multi-welder-madina": {
+        "position": "Multi Welder",
+        "approval": "Aramco Approved",
+        "project": "Madina Aramco Project",
+        "duration": "Long Term",
+        "salaryCycle": "Monthly",
+        "food": "Provided by company",
+        "accommodation": "Provided by company",
+        "documents": {
+          "0": "Valid Iqama",
+          "1": "Medical Insurance"
+        }
+      },
+      "electrical-grounding-foreman-qassim": {
+        "position": "Electrical Grounding Foreman",
+        "project": "Qassim-1 Project",
+        "duration": "Long Term",
+        "salaryCycle": "Monthly",
+        "food": "Self-arranged",
+        "accommodation": "Provided by company",
+        "documents": {
+          "0": "Valid Iqama"
+        }
+      }
+    }
+  }
+}
