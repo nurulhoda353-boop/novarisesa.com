@@ -69,11 +69,11 @@ export function Hero() {
             >
               {t("hero.tagline")}
             </motion.p>
-            <h1 data-tr className="text-white font-display font-bold leading-[0.95] tracking-tight text-4xl md:text-6xl lg:text-7xl">
+            <h1 data-tr className="text-white font-display font-bold leading-[1.12] tracking-tight text-4xl md:text-6xl lg:text-7xl">
               {titleLines.map((line, lineIdx) => {
                 const words = line.text.split(" ");
                 return (
-                  <span key={lineIdx} className="block">
+                  <span key={lineIdx} className="block overflow-visible">
                     {words.map((w, wIdx) => {
                       const delay = 0.35 + lineIdx * 0.18 + wIdx * 0.09;
                       return (
@@ -82,7 +82,7 @@ export function Hero() {
                           initial={{ opacity: 0, y: 44 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.9, delay, ease: [0.16, 1, 0.3, 1] }}
-                          className={`inline-block mr-[0.22em] ${line.gold ? "text-gradient-gold" : ""} ${line.underline && wIdx === words.length - 1 ? "underline-draw" : ""}`}
+                          className={`inline-block overflow-visible mr-[0.22em] ${line.gold ? "text-gradient-gold" : ""} ${line.underline && wIdx === words.length - 1 ? "underline-draw" : ""}`}
                         >
                           {w}
                         </motion.span>
