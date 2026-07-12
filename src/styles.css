@@ -373,6 +373,23 @@
   }
 }
 
+/* Page transition loader — Greencare-style breathe + bar */
+@keyframes novarise-loader-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.045); opacity: 0.88; }
+}
+@keyframes novarise-loader-bar {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(380%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[novarise-loader-breathe_1\.8s_ease-in-out_infinite\],
+  .animate-\[novarise-loader-bar_1\.4s_ease-in-out_infinite\] {
+    animation: none !important;
+  }
+}
+
 /* RTL / Arabic typography */
 html[dir="rtl"] {
   font-family: var(--font-noto-kufi), var(--font-poppins), "Noto Kufi Arabic", system-ui, sans-serif;
