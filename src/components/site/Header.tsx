@@ -399,11 +399,11 @@ export function Header() {
                     {t("footer.getInTouch", "Get in touch")}
                   </div>
                   <a
-                    href="mailto:ceo@novarisebd.com"
+                    href="mailto:info@novarisesa.com"
                     className="flex items-center gap-2.5 text-[12px] text-white/80 hover:text-gold transition-colors"
                   >
                     <Mail className="h-3.5 w-3.5 shrink-0 text-gold/80" />
-                    <span className="truncate">ceo@novarisebd.com</span>
+                    <span className="truncate">info@novarisesa.com</span>
                   </a>
                   <a
                     href="tel:+966554429574"

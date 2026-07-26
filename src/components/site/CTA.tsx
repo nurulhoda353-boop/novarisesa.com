@@ -84,7 +84,7 @@ export function CTA() {
 
             <div className="mt-10 grid sm:grid-cols-3 gap-px bg-border rounded-2xl overflow-hidden border border-border">
               <ContactRow icon={Phone} label={t("cta.contact.call")} value="+966 55 442 9574" href="tel:+966554429574" ltr />
-              <ContactRow icon={Mail} label={t("cta.contact.email")} value="ceo@novarisebd.com" href="mailto:ceo@novarisebd.com" ltr />
+              <ContactRow icon={Mail} label={t("cta.contact.email")} value="info@novarisesa.com" href="mailto:info@novarisesa.com" ltr />
               <ContactRow icon={MapPin} label={t("cta.contact.visit")} value={t("cta.contact.visitValue")} href="https://www.google.com/maps/search/?api=1&query=2124+King+Faisal+Rd+Al+Bathaa+Umluj+48313" />
             </div>
           </Reveal>

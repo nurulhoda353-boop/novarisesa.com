@@ -19,9 +19,9 @@ export function ContactInfo() {
     {
       icon: Mail,
       label: t("contactPage.info.channels.email.label"),
-      value: "ceo@novarisebd.com",
+      value: "info@novarisesa.com",
       sub: t("contactPage.info.channels.email.sub"),
-      href: "mailto:ceo@novarisebd.com",
+      href: "mailto:info@novarisesa.com",
     },
     {
       icon: MessageSquare,

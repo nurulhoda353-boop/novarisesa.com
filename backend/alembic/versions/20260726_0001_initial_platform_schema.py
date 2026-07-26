@@ -1,0 +1,103 @@
+"""Initial NOVARISE CMS and management platform schema.
+
+Revision ID: 20260726_0001
+Revises:
+Create Date: 2026-07-26
+"""
+
+from alembic import op
+
+revision = "20260726_0001"
+down_revision = None
+branch_labels = None
+depends_on = None
+
+
+def upgrade() -> None:
+    op.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
+    op.execute("CREATE TYPE publish_status AS ENUM ('draft', 'published', 'archived')")
+    op.execute("CREATE TYPE requirement_status AS ENUM ('draft', 'active', 'urgent', 'closed')")
+    op.execute("CREATE TYPE submission_status AS ENUM ('new', 'in_review', 'contacted', 'qualified', 'closed', 'spam')")
+    op.execute('CREATE TABLE users (\n\temail VARCHAR(320) NOT NULL, \n\tpassword_hash VARCHAR NOT NULL, \n\tfull_name VARCHAR(160) NOT NULL, \n\tis_active BOOLEAN NOT NULL, \n\tis_verified BOOLEAN NOT NULL, \n\tlast_login_at TIMESTAMP WITH TIME ZONE, \n\tdeleted_at TIMESTAMP WITH TIME ZONE, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id)\n)')
+    op.execute('CREATE UNIQUE INDEX ix_users_email ON users (email)')
+    op.execute('CREATE TABLE roles (\n\tname VARCHAR(80) NOT NULL, \n\tdescription TEXT, \n\tis_system BOOLEAN NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (name)\n)')
+    op.execute('CREATE TABLE permissions (\n\tcode VARCHAR(120) NOT NULL, \n\tdescription TEXT, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (code)\n)')
+    op.execute('CREATE TABLE site_settings (\n\tgroup_name VARCHAR(80) NOT NULL, \n\tkey VARCHAR(120) NOT NULL, \n\tvalue JSONB NOT NULL, \n\tis_public BOOLEAN NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_site_settings_group_key UNIQUE (group_name, key)\n)')
+    op.execute('CREATE INDEX ix_site_settings_group_name ON site_settings (group_name)')
+    op.execute('CREATE TABLE pages (\n\tslug VARCHAR(180) NOT NULL, \n\ttemplate VARCHAR(80) NOT NULL, \n\tstatus publish_status NOT NULL, \n\tsections JSONB NOT NULL, \n\tpublished_at TIMESTAMP WITH TIME ZONE, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (slug)\n)')
+    op.execute('CREATE TABLE navigation_items (\n\tlocation VARCHAR(40) NOT NULL, \n\tparent_id UUID, \n\tlabel JSONB NOT NULL, \n\turl VARCHAR(500) NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tis_visible BOOLEAN NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(parent_id) REFERENCES navigation_items (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE INDEX ix_navigation_items_location ON navigation_items (location)')
+    op.execute('CREATE TABLE categories (\n\tslug VARCHAR(180) NOT NULL, \n\tname JSONB NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (slug)\n)')
+    op.execute('CREATE TABLE tags (\n\tslug VARCHAR(180) NOT NULL, \n\tname JSONB NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (slug)\n)')
+    op.execute('CREATE TABLE requirements (\n\tcode VARCHAR(80) NOT NULL, \n\tstatus requirement_status NOT NULL, \n\theadcount INTEGER NOT NULL, \n\trate_amount NUMERIC(12, 2), \n\trate_currency VARCHAR(3) NOT NULL, \n\trate_unit VARCHAR(40), \n\tlocation VARCHAR(255), \n\tproject_name VARCHAR(255), \n\topens_at TIMESTAMP WITH TIME ZONE, \n\tcloses_at TIMESTAMP WITH TIME ZONE, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (code)\n)')
+    op.execute('CREATE TABLE newsletter_subscribers (\n\temail VARCHAR(320) NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\tis_active BOOLEAN NOT NULL, \n\tsubscribed_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tunsubscribed_at TIMESTAMP WITH TIME ZONE, \n\tconsent_ip INET, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (email)\n)')
+    op.execute('CREATE TABLE user_roles (\n\tuser_id UUID NOT NULL, \n\trole_id UUID NOT NULL, \n\tPRIMARY KEY (user_id, role_id), \n\tFOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, \n\tFOREIGN KEY(role_id) REFERENCES roles (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE role_permissions (\n\trole_id UUID NOT NULL, \n\tpermission_id UUID NOT NULL, \n\tPRIMARY KEY (role_id, permission_id), \n\tFOREIGN KEY(role_id) REFERENCES roles (id) ON DELETE CASCADE, \n\tFOREIGN KEY(permission_id) REFERENCES permissions (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE refresh_tokens (\n\tuser_id UUID NOT NULL, \n\ttoken_hash VARCHAR(128) NOT NULL, \n\texpires_at TIMESTAMP WITH TIME ZONE NOT NULL, \n\trevoked_at TIMESTAMP WITH TIME ZONE, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tip_address INET, \n\tuser_agent TEXT, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE, \n\tUNIQUE (token_hash)\n)')
+    op.execute('CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens (user_id)')
+    op.execute('CREATE TABLE media_assets (\n\tstorage_key VARCHAR(500) NOT NULL, \n\tpublic_url VARCHAR(1000) NOT NULL, \n\tfile_name VARCHAR(255) NOT NULL, \n\tmime_type VARCHAR(150) NOT NULL, \n\tsize_bytes INTEGER NOT NULL, \n\twidth INTEGER, \n\theight INTEGER, \n\talt_text JSONB NOT NULL, \n\tfolder VARCHAR(255), \n\tuploaded_by_id UUID, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (storage_key), \n\tFOREIGN KEY(uploaded_by_id) REFERENCES users (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE INDEX ix_media_assets_folder ON media_assets (folder)')
+    op.execute('CREATE TABLE page_translations (\n\tpage_id UUID NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\ttitle VARCHAR(255) NOT NULL, \n\tmeta_title VARCHAR(255), \n\tmeta_description TEXT, \n\tcontent JSONB NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_page_translation_locale UNIQUE (page_id, locale), \n\tFOREIGN KEY(page_id) REFERENCES pages (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE requirement_translations (\n\trequirement_id UUID NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\tposition VARCHAR(255) NOT NULL, \n\tapproval VARCHAR(255), \n\tduration VARCHAR(120), \n\tsalary_cycle VARCHAR(120), \n\tfood VARCHAR(255), \n\taccommodation VARCHAR(255), \n\tdocuments JSONB NOT NULL, \n\tdescription TEXT, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_requirement_translation_locale UNIQUE (requirement_id, locale), \n\tFOREIGN KEY(requirement_id) REFERENCES requirements (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE requirement_contacts (\n\trequirement_id UUID NOT NULL, \n\tdisplay_phone VARCHAR(40) NOT NULL, \n\tphone_e164 VARCHAR(20) NOT NULL, \n\thas_whatsapp BOOLEAN NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(requirement_id) REFERENCES requirements (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE INDEX ix_requirement_contacts_requirement_id ON requirement_contacts (requirement_id)')
+    op.execute('CREATE TABLE contact_submissions (\n\tname VARCHAR(160) NOT NULL, \n\temail VARCHAR(320) NOT NULL, \n\tcompany VARCHAR(255), \n\tphone VARCHAR(40), \n\tsubject VARCHAR(255), \n\tmessage TEXT NOT NULL, \n\tstatus submission_status NOT NULL, \n\tsource VARCHAR(80) NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\tassigned_to_id UUID, \n\tinternal_notes TEXT, \n\tip_address INET, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(assigned_to_id) REFERENCES users (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE INDEX ix_contact_submissions_status ON contact_submissions (status)')
+    op.execute('CREATE INDEX ix_contact_submissions_email ON contact_submissions (email)')
+    op.execute('CREATE TABLE rfq_submissions (\n\treference VARCHAR(40) NOT NULL, \n\tname VARCHAR(160) NOT NULL, \n\temail VARCHAR(320) NOT NULL, \n\tcompany VARCHAR(255) NOT NULL, \n\tphone VARCHAR(40), \n\tservice VARCHAR(180) NOT NULL, \n\tlocation VARCHAR(255), \n\tbudget VARCHAR(120), \n\ttimeline VARCHAR(120), \n\tscope TEXT NOT NULL, \n\tattachments JSONB NOT NULL, \n\tstatus submission_status NOT NULL, \n\tassigned_to_id UUID, \n\tinternal_notes TEXT, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(assigned_to_id) REFERENCES users (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE INDEX ix_rfq_submissions_email ON rfq_submissions (email)')
+    op.execute('CREATE UNIQUE INDEX ix_rfq_submissions_reference ON rfq_submissions (reference)')
+    op.execute('CREATE INDEX ix_rfq_submissions_status ON rfq_submissions (status)')
+    op.execute('CREATE TABLE audit_logs (\n\tactor_id UUID, \n\taction VARCHAR(80) NOT NULL, \n\tentity_type VARCHAR(120) NOT NULL, \n\tentity_id UUID, \n\tbefore JSONB, \n\tafter JSONB, \n\tip_address INET, \n\tuser_agent TEXT, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(actor_id) REFERENCES users (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE INDEX ix_audit_logs_actor_id ON audit_logs (actor_id)')
+    op.execute('CREATE INDEX ix_audit_logs_entity ON audit_logs (entity_type, entity_id)')
+    op.execute('CREATE INDEX ix_audit_logs_created_at ON audit_logs (created_at)')
+    op.execute('CREATE TABLE services (\n\tslug VARCHAR(180) NOT NULL, \n\tnumber VARCHAR(20), \n\ticon VARCHAR(80), \n\thero_media_id UUID, \n\tstatus publish_status NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tstats JSONB NOT NULL, \n\tcapabilities JSONB NOT NULL, \n\tprocess JSONB NOT NULL, \n\tcertifications JSONB NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (slug), \n\tFOREIGN KEY(hero_media_id) REFERENCES media_assets (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE TABLE projects (\n\tslug VARCHAR(180) NOT NULL, \n\tclient_name VARCHAR(255), \n\tlocation VARCHAR(255), \n\tstarted_on DATE, \n\tcompleted_on DATE, \n\tstatus publish_status NOT NULL, \n\tis_featured BOOLEAN NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tfeatured_media_id UUID, \n\tfacts JSONB NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (slug), \n\tFOREIGN KEY(featured_media_id) REFERENCES media_assets (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE TABLE posts (\n\tslug VARCHAR(180) NOT NULL, \n\tcategory_id UUID, \n\tauthor_id UUID, \n\tfeatured_media_id UUID, \n\tstatus publish_status NOT NULL, \n\tis_featured BOOLEAN NOT NULL, \n\tpublished_at TIMESTAMP WITH TIME ZONE, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tUNIQUE (slug), \n\tFOREIGN KEY(category_id) REFERENCES categories (id) ON DELETE SET NULL, \n\tFOREIGN KEY(author_id) REFERENCES users (id) ON DELETE SET NULL, \n\tFOREIGN KEY(featured_media_id) REFERENCES media_assets (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE INDEX ix_posts_published_at ON posts (published_at)')
+    op.execute('CREATE INDEX ix_posts_category_id ON posts (category_id)')
+    op.execute('CREATE TABLE requirement_applications (\n\trequirement_id UUID NOT NULL, \n\tname VARCHAR(160) NOT NULL, \n\temail VARCHAR(320) NOT NULL, \n\tphone VARCHAR(40) NOT NULL, \n\tnationality VARCHAR(120), \n\tiqama_number VARCHAR(40), \n\tyears_experience INTEGER, \n\tmessage TEXT, \n\tresume_media_id UUID, \n\tstatus submission_status NOT NULL, \n\tassigned_to_id UUID, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tFOREIGN KEY(requirement_id) REFERENCES requirements (id) ON DELETE RESTRICT, \n\tFOREIGN KEY(resume_media_id) REFERENCES media_assets (id) ON DELETE SET NULL, \n\tFOREIGN KEY(assigned_to_id) REFERENCES users (id) ON DELETE SET NULL\n)')
+    op.execute('CREATE INDEX ix_requirement_applications_status ON requirement_applications (status)')
+    op.execute('CREATE INDEX ix_requirement_applications_email ON requirement_applications (email)')
+    op.execute('CREATE INDEX ix_requirement_applications_requirement_id ON requirement_applications (requirement_id)')
+    op.execute('CREATE TABLE post_tags (\n\tpost_id UUID NOT NULL, \n\ttag_id UUID NOT NULL, \n\tPRIMARY KEY (post_id, tag_id), \n\tFOREIGN KEY(post_id) REFERENCES posts (id) ON DELETE CASCADE, \n\tFOREIGN KEY(tag_id) REFERENCES tags (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE service_translations (\n\tservice_id UUID NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\ttitle VARCHAR(255) NOT NULL, \n\teyebrow VARCHAR(255), \n\ttagline TEXT, \n\tlead TEXT, \n\tintro TEXT, \n\tmeta_title VARCHAR(255), \n\tmeta_description TEXT, \n\tsub_services JSONB NOT NULL, \n\tfaqs JSONB NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_service_translation_locale UNIQUE (service_id, locale), \n\tFOREIGN KEY(service_id) REFERENCES services (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE project_translations (\n\tproject_id UUID NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\ttitle VARCHAR(255) NOT NULL, \n\tsummary TEXT, \n\tscope TEXT, \n\tbody JSONB NOT NULL, \n\tmeta_title VARCHAR(255), \n\tmeta_description TEXT, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_project_translation_locale UNIQUE (project_id, locale), \n\tFOREIGN KEY(project_id) REFERENCES projects (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE project_media (\n\tproject_id UUID NOT NULL, \n\tmedia_id UUID NOT NULL, \n\tsort_order INTEGER NOT NULL, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_project_media UNIQUE (project_id, media_id), \n\tFOREIGN KEY(project_id) REFERENCES projects (id) ON DELETE CASCADE, \n\tFOREIGN KEY(media_id) REFERENCES media_assets (id) ON DELETE CASCADE\n)')
+    op.execute('CREATE TABLE post_translations (\n\tpost_id UUID NOT NULL, \n\tlocale VARCHAR(10) NOT NULL, \n\ttitle VARCHAR(255) NOT NULL, \n\texcerpt TEXT, \n\tbody JSONB NOT NULL, \n\tmeta_title VARCHAR(255), \n\tmeta_description TEXT, \n\tid UUID DEFAULT gen_random_uuid() NOT NULL, \n\tcreated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tupdated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, \n\tPRIMARY KEY (id), \n\tCONSTRAINT uq_post_translation_locale UNIQUE (post_id, locale), \n\tFOREIGN KEY(post_id) REFERENCES posts (id) ON DELETE CASCADE\n)')
+
+
+def downgrade() -> None:
+    op.execute('DROP TABLE post_translations')
+    op.execute('DROP TABLE project_media')
+    op.execute('DROP TABLE project_translations')
+    op.execute('DROP TABLE service_translations')
+    op.execute('DROP TABLE post_tags')
+    op.execute('DROP TABLE requirement_applications')
+    op.execute('DROP TABLE posts')
+    op.execute('DROP TABLE projects')
+    op.execute('DROP TABLE services')
+    op.execute('DROP TABLE audit_logs')
+    op.execute('DROP TABLE rfq_submissions')
+    op.execute('DROP TABLE contact_submissions')
+    op.execute('DROP TABLE requirement_contacts')
+    op.execute('DROP TABLE requirement_translations')
+    op.execute('DROP TABLE page_translations')
+    op.execute('DROP TABLE media_assets')
+    op.execute('DROP TABLE refresh_tokens')
+    op.execute('DROP TABLE role_permissions')
+    op.execute('DROP TABLE user_roles')
+    op.execute('DROP TABLE newsletter_subscribers')
+    op.execute('DROP TABLE requirements')
+    op.execute('DROP TABLE tags')
+    op.execute('DROP TABLE categories')
+    op.execute('DROP TABLE navigation_items')
+    op.execute('DROP TABLE pages')
+    op.execute('DROP TABLE site_settings')
+    op.execute('DROP TABLE permissions')
+    op.execute('DROP TABLE roles')
+    op.execute('DROP TABLE users')
+    op.execute('DROP TYPE publish_status')
+    op.execute('DROP TYPE requirement_status')
+    op.execute('DROP TYPE submission_status')

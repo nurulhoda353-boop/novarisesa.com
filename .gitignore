@@ -15,6 +15,13 @@ dist-ssr
 .tanstack/**
 .nitro
 *.local
+.env
+!.env.example
+Access token.js
+tsconfig.tsbuildinfo
+.venv/
+__pycache__/
+*.py[cod]
 
 # Next.js
 .next/

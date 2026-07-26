@@ -23,7 +23,7 @@ import { CTA } from "@/components/site/CTA";
 
 const heroImage = "/assets/manpower.jpg";
 
-const APPLY_EMAIL = "ceo@novarisebd.com";
+const APPLY_EMAIL = "info@novarisesa.com";
 
 const benefits = [
   { icon: ShieldCheck, key: "safety" },

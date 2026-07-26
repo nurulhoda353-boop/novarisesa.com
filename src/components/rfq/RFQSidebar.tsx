@@ -42,11 +42,11 @@ export function RFQSidebar() {
                 </span>
                 +966 55 442 9574
               </a>
-              <a href="mailto:ceo@novarisebd.com" className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors">
+              <a href="mailto:info@novarisesa.com" className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors">
                 <span className="h-8 w-8 rounded-full border border-white/15 bg-white/5 flex items-center justify-center group-hover:border-gold/40 transition-colors">
                   <Mail className="h-3.5 w-3.5 text-gold" />
                 </span>
-                ceo@novarisebd.com
+                info@novarisesa.com
               </a>
             </div>
           </div>

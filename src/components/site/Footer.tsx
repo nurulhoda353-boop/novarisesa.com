@@ -150,7 +150,7 @@ export function Footer() {
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="h-4 w-4 text-gold shrink-0" />
-                <a href="mailto:ceo@novarisebd.com" className="hover:text-gold transition" dir="ltr">ceo@novarisebd.com</a>
+                <a href="mailto:info@novarisesa.com" className="hover:text-gold transition" dir="ltr">info@novarisesa.com</a>
               </li>
               <li className="mt-2 pt-4 border-t border-white/10">
                 <div className="text-[10px] uppercase tracking-[0.28em] text-gold mb-2">{t("footer.officeHours")}</div>

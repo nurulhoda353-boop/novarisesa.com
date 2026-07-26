@@ -96,7 +96,7 @@ export function CareersTeaser() {
                 <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
               </Link>
               <a
-                href="mailto:ceo@novarisebd.com?subject=Career%20Application%20%E2%80%94%20NOVARISE"
+                href="mailto:info@novarisesa.com?subject=Career%20Application%20%E2%80%94%20NOVARISE"
                 className="inline-flex items-center gap-2 rounded-full border border-navy/20 bg-white px-7 py-3.5 text-sm font-semibold text-navy hover:border-gold hover:text-gold transition-colors"
               >
                 <Mail className="h-4 w-4" />
