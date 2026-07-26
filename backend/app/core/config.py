@@ -37,6 +37,15 @@ class Settings(BaseSettings):
             raise ValueError("APP_SECRET_KEY must contain at least 32 characters in production")
         return value
 
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+psycopg://", 1)
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
+
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
