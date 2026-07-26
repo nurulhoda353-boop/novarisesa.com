@@ -8,6 +8,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.models import Post, RequirementApplication, RFQSubmission
 from app.schemas.public import ContactCreate, RFQCreate
 
 
@@ -49,3 +50,13 @@ def test_rfq_requires_meaningful_scope() -> None:
             service="Civil",
             scope="Too short",
         )
+
+
+def test_shared_postgres_enums_use_lowercase_database_values() -> None:
+    assert RFQSubmission.__table__.c.status.type.enums[0] == "new"
+    assert RequirementApplication.__table__.c.status.type.enums[0] == "new"
+    assert Post.__table__.c.status.type.enums == [
+        "draft",
+        "published",
+        "archived",
+    ]

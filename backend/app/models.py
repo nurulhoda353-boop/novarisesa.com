@@ -220,7 +220,12 @@ class Service(UUIDMixin, TimestampMixin, Base):
         ForeignKey("media_assets.id", ondelete="SET NULL")
     )
     status: Mapped[PublishStatus] = mapped_column(
-        Enum(PublishStatus, name="publish_status", create_type=False),
+        Enum(
+            PublishStatus,
+            name="publish_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
         default=PublishStatus.DRAFT,
     )
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -260,7 +265,12 @@ class Project(UUIDMixin, TimestampMixin, Base):
     started_on: Mapped[date | None] = mapped_column(Date)
     completed_on: Mapped[date | None] = mapped_column(Date)
     status: Mapped[PublishStatus] = mapped_column(
-        Enum(PublishStatus, name="publish_status", create_type=False),
+        Enum(
+            PublishStatus,
+            name="publish_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
         default=PublishStatus.DRAFT,
     )
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -326,7 +336,12 @@ class Post(UUIDMixin, TimestampMixin, Base):
         ForeignKey("media_assets.id", ondelete="SET NULL")
     )
     status: Mapped[PublishStatus] = mapped_column(
-        Enum(PublishStatus, name="publish_status", create_type=False),
+        Enum(
+            PublishStatus,
+            name="publish_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
         default=PublishStatus.DRAFT,
     )
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -451,7 +466,12 @@ class RFQSubmission(UUIDMixin, TimestampMixin, Base):
     scope: Mapped[str] = mapped_column(Text)
     attachments: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     status: Mapped[SubmissionStatus] = mapped_column(
-        Enum(SubmissionStatus, name="submission_status", create_type=False),
+        Enum(
+            SubmissionStatus,
+            name="submission_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
         default=SubmissionStatus.NEW,
         index=True,
     )
@@ -478,7 +498,12 @@ class RequirementApplication(UUIDMixin, TimestampMixin, Base):
         ForeignKey("media_assets.id", ondelete="SET NULL")
     )
     status: Mapped[SubmissionStatus] = mapped_column(
-        Enum(SubmissionStatus, name="submission_status", create_type=False),
+        Enum(
+            SubmissionStatus,
+            name="submission_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
         default=SubmissionStatus.NEW,
         index=True,
     )
