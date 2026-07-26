@@ -19,3 +19,13 @@ def test_legacy_coolify_database_url_is_normalized() -> None:
     assert settings.DATABASE_URL == (
         "postgresql+psycopg://user:password@database:5432/novarise"
     )
+
+
+def test_internal_healthcheck_hosts_are_always_trusted() -> None:
+    settings = Settings(TRUSTED_HOSTS=["api.novarisesa.com"])
+
+    assert settings.TRUSTED_HOSTS == [
+        "api.novarisesa.com",
+        "localhost",
+        "127.0.0.1",
+    ]

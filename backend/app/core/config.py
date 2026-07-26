@@ -46,6 +46,11 @@ class Settings(BaseSettings):
             return value.replace("postgresql://", "postgresql+psycopg://", 1)
         return value
 
+    @field_validator("TRUSTED_HOSTS")
+    @classmethod
+    def allow_internal_healthcheck_hosts(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys([*value, "localhost", "127.0.0.1"]))
+
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"
