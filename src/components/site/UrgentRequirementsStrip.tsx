@@ -3,7 +3,7 @@
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, ArrowUpRight } from "lucide-react";
-import { REQUIREMENTS, URGENT_COUNT } from "@/lib/requirements-data";
+import { useManagedRequirements } from "@/lib/use-cms-requirements";
 
 /**
  * Slim, attention-grabbing announcement strip for the homepage.
@@ -11,9 +11,10 @@ import { REQUIREMENTS, URGENT_COUNT } from "@/lib/requirements-data";
  */
 export function UrgentRequirementsStrip() {
   const { t } = useTranslation();
-  if (URGENT_COUNT === 0) return null;
+  const requirements = useManagedRequirements();
+  const urgent = requirements.filter((r) => r.status === "urgent");
+  if (urgent.length === 0) return null;
 
-  const urgent = REQUIREMENTS.filter((r) => r.status === "urgent");
   // Duplicate list for seamless marquee loop
   const marquee = [...urgent, ...urgent];
 
@@ -35,7 +36,7 @@ export function UrgentRequirementsStrip() {
             </span>
             <span className="inline-flex items-center gap-2 text-[10px] lg:text-[11px] uppercase tracking-[0.28em] font-semibold text-gold">
               <AlertCircle className="h-3.5 w-3.5" />
-              {t("urgentStrip.label", { count: URGENT_COUNT })}
+              {t("urgentStrip.label", { count: urgent.length })}
             </span>
           </Link>
 

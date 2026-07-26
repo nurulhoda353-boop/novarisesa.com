@@ -31,6 +31,7 @@ from app.models import (
     User,
 )
 from app.schemas.cms import (
+    ContentDetail,
     ContentItem,
     ContentListResponse,
     ContentUpsert,
@@ -149,6 +150,41 @@ def serialize_content(resource: str, item: Any, locale: str) -> ContentItem:
     )
 
 
+def serialize_detail(resource: str, item: Any, locale: str) -> ContentDetail:
+    base = serialize_content(resource, item, locale).model_dump()
+    translation = translation_for(item, locale)
+    body: dict[str, Any] = {}
+    if translation is not None:
+        body = (
+            getattr(translation, "content", None)
+            or getattr(translation, "body", None)
+            or {}
+        )
+        if resource == "services":
+            body = {
+                "intro": getattr(translation, "intro", None),
+                "lead": getattr(translation, "lead", None),
+                "eyebrow": getattr(translation, "eyebrow", None),
+                "sub_services": getattr(translation, "sub_services", []),
+                "faqs": getattr(translation, "faqs", []),
+            }
+        if resource == "requirements":
+            body = {
+                "approval": getattr(translation, "approval", None),
+                "duration": getattr(translation, "duration", None),
+                "salary_cycle": getattr(translation, "salary_cycle", None),
+                "food": getattr(translation, "food", None),
+                "accommodation": getattr(translation, "accommodation", None),
+                "documents": getattr(translation, "documents", []),
+            }
+    return ContentDetail(
+        **base,
+        body=body or {},
+        meta_title=getattr(translation, "meta_title", None) if translation else None,
+        meta_description=getattr(translation, "meta_description", None) if translation else None,
+    )
+
+
 def translation_values(resource: str, payload: ContentUpsert) -> dict[str, Any]:
     common: dict[str, Any] = {"locale": payload.locale}
     if resource == "pages":
@@ -164,7 +200,11 @@ def translation_values(resource: str, payload: ContentUpsert) -> dict[str, Any]:
             **common,
             "title": payload.title,
             "tagline": payload.summary,
+            "eyebrow": payload.body.get("eyebrow"),
+            "lead": payload.body.get("lead"),
             "intro": payload.body.get("intro"),
+            "sub_services": payload.body.get("sub_services", []),
+            "faqs": payload.body.get("faqs", []),
             "meta_title": payload.meta_title,
             "meta_description": payload.meta_description,
         }
@@ -283,6 +323,27 @@ def list_content(
             if needle in item.title.casefold() or needle in item.slug.casefold()
         ]
     return ContentListResponse(items=serialized, total=len(serialized))
+
+
+@router.get("/content/{resource}/{item_id}", response_model=ContentDetail)
+def get_content(
+    resource: ResourceName,
+    item_id: uuid.UUID,
+    user: CurrentUser,
+    db: DBSession,
+    locale: Annotated[str, Query(pattern="^(en|ar)$")] = "en",
+) -> ContentDetail:
+    _ = user
+    config = RESOURCE_CONFIG[resource]
+    model = config["model"]
+    item = db.scalar(
+        select(model)
+        .options(selectinload(model.translations))
+        .where(model.id == item_id)
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
+    return serialize_detail(resource, item, locale)
 
 
 @router.post(

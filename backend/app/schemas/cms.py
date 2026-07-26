@@ -45,6 +45,12 @@ class ContentItem(BaseModel):
     extra: dict[str, Any] = Field(default_factory=dict)
 
 
+class ContentDetail(ContentItem):
+    body: dict[str, Any] = Field(default_factory=dict)
+    meta_title: str | None = None
+    meta_description: str | None = None
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

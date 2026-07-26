@@ -34,6 +34,11 @@ type ContentItem = {
   id: string; slug: string; title: string; status: string; summary?: string;
   updated_at: string; extra: Record<string, unknown>;
 };
+type ContentDetail = ContentItem & {
+  body: Record<string, unknown>;
+  meta_title?: string | null;
+  meta_description?: string | null;
+};
 type Overview = {
   counts: Record<string, number>;
   inbox: Record<string, number>;
@@ -183,14 +188,49 @@ function ContentModal({ resource, item, onClose, onSaved }: { resource: string; 
   const [status, setStatus] = useState(item?.status ?? (isRequirement ? "active" : "draft"));
   const [headcount, setHeadcount] = useState(Number(item?.extra?.headcount ?? 1));
   const [location, setLocation] = useState(String(item?.extra?.location ?? ""));
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
+  const [bodyJson, setBodyJson] = useState("{}");
+  const [bodyError, setBodyError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!item) return;
+    let cancelled = false;
+    api<ContentDetail>(`/cms/content/${resource}/${item.id}`).then((detail) => {
+      if (cancelled) return;
+      setTitle(detail.title);
+      setSlug(detail.slug);
+      setSummary(detail.summary ?? "");
+      setStatus(detail.status);
+      setMetaTitle(detail.meta_title ?? "");
+      setMetaDescription(detail.meta_description ?? "");
+      setBodyJson(JSON.stringify(detail.body ?? {}, null, 2));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item, resource]);
+
   async function submit(event: React.FormEvent) {
     event.preventDefault(); setSaving(true);
-    const body = { title, slug, code: isRequirement ? slug : undefined, summary, status, headcount: isRequirement ? headcount : undefined, location, body: {}, locale: "en" };
+    setBodyError("");
+    let parsedBody: Record<string, unknown> = {};
+    try {
+      parsedBody = bodyJson.trim() ? JSON.parse(bodyJson) : {};
+      if (!parsedBody || typeof parsedBody !== "object" || Array.isArray(parsedBody)) {
+        throw new Error("Body must be a JSON object");
+      }
+    } catch {
+      setSaving(false);
+      setBodyError("Body JSON must be a valid object.");
+      return;
+    }
+    const body = { title, slug, code: isRequirement ? slug : undefined, summary, status, headcount: isRequirement ? headcount : undefined, location, body: parsedBody, locale: "en", meta_title: metaTitle || undefined, meta_description: metaDescription || undefined };
     await api(`/cms/content/${resource}${item ? `/${item.id}` : ""}`, { method: item ? "PATCH" : "POST", body: JSON.stringify(body) });
     onSaved();
   }
-  return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">{item ? "Edit content" : "New content"}</p><h2>{item ? item.title : `Create ${humanize(resource.replace(/s$/, ""))}`}</h2></div><button type="button" onClick={onClose}><X /></button></div><div className="form-grid"><label className="full">Title<input value={title} onChange={(event) => { setTitle(event.target.value); if (!item) setSlug(slugify(event.target.value)); }} required /></label><label>Identifier / slug<input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required /></label><label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}>{(isRequirement ? ["draft", "active", "urgent", "closed"] : ["draft", "published", "archived"]).map((value) => <option key={value}>{value}</option>)}</select></label>{isRequirement && <><label>Headcount<input type="number" min="1" value={headcount} onChange={(event) => setHeadcount(Number(event.target.value))} /></label><label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label></>}<label className="full">Summary<textarea rows={5} value={summary} onChange={(event) => setSummary(event.target.value)} /></label></div><div className="modal-actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary-button compact" disabled={saving}>{saving ? "Saving..." : "Save content"}</button></div></form></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><form className="modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">{item ? "Edit content" : "New content"}</p><h2>{item ? item.title : `Create ${humanize(resource.replace(/s$/, ""))}`}</h2></div><button type="button" onClick={onClose}><X /></button></div><div className="form-grid"><label className="full">Title<input value={title} onChange={(event) => { setTitle(event.target.value); if (!item) setSlug(slugify(event.target.value)); }} required /></label><label>Identifier / slug<input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required /></label><label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}>{(isRequirement ? ["draft", "active", "urgent", "closed"] : ["draft", "published", "archived"]).map((value) => <option key={value}>{value}</option>)}</select></label>{isRequirement && <><label>Headcount<input type="number" min="1" value={headcount} onChange={(event) => setHeadcount(Number(event.target.value))} /></label><label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label></>}<label className="full">Summary<textarea rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} /></label><label className="full">Body JSON<textarea rows={8} value={bodyJson} onChange={(event) => setBodyJson(event.target.value)} spellCheck={false} /></label>{bodyError && <p className="form-error full">{bodyError}</p>}<label>Meta title<input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} /></label><label>Meta description<textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} /></label></div><div className="modal-actions"><button type="button" onClick={onClose}>Cancel</button><button className="primary-button compact" disabled={saving}>{saving ? "Saving..." : "Save content"}</button></div></form></div>;
 }
 
 function InboxPage({ inbox }: { inbox: string }) {
@@ -207,11 +247,35 @@ function InboxPage({ inbox }: { inbox: string }) {
 function SettingsPage() {
   type Setting = { id: string; group_name: string; key: string; value: unknown; is_public: boolean };
   const [items, setItems] = useState<Setting[]>([]);
-  const [form, setForm] = useState({ group_name: "contact", key: "business_email", value: "info@novarisesa.com", is_public: true });
+  const [form, setForm] = useState({ group_name: "translations", key: "en", value: "{\n  \"hero\": {\n    \"subtitle\": \"From Saudi Aramco refineries to SABIC plants, NOVARISE delivers world-class manpower, equipment and contracting solutions.\"\n  }\n}", is_public: true });
+  const [error, setError] = useState("");
   const load = useCallback(() => api<{ items: Setting[] }>("/cms/settings").then((r) => setItems(r.items)), []);
   useEffect(() => { load(); }, [load]);
-  async function save(event: React.FormEvent) { event.preventDefault(); await api("/cms/settings", { method: "PUT", body: JSON.stringify({ ...form, value: form.value }) }); load(); }
-  return <><PageHead eyebrow="Administration" title="Site settings" copy="Manage global contact, brand and configuration values used by the website." /><section className="settings-grid"><form className="panel settings-form" onSubmit={save}><PanelTitle title="Add or update setting" detail="Values are stored as structured site configuration" /><label>Group<input value={form.group_name} onChange={(e) => setForm({ ...form, group_name: e.target.value })} /></label><label>Key<input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></label><label>Value<textarea rows={4} value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} /></label><button className="primary-button compact">Save setting</button></form><div className="panel"><PanelTitle title="Saved configuration" detail={`${items.length} managed values`} /><div className="setting-list">{items.map((item) => <button key={item.id} onClick={() => setForm({ group_name: item.group_name, key: item.key, value: String(item.value), is_public: item.is_public })}><span>{item.group_name}</span><b>{humanize(item.key)}</b><small>{String(item.value)}</small></button>)}{!items.length && <Empty copy="No custom settings have been added yet." />}</div></div></section></>;
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    let value: unknown = form.value;
+    const trimmed = form.value.trim();
+    if (/^[\[{]/.test(trimmed)) {
+      try {
+        value = JSON.parse(trimmed);
+      } catch {
+        setError("Value looks like JSON but is not valid.");
+        return;
+      }
+    }
+    await api("/cms/settings", { method: "PUT", body: JSON.stringify({ ...form, value }) });
+    load();
+  }
+  function edit(item: Setting) {
+    setForm({
+      group_name: item.group_name,
+      key: item.key,
+      value: typeof item.value === "string" ? item.value : JSON.stringify(item.value, null, 2),
+      is_public: item.is_public,
+    });
+  }
+  return <><PageHead eyebrow="Administration" title="Site settings" copy="Manage global contact, brand and page copy used by the website." /><section className="settings-grid"><form className="panel settings-form" onSubmit={save}><PanelTitle title="Add or update setting" detail="Use translations/en for editable website copy" /><label>Group<input value={form.group_name} onChange={(e) => setForm({ ...form, group_name: e.target.value })} /></label><label>Key<input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></label><label>Value<textarea rows={10} value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} spellCheck={false} /></label>{error && <p className="form-error">{error}</p>}<label className="check-row"><input type="checkbox" checked={form.is_public} onChange={(e) => setForm({ ...form, is_public: e.target.checked })} /> Public website can read this</label><button className="primary-button compact">Save setting</button></form><div className="panel"><PanelTitle title="Saved configuration" detail={`${items.length} managed values`} /><div className="setting-list">{items.map((item) => <button key={item.id} onClick={() => edit(item)}><span>{item.group_name}</span><b>{humanize(item.key)}</b><small>{typeof item.value === "string" ? item.value : JSON.stringify(item.value)}</small></button>)}{!items.length && <Empty copy="No custom settings have been added yet." />}</div></div></section></>;
 }
 
 function UsersPage() {

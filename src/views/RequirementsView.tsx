@@ -27,28 +27,29 @@ import { PageHero } from "@/components/site/PageHero";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
 import { CTA } from "@/components/site/CTA";
 import {
-  REQUIREMENTS,
   buildWhatsAppLink,
   type RequirementItem,
 } from "@/lib/requirements-data";
+import { useManagedRequirements } from "@/lib/use-cms-requirements";
 
 const heroImage = "/assets/requirements-hero.jpg";
 
 export function RequirementsView() {
   const { t } = useTranslation();
+  const requirements = useManagedRequirements();
 
   const projects = useMemo(() => {
     const set = new Set<string>();
-    REQUIREMENTS.forEach((r) => set.add(r.project));
+    requirements.forEach((r) => set.add(r.project));
     return ["all", ...Array.from(set)];
-  }, []);
+  }, [requirements]);
 
   const [filter, setFilter] = useState<string>("all");
   const filtered = useMemo(
-    () => (filter === "all" ? REQUIREMENTS : REQUIREMENTS.filter((r) => r.project === filter)),
-    [filter],
+    () => (filter === "all" ? requirements : requirements.filter((r) => r.project === filter)),
+    [filter, requirements],
   );
-  const urgentCount = REQUIREMENTS.filter((r) => r.status === "urgent").length;
+  const urgentCount = requirements.filter((r) => r.status === "urgent").length;
 
   // Smooth-scroll to hash (deep-link from the strip)
   useEffect(() => {
@@ -80,7 +81,7 @@ export function RequirementsView() {
             {
               label: t("requirementsPage.hero.ctaWhatsapp"),
               href: buildWhatsAppLink(
-                REQUIREMENTS[0]?.contacts[0]?.raw ?? "966554429574",
+                requirements[0]?.contacts[0]?.raw ?? "966554429574",
                 t("requirementsPage.hero.waMessage"),
               ),
               variant: "ghost",
@@ -164,7 +165,7 @@ export function RequirementsView() {
                   );
                 })}
                 <span className="ms-auto text-[11px] text-muted-foreground tabular-nums">
-                  {t("requirementsPage.list.showing", { count: filtered.length, total: REQUIREMENTS.length })}
+                  {t("requirementsPage.list.showing", { count: filtered.length, total: requirements.length })}
                 </span>
               </div>
             </Reveal>

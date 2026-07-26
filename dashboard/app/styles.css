@@ -45,4 +45,5 @@
 .shield-mark{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;color:#99703a;background:#f7eddd}
 .login-help{text-align:center;color:rgba(255,255,255,.57);font-size:9px;margin:18px 0 0}
 .login-help a{color:#f1bd70;font-weight:600}
+.check-row{display:flex!important;align-items:center;gap:9px;text-transform:none!important;letter-spacing:0!important;color:#667386!important}.check-row input{width:auto!important;margin:0!important}
 @media(max-width:560px){.login-page{padding:28px 16px}.login-logo{margin:0 4px 20px}.login-logo img{width:155px}.login-logo span{font-size:7px;padding-left:11px}.login-card{padding:28px 22px 24px;border-radius:17px}.login-card h1{font-size:29px}.password-toggle span{display:none}.login-card .login-field input{padding-right:48px}}

@@ -8,9 +8,8 @@ import { getServiceBySlug, type ServicePage } from "@/lib/services-data";
  */
 export function useTranslatedService(slug: string): ServicePage | undefined {
   const base = getServiceBySlug(slug);
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   if (!base) return undefined;
-  if (i18n.language === "en") return base;
 
   const s = (key: string, fallback: string): string => {
     const v = t(`serviceDetails.${slug}.${key}`, { defaultValue: "" });
