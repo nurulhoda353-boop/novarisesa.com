@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Mail, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Reveal } from "@/components/site/Reveal";
-import { mailtoUrl } from "@/lib/site";
+import { submitWebsiteForm } from "@/lib/site";
 
 export function NewsletterCTA() {
   const { t } = useTranslation();
@@ -45,14 +45,15 @@ export function NewsletterCTA() {
                   </div>
                 ) : (
                   <form
-                    onSubmit={(e) => {
+                    onSubmit={async (e) => {
                       e.preventDefault();
                       if (!email.includes("@")) return;
-                      window.location.href = mailtoUrl(
-                        "Newsletter subscription",
-                        `Please subscribe this address to the NOVARISE newsletter:\n\n${email}`,
-                      );
-                      setSubmitted(true);
+                      try {
+                        await submitWebsiteForm("/public/newsletter", { email });
+                        setSubmitted(true);
+                      } catch {
+                        setSubmitted(false);
+                      }
                     }}
                     className="rounded-2xl border border-white/15 bg-white/5 backdrop-blur-md p-5"
                   >

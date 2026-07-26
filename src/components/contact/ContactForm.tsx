@@ -8,7 +8,7 @@ import { ArrowUpRight, Loader2, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useMemo } from "react";
 import { Reveal } from "@/components/site/Reveal";
-import { mailtoUrl } from "@/lib/site";
+import { submitWebsiteForm } from "@/lib/site";
 
 type FormValues = {
   name: string;
@@ -80,20 +80,15 @@ export function ContactForm() {
     !!dirtyFields[k] && !errors[k] && (values[k] ?? "").toString().trim().length >= min;
 
   const onSubmit = async (data: FormValues) => {
-    const body = [
-      `Name: ${data.name}`,
-      `Email: ${data.email}`,
-      `Company: ${data.company || "-"}`,
-      `Phone: ${data.phone || "-"}`,
-      `Subject: ${data.subject}`,
-      "",
-      data.message,
-    ].join("\n");
-    window.location.href = mailtoUrl(`Contact — ${data.subject}`, body);
-    toast.success(t("contactPage.form.toastTitle"), {
-      description: t("contactPage.form.toastDesc"),
-    });
-    reset();
+    try {
+      await submitWebsiteForm("/public/contact", data);
+      toast.success(t("contactPage.form.toastTitle"), {
+        description: t("contactPage.form.toastDesc"),
+      });
+      reset();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Submission failed");
+    }
   };
 
   const inputBase =

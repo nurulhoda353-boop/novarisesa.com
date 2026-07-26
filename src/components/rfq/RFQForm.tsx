@@ -11,7 +11,7 @@ import {
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Reveal } from "@/components/site/Reveal";
-import { mailtoUrl } from "@/lib/site";
+import { submitWebsiteForm } from "@/lib/site";
 
 type FormValues = {
   name: string;
@@ -57,24 +57,15 @@ export function RFQForm() {
   });
 
   const onSubmit = async (data: FormValues) => {
-    const body = [
-      `Name: ${data.name}`,
-      `Email: ${data.email}`,
-      `Company: ${data.company}`,
-      `Phone: ${data.phone}`,
-      `Service: ${data.service}`,
-      `Location: ${data.location}`,
-      `Timeline: ${data.timeline}`,
-      `Budget: ${data.budget || "-"}`,
-      "",
-      "Scope:",
-      data.scope,
-    ].join("\n");
-    window.location.href = mailtoUrl(`RFQ — ${data.service} (${data.company})`, body);
-    toast.success(t("rfqPage.form.toastTitle"), {
-      description: t("rfqPage.form.toastDesc"),
-    });
-    reset();
+    try {
+      const result = await submitWebsiteForm<{ reference: string }>("/public/rfq", data);
+      toast.success(t("rfqPage.form.toastTitle"), {
+        description: `${t("rfqPage.form.toastDesc")} ${result.reference}`,
+      });
+      reset();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Submission failed");
+    }
   };
 
   const fieldBase =

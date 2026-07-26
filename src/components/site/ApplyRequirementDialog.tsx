@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { RequirementItem } from "@/lib/requirements-data";
-import { mailtoUrl } from "@/lib/site";
+import { submitWebsiteForm } from "@/lib/site";
 
 type FormValues = {
   name: string;
@@ -104,28 +104,29 @@ export function ApplyRequirementDialog({
   }) as string[];
 
   const onSubmit = async (data: FormValues) => {
-    const body = [
-      `Requirement: ${item.position} (${item.id})`,
-      `Name: ${data.name}`,
-      `Phone: ${data.phone}`,
-      `Email: ${data.email || "-"}`,
-      `Iqama: ${data.iqama || "-"}`,
-      `Experience: ${data.experience}`,
-      "",
-      data.message || "",
-    ].join("\n");
-    window.location.href = mailtoUrl(`Job Application — ${item.position}`, body);
-    toast.success(
-      t("requirementsPage.applyForm.toastTitle", "Application received"),
-      {
-        description: t(
-          "requirementsPage.applyForm.toastDesc",
-          "Our recruitment desk will contact you within 4 working hours.",
-        ),
-      },
-    );
-    reset();
-    setOpen(false);
+    try {
+      await submitWebsiteForm(`/public/requirements/${item.id}/apply`, {
+        name: data.name,
+        phone: data.phone,
+        email: data.email || null,
+        iqama_number: data.iqama || null,
+        experience: data.experience,
+        message: data.message || null,
+      });
+      toast.success(
+        t("requirementsPage.applyForm.toastTitle", "Application received"),
+        {
+          description: t(
+            "requirementsPage.applyForm.toastDesc",
+            "Our recruitment desk will contact you within 4 working hours.",
+          ),
+        },
+      );
+      reset();
+      setOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Submission failed");
+    }
   };
   const inputBase =
     "peer w-full rounded-xl border border-border bg-white px-4 pt-5 pb-2 text-sm text-navy placeholder-transparent focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all";

@@ -468,7 +468,7 @@ class RequirementApplication(UUIDMixin, TimestampMixin, Base):
         ForeignKey("requirements.id", ondelete="RESTRICT"), index=True
     )
     name: Mapped[str] = mapped_column(String(160))
-    email: Mapped[str] = mapped_column(String(320), index=True)
+    email: Mapped[str | None] = mapped_column(String(320), index=True)
     phone: Mapped[str] = mapped_column(String(40))
     nationality: Mapped[str | None] = mapped_column(String(120))
     iqama_number: Mapped[str | None] = mapped_column(String(40))

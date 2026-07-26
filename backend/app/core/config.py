@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     TRUSTED_HOSTS: list[str] = Field(
         default=["localhost", "127.0.0.1", "testserver", "api.novarisesa.com"]
     )
+    COOKIE_DOMAIN: str | None = None
+    ACCESS_TOKEN_MINUTES: int = 15
+    REFRESH_TOKEN_DAYS: int = 7
+    INITIAL_ADMIN_EMAIL: str | None = None
+    INITIAL_ADMIN_PASSWORD: str | None = None
 
     @field_validator("APP_SECRET_KEY")
     @classmethod
