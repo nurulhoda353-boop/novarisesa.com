@@ -417,10 +417,43 @@ type ManagedSetting = {
 
 type ContentLeaf = {
   path: Array<string | number>;
+  page: string;
   section: string;
   label: string;
   value: string | number | boolean | null;
 };
+
+type ContentPageGroup = {
+  id: string;
+  title: string;
+  detail: string;
+  roots: string[];
+};
+
+const contentPageGroups: ContentPageGroup[] = [
+  { id: "home", title: "Home page", detail: "Hero, trust, services, projects and homepage blocks", roots: ["hero", "trustBar", "about", "capabilities", "industries", "numbers", "process", "vision", "projects", "hse", "certifications", "testimonials", "leadership", "whyUs", "faq", "urgentStrip"] },
+  { id: "about", title: "About page", detail: "Company profile, CEO message and about page hero", roots: ["aboutPage"] },
+  { id: "services", title: "Services", detail: "Service cards, details and services page sections", roots: ["services", "servicesPage", "serviceDetails"] },
+  { id: "projects", title: "Projects", detail: "Project listings, detail labels and featured project copy", roots: ["projectsPage"] },
+  { id: "capabilities", title: "Capabilities", detail: "Capabilities page copy and calls to action", roots: ["capabilitiesPage"] },
+  { id: "careers", title: "Careers", detail: "Careers page labels and recruitment copy", roots: ["careersPage"] },
+  { id: "requirements", title: "Requirements", detail: "Urgent requirements page and application labels", roots: ["requirementsPage"] },
+  { id: "contact", title: "Contact", detail: "Contact page, office details and contact form labels", roots: ["contactPage"] },
+  { id: "rfq", title: "RFQ", detail: "RFQ page, quote form and sidebar copy", roots: ["rfqPage"] },
+  { id: "blog", title: "Insights", detail: "Blog, events, newsletter and article labels", roots: ["blogPage"] },
+  { id: "navigation", title: "Navigation", detail: "Menus, language switcher and global labels", roots: ["nav", "language"] },
+  { id: "global", title: "Global sections", detail: "Shared footer, call to action and reusable labels", roots: ["footer", "cta"] },
+];
+
+const rootToPage = new Map(contentPageGroups.flatMap((page) => page.roots.map((root) => [root, page.id])));
+
+function pageForRoot(root: string) {
+  return rootToPage.get(root) ?? root;
+}
+
+function pageTitle(pageId: string) {
+  return contentPageGroups.find((page) => page.id === pageId)?.title ?? humanize(pageId);
+}
 
 function cloneDocument(value: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
@@ -434,9 +467,12 @@ function contentLeaves(value: unknown, path: Array<string | number> = []): Conte
     return Object.entries(value).flatMap(([key, entry]) => contentLeaves(entry, [...path, key]));
   }
   const pathText = path.map((part) => typeof part === "number" ? `Item ${part + 1}` : humanize(part)).join(" / ");
+  const root = String(path[0] ?? "general");
+  const sectionSource = typeof path[1] === "string" ? path[1] : root;
   return [{
     path,
-    section: String(path[0] ?? "general"),
+    page: pageForRoot(root),
+    section: sectionSource,
     label: pathText,
     value: value as ContentLeaf["value"],
   }];
@@ -462,7 +498,8 @@ function SiteContentPage({ user }: { user: User }) {
   const [defaults, setDefaults] = useState<Record<string, unknown>>({});
   const [assets, setAssets] = useState<Record<string, string>>({});
   const [media, setMedia] = useState<MediaItem[]>([]);
-  const [section, setSection] = useState("all");
+  const [activePage, setActivePage] = useState("home");
+  const [activeSection, setActiveSection] = useState("all");
   const [query, setQuery] = useState("");
   const [advanced, setAdvanced] = useState(false);
   const [raw, setRaw] = useState("");
@@ -510,18 +547,66 @@ function SiteContentPage({ user }: { user: User }) {
   useEffect(() => { void load(); }, [load]);
 
   const leaves = useMemo(() => contentLeaves(document), [document]);
+  const assetPageSlots = useMemo(
+    () => assetSlots.map(([key, label, fallback]) => ({ key, label, fallback, page: pageForRoot(key.split(".")[0]) })),
+    [],
+  );
+  const pages = useMemo(() => {
+    const discovered = Array.from(new Set([
+      ...leaves.map((leaf) => leaf.page),
+      ...assetPageSlots.map((slot) => slot.page),
+    ]));
+    const ordered = contentPageGroups
+      .filter((page) => discovered.includes(page.id))
+      .map((page) => ({
+        ...page,
+        fields: leaves.filter((leaf) => leaf.page === page.id).length,
+        images: assetPageSlots.filter((slot) => slot.page === page.id).length,
+      }));
+    const known = new Set(ordered.map((page) => page.id));
+    const custom = discovered
+      .filter((page) => !known.has(page))
+      .sort()
+      .map((page) => ({
+        id: page,
+        title: pageTitle(page),
+        detail: "Additional website copy",
+        roots: [page],
+        fields: leaves.filter((leaf) => leaf.page === page).length,
+        images: assetPageSlots.filter((slot) => slot.page === page).length,
+      }));
+    return [...ordered, ...custom].filter((page) => page.fields || page.images);
+  }, [assetPageSlots, leaves]);
+  const pageLeaves = useMemo(
+    () => leaves.filter((leaf) => leaf.page === activePage),
+    [activePage, leaves],
+  );
   const sections = useMemo(
-    () => Array.from(new Set(leaves.map((leaf) => leaf.section))).sort(),
-    [leaves],
+    () => Array.from(new Set(pageLeaves.map((leaf) => leaf.section))).sort(),
+    [pageLeaves],
+  );
+  const activeAssets = useMemo(
+    () => assetPageSlots.filter((slot) => slot.page === activePage),
+    [activePage, assetPageSlots],
   );
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return leaves.filter((leaf) => {
-      if (section !== "all" && leaf.section !== section) return false;
+    return pageLeaves.filter((leaf) => {
+      if (activeSection !== "all" && leaf.section !== activeSection) return false;
       if (!needle) return true;
       return `${leaf.label} ${String(leaf.value ?? "")}`.toLowerCase().includes(needle);
     });
-  }, [leaves, query, section]);
+  }, [activeSection, pageLeaves, query]);
+
+  useEffect(() => {
+    if (pages.length && !pages.some((page) => page.id === activePage)) {
+      setActivePage(pages[0].id);
+    }
+  }, [activePage, pages]);
+
+  useEffect(() => {
+    setActiveSection("all");
+  }, [activePage]);
 
   function updateLeaf(leaf: ContentLeaf, rawValue: string | boolean) {
     let value: ContentLeaf["value"] = rawValue;
@@ -607,18 +692,43 @@ function SiteContentPage({ user }: { user: User }) {
         <Search size={17} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search website copy…" />
       </div>
-      <select value={section} onChange={(event) => setSection(event.target.value)}>
-        <option value="all">All sections</option>
-        {sections.map((value) => <option value={value} key={value}>{humanize(value)}</option>)}
-      </select>
       <button className="secondary-button" onClick={restoreDefaults}>Restore defaults</button>
     </div>
     {error && <p className="form-error notice-bar">{error}</p>}
     {notice && <p className="success-note notice-bar">{notice}</p>}
     {busy ? <Skeleton /> : (
-      <section className="site-content-layout">
+      <section className="site-content-shell">
+        <aside className="panel content-page-list">
+          <PanelTitle title="Pages" detail="Choose one website area" />
+          <div>
+            {pages.map((page) => (
+              <button
+                key={page.id}
+                className={activePage === page.id ? "active" : ""}
+                onClick={() => setActivePage(page.id)}
+              >
+                <span>
+                  <strong>{page.title}</strong>
+                  <small>{page.detail}</small>
+                </span>
+                <b>{page.fields}{page.images ? ` + ${page.images} img` : ""}</b>
+              </button>
+            ))}
+          </div>
+        </aside>
+        <div className="site-content-layout">
         <div className="panel copy-editor">
-          <PanelTitle title={`${locale.toUpperCase()} website copy`} detail={`${visible.length} editable values shown`} />
+          <div className="section-editor-head">
+            <PanelTitle title={`${pageTitle(activePage)} copy`} detail={`${visible.length} of ${pageLeaves.length} editable values shown`} />
+            <div className="section-tabs">
+              <button className={activeSection === "all" ? "active" : ""} onClick={() => setActiveSection("all")}>All</button>
+              {sections.map((value) => (
+                <button className={activeSection === value ? "active" : ""} onClick={() => setActiveSection(value)} key={value}>
+                  {humanize(value)}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="copy-fields" dir={locale === "ar" ? "rtl" : "ltr"}>
             {visible.map((leaf) => (
               <label key={leaf.path.join(".")}>
@@ -644,7 +754,7 @@ function SiteContentPage({ user }: { user: User }) {
                 )}
               </label>
             ))}
-            {!visible.length && <Empty copy="No content matches this filter." />}
+            {!visible.length && <Empty copy="No content matches this page or filter." />}
           </div>
           <label className="check-row advanced-toggle">
             <input type="checkbox" checked={advanced} onChange={(event) => setAdvanced(event.target.checked)} />
@@ -656,9 +766,9 @@ function SiteContentPage({ user }: { user: User }) {
           </div>}
         </div>
         <div className="panel asset-editor">
-          <PanelTitle title="Website images" detail="Choose an uploaded file or paste a CDN URL" />
+          <PanelTitle title={`${pageTitle(activePage)} images`} detail={activeAssets.length ? "Choose an uploaded file or paste a CDN URL" : "No managed image slots on this page"} />
           <div className="asset-fields">
-            {assetSlots.map(([key, label, fallback]) => {
+            {activeAssets.map(({ key, label, fallback }) => {
               const value = assets[key] || fallback;
               return <label key={key}>
                 <span>{label}</span>
@@ -680,7 +790,9 @@ function SiteContentPage({ user }: { user: User }) {
                 <img src={value} alt="" />
               </label>;
             })}
+            {!activeAssets.length && <Empty copy="Image controls for this page will appear here when configured." />}
           </div>
+        </div>
         </div>
       </section>
     )}
