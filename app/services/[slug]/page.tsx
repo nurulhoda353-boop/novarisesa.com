@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { ServiceDetailView } from "@/views/ServiceDetailView";
 import { servicePages, getServiceBySlug } from "@/lib/services-data";
 import { absoluteUrl } from "@/lib/site";
@@ -32,9 +31,7 @@ export async function generateMetadata({
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
-  if (!service) notFound();
   return <ServiceDetailView slug={slug} />;
 }
 
-export const dynamicParams = false;
+export const dynamicParams = true;

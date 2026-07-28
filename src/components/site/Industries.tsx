@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Flame, FlaskConical, Zap, Hammer, Mountain, Anchor } from "lucide-react";
 import { Reveal, StaggerGroup, StaggerItem } from "./Reveal";
 const industryImg = "/assets/industry-oilgas.jpg";
@@ -17,6 +18,7 @@ const industriesList = [
 ];
 
 export function Industries() {
+  const managedIndustryImg = useCmsAsset("home.industry", industryImg);
   const { t } = useTranslation();
   return (
     <section id="industries" className="relative py-16 lg:py-24 dark-premium text-white overflow-hidden">
@@ -26,7 +28,7 @@ export function Industries() {
           <Reveal className="lg:col-span-5">
             <div className="relative">
               <div className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-elegant">
-                <Image src={industryImg} alt="Saudi oil and gas refinery at golden hour" fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
+                <Image src={managedIndustryImg} alt="Saudi oil and gas refinery at golden hour" fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/90 via-navy-deep/20 to-transparent" />
               </div>
               <div className="absolute bottom-6 left-6 right-6 text-white">

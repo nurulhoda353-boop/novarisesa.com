@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Leaf, Users2, Globe2 } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { AnimatedNumber } from "./AnimatedNumber";
@@ -10,6 +11,8 @@ const skylineImg = "/assets/vision-skyline.jpg";
 const teamImg = "/assets/vision-team.jpg";
 
 export function Vision2030() {
+  const managedSkylineImg = useCmsAsset("home.visionSkyline", skylineImg);
+  const managedTeamImg = useCmsAsset("home.visionTeam", teamImg);
   const { t } = useTranslation();
   const pillars = [
     { icon: Users2, key: "expertise" },
@@ -25,10 +28,10 @@ export function Vision2030() {
             <div className="relative">
               <div className="grid grid-cols-5 grid-rows-6 gap-4 h-[520px]">
                 <div className="relative col-span-3 row-span-4 rounded-2xl overflow-hidden shadow-elegant">
-                  <Image src={skylineImg} alt="Riyadh skyline at sunset" fill sizes="(max-width: 1024px) 60vw, 30vw" className="object-cover" />
+                  <Image src={managedSkylineImg} alt="Riyadh skyline at sunset" fill sizes="(max-width: 1024px) 60vw, 30vw" className="object-cover" />
                 </div>
                 <div className="relative col-span-2 row-span-3 col-start-4 row-start-2 rounded-2xl overflow-hidden shadow-elegant border-4 border-background">
-                  <Image src={teamImg} alt="NOVARISE team on site" fill sizes="(max-width: 1024px) 40vw, 20vw" className="object-cover" />
+                  <Image src={managedTeamImg} alt="NOVARISE team on site" fill sizes="(max-width: 1024px) 40vw, 20vw" className="object-cover" />
                 </div>
                 <div className="col-span-3 row-span-2 col-start-1 row-start-5 rounded-2xl bg-navy text-white p-6 flex flex-col justify-between shadow-elegant">
                   <div className="text-[10px] uppercase tracking-[0.3em] text-gold">{t("vision.tileEyebrow")}</div>

@@ -2,17 +2,19 @@
 
 import { Info, ArrowUpRight, Phone } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 const heroImg = "/assets/vision-skyline.jpg";
 import { PageHero } from "@/components/site/PageHero";
 
 export function AboutHero() {
+  const managedHeroImg = useCmsAsset("about.hero", heroImg);
   const { t } = useTranslation();
   return (
     <PageHero
       num={t("aboutPage.hero.num")}
       eyebrow={t("aboutPage.hero.eyebrow")}
       icon={Info}
-      heroImage={heroImg}
+      heroImage={managedHeroImg}
       title={t("aboutPage.hero.title")}
       description={t("aboutPage.hero.description")}
       crumbs={[{ label: t("aboutPage.hero.crumb") }]}

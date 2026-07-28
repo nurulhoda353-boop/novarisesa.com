@@ -1,0 +1,10 @@
+.git
+.next
+.tmp
+node_modules
+dashboard
+backend
+docs
+*.log
+*.tsbuildinfo
+Access token.js

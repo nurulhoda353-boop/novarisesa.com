@@ -6,6 +6,15 @@ import { API_URL } from "./site";
 
 type CmsCollections = Record<string, CmsItem[]>;
 type CmsSettings = Record<string, Record<string, unknown>>;
+export type CmsNavigationItem = {
+  id: string;
+  location: string;
+  parent_id?: string | null;
+  label: string;
+  labels: Record<string, string>;
+  url: string;
+  sort_order: number;
+};
 
 export type CmsItem = {
   id: string;
@@ -23,12 +32,14 @@ type CmsPayload = {
   locale: string;
   settings: CmsSettings;
   collections: CmsCollections;
+  navigation: CmsNavigationItem[];
 };
 
 type CmsContextValue = {
   payload: CmsPayload | null;
   settings: CmsSettings;
   collections: CmsCollections;
+  navigation: CmsNavigationItem[];
   loading: boolean;
 };
 
@@ -36,6 +47,7 @@ const CmsContext = createContext<CmsContextValue>({
   payload: null,
   settings: {},
   collections: {},
+  navigation: [],
   loading: true,
 });
 
@@ -181,6 +193,7 @@ export function CmsContentProvider({ children }: { children: ReactNode }) {
       payload,
       settings: payload?.settings ?? {},
       collections: payload?.collections ?? {},
+      navigation: payload?.navigation ?? [],
       loading,
     }),
     [payload, loading],
@@ -191,4 +204,18 @@ export function CmsContentProvider({ children }: { children: ReactNode }) {
 
 export function useCmsContent() {
   return useContext(CmsContext);
+}
+
+export function useCmsAsset(key: string, fallback: string): string {
+  const { settings } = useCmsContent();
+  const value = settings.assets?.[key];
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+export function useCmsNavigation(location: string): CmsNavigationItem[] {
+  const { navigation } = useCmsContent();
+  return useMemo(
+    () => navigation.filter((item) => item.location === location),
+    [navigation, location],
+  );
 }

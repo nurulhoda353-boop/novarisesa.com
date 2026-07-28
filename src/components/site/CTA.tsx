@@ -2,12 +2,14 @@
 
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Link } from "@/components/nav/AppLink";
 import { ArrowUpRight, Download, Phone, Mail, MapPin, type LucideIcon } from "lucide-react";
 import { Reveal } from "./Reveal";
 const meetingImg = "/assets/cta-meeting.jpg";
 
 export function CTA() {
+  const managedMeetingImg = useCmsAsset("global.cta", meetingImg);
   const { t } = useTranslation();
   return (
     <section id="contact" className="relative py-16 lg:py-24 bg-background overflow-hidden">
@@ -30,7 +32,7 @@ export function CTA() {
             <div className="relative">
               <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-elegant">
                 <Image
-                  src={meetingImg}
+                  src={managedMeetingImg}
                   alt="NOVARISE leadership reviewing project blueprints"
                   fill
                   sizes="(max-width: 1024px) 100vw, 42vw"

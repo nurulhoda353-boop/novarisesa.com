@@ -389,6 +389,9 @@ class Requirement(UUIDMixin, TimestampMixin, Base):
     translations: Mapped[list["RequirementTranslation"]] = relationship(
         back_populates="requirement", cascade="all, delete-orphan"
     )
+    contacts: Mapped[list["RequirementContact"]] = relationship(
+        back_populates="requirement", cascade="all, delete-orphan"
+    )
 
 
 class RequirementTranslation(UUIDMixin, TimestampMixin, Base):
@@ -422,6 +425,7 @@ class RequirementContact(UUIDMixin, Base):
     phone_e164: Mapped[str] = mapped_column(String(20))
     has_whatsapp: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    requirement: Mapped[Requirement] = relationship(back_populates="contacts")
 
 
 class ContactSubmission(UUIDMixin, TimestampMixin, Base):

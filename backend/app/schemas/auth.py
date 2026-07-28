@@ -14,6 +14,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     full_name: str
     roles: list[str]
+    permissions: list[str] = []
     last_login_at: datetime | None
 
 

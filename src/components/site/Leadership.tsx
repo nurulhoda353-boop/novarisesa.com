@@ -3,10 +3,12 @@
 import Image from "next/image";
 
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Quote } from "lucide-react";
 const ceo = "/assets/ceo-portrait.jpg";
 
 export function Leadership() {
+  const managedCeo = useCmsAsset("about.ceo", ceo);
   const { t } = useTranslation();
   return (
     <section id="leadership" className="relative py-16 lg:py-24 dark-premium text-white overflow-hidden">
@@ -15,7 +17,7 @@ export function Leadership() {
         <div className="grid lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-5 relative">
             <div className="aspect-[4/5] rounded-3xl overflow-hidden shadow-elegant relative">
-              <Image src={ceo} alt={t("leadership.name")} fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
+              <Image src={managedCeo} alt={t("leadership.name")} fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
             </div>
             <div className="absolute -top-6 -right-6 h-20 w-20 rounded-2xl gradient-gold flex items-center justify-center shadow-gold rotate-3">
               <Quote className="h-9 w-9 text-navy" />

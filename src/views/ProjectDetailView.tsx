@@ -19,10 +19,14 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Reveal } from "@/components/site/Reveal";
 import { ContactForm } from "@/components/contact/ContactForm";
-import { allProjects, type Project } from "@/lib/projects-data";
+import { type Project } from "@/lib/projects-data";
+import { useManagedProjects } from "@/lib/use-managed-projects";
 import { projectContent, projectFaq } from "@/lib/projects-content";
 
 export function ProjectDetailView({ project }: { project: Project }) {
+  const allProjects = useManagedProjects();
+  const managedProject = allProjects.find((item) => item.slug === project.slug) ?? project;
+  project = managedProject;
   const { t, i18n } = useTranslation();
   const k = project.key;
   const lang = (i18n.language?.startsWith("ar") ? "ar" : "en") as "en" | "ar";

@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { featuredPost, posts, events, type BlogPost, type EventItem } from "@/lib/blog-data";
+import { useCmsContent } from "@/lib/cms-content";
 
 export function useTranslatedPosts() {
   const { t } = useTranslation();
+  const { collections } = useCmsContent();
   const translate = (p: BlogPost): BlogPost => {
     const base = `blogPage.posts.${p.slug}`;
     const translatedRole = t(`blogPage.authorRoles.${p.authorRole}`, { defaultValue: p.authorRole });
@@ -14,10 +16,31 @@ export function useTranslatedPosts() {
       authorRole: translatedRole,
     };
   };
-  return {
-    featured: translate(featuredPost),
-    posts: posts.map(translate),
-  };
+  const managed = collections.posts ?? [];
+  if (!managed.length) {
+    return {
+      featured: translate(featuredPost),
+      posts: posts.map(translate),
+    };
+  }
+  const mapped = managed.map((item): BlogPost => {
+    const body = item.data.body && typeof item.data.body === "object"
+      ? item.data.body as Record<string, unknown>
+      : {};
+    return {
+      slug: item.slug,
+      title: item.title,
+      excerpt: item.summary ?? "",
+      category: String(body.category ?? "Insights") as BlogPost["category"],
+      date: String(body.date ?? item.data.published_at ?? item.updated_at),
+      readMins: Number(body.readMins ?? body.read_mins ?? 5),
+      author: String(body.author ?? "NOVARISE"),
+      authorRole: String(body.authorRole ?? body.author_role ?? "Editorial Team"),
+      image: String(item.data.featured_media_url ?? "/assets/news-energy.jpg"),
+    };
+  });
+  const featured = mapped.find((_, index) => managed[index]?.is_featured) ?? mapped[0];
+  return { featured, posts: mapped.filter((item) => item.slug !== featured.slug) };
 }
 
 export function useTranslatedEvents(): EventItem[] {

@@ -4,7 +4,7 @@
 
 - Public website: `https://novarisesa.com`
 - FastAPI: `https://api.novarisesa.com`
-- CMS / management dashboard (next milestone): `https://my.novarisesa.com`
+- CMS dashboard: `https://my.novarisesa.com` (app in `dashboard/`, port 3001)
 - Database: private PostgreSQL in the Coolify `novarisesa / production` environment
 
 The browser applications communicate only with FastAPI. PostgreSQL must not be exposed to the public internet.
@@ -33,6 +33,7 @@ The browser applications communicate only with FastAPI. PostgreSQL must not be e
 - Foreign keys define deliberate delete behavior; operational submissions cannot disappear through casual CMS deletion.
 - Audit records capture actor, action, entity, before/after values, IP, and user agent.
 - Secrets and credentials never belong in database content, Git, or CMS settings.
+- Media files are stored under `MEDIA_ROOT` and served from `/media` (or a CDN/base URL via `MEDIA_PUBLIC_BASE_URL`).
 
 ## Initial migration
 
@@ -43,13 +44,24 @@ Revision `20260726_0001` creates:
 - indexes and uniqueness constraints
 - `pgcrypto` for database-side UUID generation
 
+Revision `20260726_0002` makes application email nullable.
+
 The API container applies migrations before starting. A failed migration prevents the API from accepting traffic.
+
+## Current platform status
+
+Delivered:
+
+1. Authentication, refresh-token rotation, seeded `owner` / `editor` roles, and permission enforcement on CMS routes.
+2. Public write endpoints for contact, RFQ, newsletter, and requirement applications.
+3. Public read endpoint `/public/site-content` (collections, settings, navigation).
+4. Local media upload/storage API with CMS media library UI.
+5. Dashboard CRUD for content, inbox, settings, navigation, categories/tags, users, and audit logging.
+6. Workspace search (`/cms/search`) and permission-aware Control Center UI.
 
 ## Next implementation milestone
 
-1. Authentication, refresh-token rotation, and seeded owner/admin roles.
-2. Public write endpoints for contact, RFQ, newsletter, and requirement applications.
-3. Public read endpoints for services, projects, posts, pages, and requirements.
-4. Media storage integration and signed upload flow.
-5. Dashboard CRUD APIs with permission checks and audit logging.
-6. Daily PostgreSQL backups in Coolify with off-server S3-compatible storage.
+1. Optional S3-compatible object storage for media (Coolify volume or external bucket).
+2. Daily PostgreSQL backups in Coolify with off-server S3-compatible storage.
+3. Rich-text / block editor for page and post body content.
+4. Broader integration tests for authenticated CMS flows against a real Postgres instance.

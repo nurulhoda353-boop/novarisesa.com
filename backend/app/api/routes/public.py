@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.models import (
     ContactSubmission,
+    MediaAsset,
+    NavigationItem,
     NewsletterSubscriber,
     Page,
     Post,
@@ -59,6 +61,7 @@ def serialize_public_item(
     locale: str,
     *,
     contacts: list[dict[str, object]] | None = None,
+    media_urls: dict[object, str] | None = None,
 ) -> dict[str, object]:
     translation = translation_for(item, locale)
     identifier = getattr(item, "slug", None) or getattr(item, "code", None)
@@ -109,6 +112,31 @@ def serialize_public_item(
             "rate_currency": getattr(item, "rate_currency", None),
             "rate_unit": getattr(item, "rate_unit", None),
             "contacts": contacts,
+            "number": getattr(item, "number", None),
+            "icon": getattr(item, "icon", None),
+            "started_on": (
+                item.started_on.isoformat() if getattr(item, "started_on", None) else None
+            ),
+            "completed_on": (
+                item.completed_on.isoformat()
+                if getattr(item, "completed_on", None)
+                else None
+            ),
+            "published_at": (
+                item.published_at.isoformat()
+                if getattr(item, "published_at", None)
+                else None
+            ),
+            "meta_title": getattr(translation, "meta_title", None) if translation else None,
+            "meta_description": (
+                getattr(translation, "meta_description", None) if translation else None
+            ),
+            "hero_media_url": (
+                (media_urls or {}).get(getattr(item, "hero_media_id", None))
+            ),
+            "featured_media_url": (
+                (media_urls or {}).get(getattr(item, "featured_media_id", None))
+            ),
         },
     }
 
@@ -123,36 +151,36 @@ def site_content(
         settings.setdefault(item.group_name, {})[item.key] = item.value
 
     collections = {
-        "pages": db.scalars(
+        "pages": list(db.scalars(
             select(Page)
             .options(selectinload(Page.translations))
             .where(Page.status == PublishStatus.PUBLISHED)
             .order_by(Page.updated_at.desc())
-        ),
-        "services": db.scalars(
+        )),
+        "services": list(db.scalars(
             select(Service)
             .options(selectinload(Service.translations))
             .where(Service.status == PublishStatus.PUBLISHED)
             .order_by(Service.sort_order, Service.updated_at.desc())
-        ),
-        "projects": db.scalars(
+        )),
+        "projects": list(db.scalars(
             select(Project)
             .options(selectinload(Project.translations))
             .where(Project.status == PublishStatus.PUBLISHED)
             .order_by(Project.sort_order, Project.updated_at.desc())
-        ),
-        "posts": db.scalars(
+        )),
+        "posts": list(db.scalars(
             select(Post)
             .options(selectinload(Post.translations))
             .where(Post.status == PublishStatus.PUBLISHED)
             .order_by(Post.published_at.desc().nullslast(), Post.updated_at.desc())
-        ),
-        "requirements": db.scalars(
+        )),
+        "requirements": list(db.scalars(
             select(Requirement)
             .options(selectinload(Requirement.translations))
             .where(Requirement.status.in_([RequirementStatus.ACTIVE, RequirementStatus.URGENT]))
             .order_by(Requirement.updated_at.desc())
-        ),
+        )),
     }
     requirement_rows = list(collections["requirements"])
     contact_rows = db.scalars(
@@ -170,15 +198,55 @@ def site_content(
             }
         )
 
+    media_ids = {
+        media_id
+        for rows in collections.values()
+        for item in rows
+        for media_id in (
+            getattr(item, "hero_media_id", None),
+            getattr(item, "featured_media_id", None),
+        )
+        if media_id is not None
+    }
+    media_urls = {
+        item.id: item.public_url
+        for item in (
+            db.scalars(select(MediaAsset).where(MediaAsset.id.in_(media_ids)))
+            if media_ids
+            else []
+        )
+    }
+
+    navigation = [
+        {
+            "id": str(item.id),
+            "location": item.location,
+            "parent_id": str(item.parent_id) if item.parent_id else None,
+            "label": (item.label or {}).get(locale)
+            or (item.label or {}).get("en")
+            or "",
+            "labels": item.label or {},
+            "url": item.url,
+            "sort_order": item.sort_order,
+        }
+        for item in db.scalars(
+            select(NavigationItem)
+            .where(NavigationItem.is_visible.is_(True))
+            .order_by(NavigationItem.location, NavigationItem.sort_order)
+        )
+    ]
+
     return {
         "locale": locale,
         "settings": settings,
+        "navigation": navigation,
         "collections": {
             key: [
                 serialize_public_item(
                     item,
                     locale,
                     contacts=contacts_by_requirement.get(item.id) if key == "requirements" else None,
+                    media_urls=media_urls,
                 )
                 for item in (requirement_rows if key == "requirements" else rows)
             ]

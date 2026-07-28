@@ -32,8 +32,13 @@ class Settings(BaseSettings):
     COOKIE_DOMAIN: str | None = None
     ACCESS_TOKEN_MINUTES: int = 15
     REFRESH_TOKEN_DAYS: int = 7
+    LOGIN_MAX_ATTEMPTS: int = 8
+    LOGIN_WINDOW_MINUTES: int = 15
     INITIAL_ADMIN_EMAIL: str | None = None
     INITIAL_ADMIN_PASSWORD: str | None = None
+    MEDIA_ROOT: str = "storage/media"
+    MEDIA_PUBLIC_BASE_URL: str = "http://localhost:8000/media"
+    MEDIA_MAX_UPLOAD_MB: int = 15
 
     @field_validator("APP_SECRET_KEY")
     @classmethod
@@ -54,7 +59,7 @@ class Settings(BaseSettings):
     @field_validator("TRUSTED_HOSTS")
     @classmethod
     def allow_internal_healthcheck_hosts(cls, value: list[str]) -> list[str]:
-        return list(dict.fromkeys([*value, "localhost", "127.0.0.1"]))
+        return list(dict.fromkeys([*value, "localhost", "127.0.0.1", "testserver"]))
 
     @property
     def is_production(self) -> bool:

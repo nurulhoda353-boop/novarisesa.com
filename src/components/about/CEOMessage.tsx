@@ -5,10 +5,12 @@ import Image from "next/image";
 import { Quote, ArrowUpRight } from "lucide-react";
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Reveal } from "@/components/site/Reveal";
 const ceoImg = "/assets/ceo-portrait.jpg";
 
 export function CEOMessage() {
+  const managedCeoImg = useCmsAsset("about.ceo", ceoImg);
   const { t } = useTranslation();
   return (
     <section id="ceo-message" className="relative py-16 lg:py-24 bg-white overflow-hidden">
@@ -38,7 +40,7 @@ export function CEOMessage() {
 
               <div className="relative h-[520px] rounded-2xl overflow-hidden border border-border shadow-elegant group">
                 <Image
-                  src={ceoImg}
+                  src={managedCeoImg}
                   alt="Portrait of the CEO of NOVARISE"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
@@ -94,4 +96,3 @@ export function CEOMessage() {
     </section>
   );
 }
-

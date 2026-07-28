@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { ContactView } from "@/views/ContactView";
+import { cmsPageMetadata } from "@/lib/cms-metadata";
 
-export const metadata: Metadata = {
+const fallbackMetadata: Metadata = {
   title: "Contact — NOVARISE Trading & Contracting",
   description:
     "Reach NOVARISE in Riyadh — phone, email, WhatsApp and inquiry form. We respond to RFQs and pre-qualification requests within one business day.",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
       "Send a message, request a callback or visit our Riyadh headquarters. Trusted by Aramco, SABIC and the Kingdom's leading EPCs.",
   },
 };
+export const generateMetadata = () => cmsPageMetadata("contact", fallbackMetadata);
 
 export default function Page() {
   return <ContactView />;

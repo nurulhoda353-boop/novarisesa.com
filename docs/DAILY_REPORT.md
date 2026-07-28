@@ -3,11 +3,12 @@
 > Living log for the full stack roadmap.  
 > **How to use:** প্রতিদিনের কাজ শেষে নতুন তারিখের সেকশন যোগ করো — Done + Tomorrow. পুরনো এন্ট্রি মুছো না।
 
-**Project:** Public website `novarisesa.com` (+ later CMS / Management / Mobile / API)  
+**Project:** Public website `novarisesa.com` + CMS Control Center + API
 **Stack (public site):** Next.js 15 App Router · React 19 · Tailwind v4 · i18n (EN/AR)  
-**Stack (backend — next):** FastAPI · PostgreSQL · SQLAlchemy/SQLModel · Alembic · JWT/auth  
+**Stack (backend):** FastAPI · PostgreSQL · SQLAlchemy · Alembic · JWT cookie auth · RBAC
+**Stack (CMS):** Next.js (`dashboard/`, port 3001) → `my.novarisesa.com`
 **Repo:** https://github.com/nurulhoda353-boop/novarisesa.com  
-**Live:** https://novarisesa.com · Coolify: https://coolify.novarisesa.com
+**Live:** https://novarisesa.com · Coolify: https://coolify.novarisesa.com · Email: info@novarisesa.com
 
 ---
 
@@ -67,6 +68,54 @@
 - Cloudflare Proxy/CDN পরে On করা যাবে (এখন DNS only; SSL স্থিতিশীল রাখতে)।
 - `coolify` সাবডোমেইন DNS only-ই রাখবে।
 - Next.js `output: "standalone"` + Nixpacks `next start` ওয়ার্নিং আছে — পরে স্টার্ট কমান্ড ক্লিনআপ করা যাবে।
+
+---
+
+## 2026-07-24 (শুক্রবার)
+
+### Done
+- Hostinger **Premium Business Email** সেটআপ শুরু ও ডোমেইন ভেরিফিকেশন (Cloudflare TXT)।
+- Cloudflare-এ মেইল DNS সম্পূর্ণ:
+  - MX: `mx1.hostinger.com` (5), `mx2.hostinger.com` (10)
+  - SPF: `v=spf1 include:_spf.mail.hostinger.com ~all`
+  - DKIM: `hostingermail-a/b/c._domainkey` → Hostinger CNAME
+  - DMARC: `_dmarc` (p=none)
+- মেইলবক্স তৈরি ও অ্যাক্টিভ: **`info@novarisesa.com`** (IMAP/POP3/SMTP চালু)।
+- Webmail যাচাই: Hostinger Mail ইনবক্স ওপেন।
+- মোবাইল **Gmail অ্যাপ** কানেক্ট গাইড (IMAP `imap.hostinger.com:993` / SMTP `smtp.hostinger.com:465`)।
+
+### Tomorrow / Next — planned
+1. **Backend API স্caffold** — FastAPI প্রজেক্ট স্ট্রাকচার (`api.novarisesa.com` টার্গেট)।
+2. **PostgreSQL** সেটআপ (লোকাল + পরে Coolify/VPS)।
+3. **SQLModel/SQLAlchemy মডেল** + **Alembic** মাইগ্রেশন বেসলাইন।
+4. **JWT auth** বেস (ইউজার/রোল স্কিমা — CMS/অ্যাপের জন্য প্রস্তুত)।
+5. সাইট ফর্ম/`mailto:` থেকে `info@novarisesa.com` / API পাথে মাইগ্রেশন প্ল্যান।
+
+### Notes
+- বিজনেস মেইল লাইভ; পাবলিক সাইট ফর্ম এখনো `mailto:` হতে পারে — পরে আপডেট।
+- Cloudflare/Hostinger API টোকেন চ্যাটে ব্যবহৃত হলে revoke করা উচিত।
+- পরবর্তী বড় মাইলস্টোন: FastAPI + PostgreSQL ব্যাকএন্ড।
+
+---
+
+## 2026-07-28 (মঙ্গলবার)
+
+### Done
+- ব্যাকএন্ড ঘাটতি বন্ধ: **RBAC permission enforcement** (`require_permission`) সব CMS রাউটে।
+- Media upload/storage API + `/media` static serve + CMS Media library UI।
+- Navigation, categories/tags CRUD API + dashboard UI; public `site-content`-এ navigation।
+- Users invite / role change / enable-disable; seeded `editor` role।
+- Workspace search (⌘K), inbox notification badge, guided content editor (EN/AR locale)।
+- `backend/.env.example` media settings; docs (`BACKEND_DATABASE.md`, এই রিপোর্ট) আপডেট।
+
+### Tomorrow (2026-07-29) — planned
+1. Postgres + bootstrap দিয়ে লোকাল API/CMS এন্ড-টু-এন্ড যাচাই।
+2. Coolify-তে media volume / production `MEDIA_PUBLIC_BASE_URL` সেট।
+3. Optional: S3 media backend ও richer content editor।
+
+### Notes
+- লোকাল রান: `backend/.env` কপি করে Postgres URL সেট → `alembic upgrade head` → `python -m app.bootstrap` → uvicorn; dashboard `npm run dev` (3001)।
+- Production-এ admin পাসওয়ার্ড `INITIAL_ADMIN_*` দিয়ে বুটস্ট্র্যাপের পর ঘোরানো উচিত।
 
 ---
 

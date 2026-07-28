@@ -31,10 +31,12 @@ import {
   type RequirementItem,
 } from "@/lib/requirements-data";
 import { useManagedRequirements } from "@/lib/use-cms-requirements";
+import { useCmsAsset } from "@/lib/cms-content";
 
 const heroImage = "/assets/requirements-hero.jpg";
 
 export function RequirementsView() {
+  const managedHeroImage = useCmsAsset("requirements.hero", heroImage);
   const { t } = useTranslation();
   const requirements = useManagedRequirements();
 
@@ -74,7 +76,7 @@ export function RequirementsView() {
           title={t("requirementsPage.hero.title")}
           description={t("requirementsPage.hero.description")}
           icon={AlertCircle}
-          heroImage={heroImage}
+          heroImage={managedHeroImage}
           crumbs={[{ label: t("requirementsPage.hero.crumb") }]}
           ctas={[
             { label: t("requirementsPage.hero.ctaView"), href: "#openings" },

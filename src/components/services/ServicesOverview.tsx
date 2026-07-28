@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Building2, Zap, Truck, HardHat, Cpu, Package, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
+import { useCmsContent } from "@/lib/cms-content";
 const imgCivil = "/assets/project-civil.jpg";
 const imgPower = "/assets/project-power.jpg";
 const imgRental = "/assets/project-equipment.jpg";
@@ -25,6 +26,20 @@ export const services: Card[] = [
 
 export function ServicesOverview() {
   const { t } = useTranslation();
+  const { collections } = useCmsContent();
+  const displayServices: Card[] = (collections.services ?? []).length
+    ? collections.services.map((item, index) => {
+        const fallback = services.find((service) => service.id === item.slug);
+        return {
+          id: item.slug,
+          num: String(item.data.number ?? item.sort_order ?? index + 1).padStart(2, "0"),
+          icon: fallback?.icon ?? Building2,
+          image: String(item.data.hero_media_url ?? fallback?.image ?? imgCivil),
+          titleFallback: item.title,
+          shortFallback: item.summary ?? "",
+        };
+      })
+    : services;
   return (
     <section className="relative py-16 lg:py-24 bg-white overflow-hidden">
       <div className="pointer-events-none absolute -top-40 -right-40 h-[480px] w-[480px] rounded-full bg-gold/10 blur-[140px] anim-breathe" />
@@ -44,7 +59,7 @@ export function ServicesOverview() {
         </Reveal>
 
         <StaggerGroup className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-7" stagger={0.07}>
-          {services.map((s) => {
+          {displayServices.map((s) => {
             const title = t(`serviceDetails.${s.id}.title`, { defaultValue: s.titleFallback });
             const short = t(`serviceDetails.${s.id}.lead`, { defaultValue: s.shortFallback });
             return (

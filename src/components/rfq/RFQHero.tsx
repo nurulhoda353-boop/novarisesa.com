@@ -2,17 +2,19 @@
 
 import { FileText, ArrowUpRight, Phone } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 const heroImg = "/assets/hero-industrial.jpg";
 import { PageHero } from "@/components/site/PageHero";
 
 export function RFQHero() {
+  const managedHeroImg = useCmsAsset("rfq.hero", heroImg);
   const { t } = useTranslation();
   return (
     <PageHero
       num="06"
       eyebrow={t("rfqPage.hero.eyebrow")}
       icon={FileText}
-      heroImage={heroImg}
+      heroImage={managedHeroImg}
       title={t("rfqPage.hero.title")}
       description={t("rfqPage.hero.description")}
       crumbs={[{ label: t("rfqPage.hero.crumb") }]}

@@ -4,6 +4,7 @@ import Image from "next/image";
 
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { ArrowUpRight, Mail, Briefcase, Users, MapPin, ShieldCheck } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 const careersImage = "/assets/manpower.jpg";
@@ -15,6 +16,7 @@ const stats = [
 ];
 
 export function CareersTeaser() {
+  const managedCareersImage = useCmsAsset("home.careers", careersImage);
   const { t } = useTranslation();
 
   return (
@@ -30,7 +32,7 @@ export function CareersTeaser() {
               <div className="absolute -inset-3 bg-gradient-to-br from-gold/30 to-transparent rounded-3xl blur-2xl opacity-60 group-hover:opacity-90 transition-opacity duration-700" />
               <div className="relative h-[420px] lg:h-[480px] overflow-hidden rounded-3xl border border-border shadow-elegant">
                 <Image
-                  src={careersImage}
+                  src={managedCareersImage}
                   alt="NOVARISE workforce on a Saudi industrial project site"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"

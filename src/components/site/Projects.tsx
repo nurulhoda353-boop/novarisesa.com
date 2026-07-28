@@ -8,13 +8,15 @@ import { Link } from "@/components/nav/AppLink";
 import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { SectionNumber } from "./SectionNumber";
 import { AnimatedHeading } from "./AnimatedHeading";
-import { featuredProjects } from "@/lib/projects-data";
+import { useManagedProjects } from "@/lib/use-managed-projects";
 
 export function Projects() {
+  const managedProjects = useManagedProjects();
+  const featuredProjects = managedProjects.filter((project) => project.featured);
   const { t } = useTranslation();
   const [i, setI] = useState(0);
-  const p = featuredProjects[i];
-  const total = featuredProjects.length;
+  const p = featuredProjects[i] ?? managedProjects[0];
+  const total = featuredProjects.length || managedProjects.length;
   const next = () => setI((i + 1) % total);
   const prev = () => setI((i - 1 + total) % total);
 

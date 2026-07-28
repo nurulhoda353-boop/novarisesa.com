@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { RequirementsView } from "@/views/RequirementsView";
+import { cmsPageMetadata } from "@/lib/cms-metadata";
 
-export const metadata: Metadata = {
+const fallbackMetadata: Metadata = {
   title: "Urgent Manpower Requirements — NOVARISE KSA",
   description:
     "Live urgent manpower requirements for NOVARISE Saudi Arabia projects — 6G welders, multi welders, electrical foremen and more. Apply via WhatsApp.",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
       "Aramco-approved positions hiring now. Long-term contracts, monthly salary, food & accommodation provided.",
   },
 };
+export const generateMetadata = () => cmsPageMetadata("requirements", fallbackMetadata);
 
 export default function Page() {
   return <RequirementsView />;

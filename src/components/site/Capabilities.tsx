@@ -3,6 +3,7 @@
 import Image from "next/image";
 
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Building2, Zap, Truck, HardHat, Cpu, Package, ArrowUpRight } from "lucide-react";
 import { Reveal, StaggerGroup, StaggerItem } from "./Reveal";
 import { SectionNumber } from "./SectionNumber";
@@ -18,6 +19,7 @@ const pillars = [
 ];
 
 export function Capabilities() {
+  const managedCapabilitiesHero = useCmsAsset("home.capabilities", capabilitiesHero);
   const { t } = useTranslation();
 
   return (
@@ -38,7 +40,7 @@ export function Capabilities() {
           </Reveal>
           <Reveal className="lg:col-span-5" delay={0.15}>
             <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-elegant border border-border">
-              <Image src={capabilitiesHero} alt="NOVARISE construction site at golden hour" fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
+              <Image src={managedCapabilitiesHero} alt="NOVARISE construction site at golden hour" fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
               <div className="absolute inset-0 bg-gradient-to-tr from-navy-deep/80 via-navy-deep/30 to-transparent" />
               <div className="absolute inset-0 p-5 flex flex-col justify-between">
                 <div className="self-end inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] uppercase tracking-[0.25em] text-white">

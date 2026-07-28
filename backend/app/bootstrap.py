@@ -18,6 +18,7 @@ CMS_PERMISSIONS = {
     "cms.view": "View the CMS dashboard",
     "cms.publish": "Publish website content",
     "cms.manage_content": "Create and edit website content",
+    "cms.manage_media": "Upload and manage media assets",
     "cms.manage_inbox": "Manage contact, RFQ, and application submissions",
     "cms.manage_settings": "Manage website configuration",
     "cms.manage_users": "Manage dashboard users and roles",
@@ -117,6 +118,24 @@ def bootstrap() -> None:
             db.add(owner)
             db.flush()
         owner.permissions = permissions
+
+        editor = db.scalar(select(Role).where(Role.name == "editor"))
+        if editor is None:
+            editor = Role(
+                name="editor",
+                description="Create and publish website content and media",
+                is_system=True,
+            )
+            db.add(editor)
+            db.flush()
+        editor_codes = {
+            "cms.view",
+            "cms.publish",
+            "cms.manage_content",
+            "cms.manage_media",
+            "cms.manage_inbox",
+        }
+        editor.permissions = [item for item in permissions if item.code in editor_codes]
         seed_requirements(db)
 
         if not settings.INITIAL_ADMIN_EMAIL or not settings.INITIAL_ADMIN_PASSWORD:

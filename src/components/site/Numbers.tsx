@@ -1,12 +1,14 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { useInView, useCountUp } from "@/hooks/use-count-up";
 import Image from "next/image";
 import { Calendar, Users, TrendingUp, Building2, type LucideIcon } from "lucide-react";
 const workforceImg = "/assets/manpower.jpg";
 
 export function Numbers() {
+  const managedWorkforceImg = useCmsAsset("home.workforce", workforceImg);
   const { t } = useTranslation();
   const { ref, visible } = useInView<HTMLElement>(0.25);
 
@@ -55,7 +57,7 @@ export function Numbers() {
           <div className="lg:col-span-5">
             <div className="relative h-full min-h-[380px] rounded-2xl overflow-hidden border border-border shadow-elegant group">
               <Image
-                src={workforceImg}
+                src={managedWorkforceImg}
                 alt="NOVARISE workforce on site"
                 fill
                 sizes="(max-width: 1024px) 100vw, 42vw"

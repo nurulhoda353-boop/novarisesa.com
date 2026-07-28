@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { HomeView } from "@/views/HomeView";
+import { cmsPageMetadata } from "@/lib/cms-metadata";
 
-export const metadata: Metadata = {
+const fallbackMetadata: Metadata = {
   title: "NOVARISE — Trading & Contracting Company | Saudi Arabia",
   description:
     "NOVARISE delivers world-class manpower, equipment rental and contracting solutions to Saudi Arabia's largest industrial megaprojects. Aramco & SABIC approved.",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
       "Trusted by Saudi Aramco, SABIC, Samsung Engineering & Hyundai. 2,500+ skilled workforce. Aligned with Vision 2030.",
   },
 };
+export const generateMetadata = () => cmsPageMetadata("home", fallbackMetadata);
 
 export default function Page() {
   return <HomeView />;

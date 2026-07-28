@@ -9,9 +9,10 @@ import { Footer } from "@/components/site/Footer";
 import { AnimatedHeading } from "@/components/site/AnimatedHeading";
 import { TiltCard } from "@/components/site/TiltCard";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
-import { allProjects } from "@/lib/projects-data";
+import { useManagedProjects } from "@/lib/use-managed-projects";
 
 export function ProjectsView() {
+  const allProjects = useManagedProjects();
   const { t } = useTranslation();
   const featured = allProjects.filter((p) => p.featured);
   const rest = allProjects.filter((p) => !p.featured);

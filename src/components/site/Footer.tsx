@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
 import { Mail, Phone, MapPin, Facebook, Linkedin, Twitter, Instagram, ArrowUpRight } from "lucide-react";
+import { useCmsAsset, useCmsNavigation } from "@/lib/cms-content";
 const logo = "/assets/logo-white-full.png";
 
 const linkBase =
@@ -14,16 +15,8 @@ const activeProps = {
 
 export function Footer() {
   const { t } = useTranslation();
-
-  const company: { key: keyof typeof companyLabels; to: string }[] = [
-    { key: "about", to: "/about" },
-    { key: "capabilities", to: "/capabilities" },
-    { key: "requirements", to: "/requirements" },
-    { key: "blog", to: "/blog" },
-    { key: "careers", to: "/careers" },
-    { key: "contact", to: "/contact" },
-    { key: "rfq", to: "/rfq" },
-  ];
+  const managedLogo = useCmsAsset("brand.logoWhite", logo);
+  const managedFooter = useCmsNavigation("footer");
   const companyLabels = {
     about: t("footer.links.about"),
     capabilities: t("footer.links.capabilities"),
@@ -33,6 +26,17 @@ export function Footer() {
     contact: t("footer.links.contact"),
     rfq: t("footer.links.rfq"),
   };
+  const company = managedFooter.length
+    ? managedFooter.map((item) => ({ label: item.label, to: item.url }))
+    : [
+        { label: companyLabels.about, to: "/about" },
+        { label: companyLabels.capabilities, to: "/capabilities" },
+        { label: companyLabels.requirements, to: "/requirements" },
+        { label: companyLabels.blog, to: "/blog" },
+        { label: companyLabels.careers, to: "/careers" },
+        { label: companyLabels.contact, to: "/contact" },
+        { label: companyLabels.rfq, to: "/rfq" },
+      ];
 
   const services: { key: string; to: string }[] = [
     { key: "civil", to: "/services/civil" },
@@ -59,7 +63,7 @@ export function Footer() {
             <Link to="/" aria-label="NOVARISE — Home" className="inline-block mb-5">
               <span className="relative block h-12 lg:h-14 w-44">
                 <Image
-                  src={logo}
+                  src={managedLogo}
                   alt="NOVARISE Trading and Contracting Company"
                   fill
                   sizes="176px"
@@ -99,7 +103,7 @@ export function Footer() {
                 {company.map((l) => (
                   <li key={l.to}>
                     <Link to={l.to} className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}>
-                      {companyLabels[l.key]}
+                      {l.label}
                     </Link>
                   </li>
                 ))}

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { ServicesView } from "@/views/ServicesView";
+import { cmsPageMetadata } from "@/lib/cms-metadata";
 
-export const metadata: Metadata = {
+const fallbackMetadata: Metadata = {
   title: "Our Services — NOVARISE Trading & Contracting",
   description:
     "NOVARISE delivers integrated contracting services across Saudi Arabia — civil construction, power, equipment rental, manpower supply, IT and materials trading. Aramco & SABIC approved.",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
       "Six integrated service pillars engineered for the Kingdom's largest industrial megaprojects — one accountable partner.",
   },
 };
+export const generateMetadata = () => cmsPageMetadata("services", fallbackMetadata);
 
 export default function Page() {
   return <ServicesView />;

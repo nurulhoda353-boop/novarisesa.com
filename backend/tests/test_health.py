@@ -9,6 +9,8 @@ def test_health() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "service": "novarise-api"}
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
 
 
 def test_legacy_coolify_database_url_is_normalized() -> None:
@@ -28,4 +30,5 @@ def test_internal_healthcheck_hosts_are_always_trusted() -> None:
         "api.novarisesa.com",
         "localhost",
         "127.0.0.1",
+        "testserver",
     ]

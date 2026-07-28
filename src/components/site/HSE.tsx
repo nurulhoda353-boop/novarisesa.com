@@ -3,12 +3,14 @@
 import Image from "next/image";
 
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { ShieldCheck } from "lucide-react";
 import { Reveal } from "./Reveal";
 import { AnimatedNumber } from "./AnimatedNumber";
 const hseImg = "/assets/hse-safety.jpg";
 
 export function HSE() {
+  const managedHseImg = useCmsAsset("home.hse", hseImg);
   const { t } = useTranslation();
   const stats = [
     { v: 2.1, suffix: "M+", key: "manHours", decimals: 1 },
@@ -24,7 +26,7 @@ export function HSE() {
           <Reveal className="lg:col-span-6">
             <div className="relative">
               <div className="relative aspect-[16/11] rounded-3xl overflow-hidden shadow-elegant">
-                <Image src={hseImg} alt="NOVARISE safety training session" fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" />
+                <Image src={managedHseImg} alt="NOVARISE safety training session" fill sizes="(max-width: 1024px) 100vw, 50vw" className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-tr from-navy/40 via-transparent to-transparent" />
               </div>
               <div className="absolute -bottom-6 -left-6 hidden md:flex items-center gap-3 rounded-2xl bg-card border border-border shadow-elegant px-5 py-4">

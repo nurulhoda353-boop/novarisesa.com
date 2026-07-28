@@ -20,6 +20,7 @@ import { Footer } from "@/components/site/Footer";
 import { PageHero } from "@/components/site/PageHero";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
 import { CTA } from "@/components/site/CTA";
+import { useCmsAsset } from "@/lib/cms-content";
 
 const heroImage = "/assets/manpower.jpg";
 
@@ -44,6 +45,7 @@ const openings = [
 ];
 
 export function CareersView() {
+  const managedHeroImage = useCmsAsset("careers.hero", heroImage);
   const { t } = useTranslation();
 
   return (
@@ -56,7 +58,7 @@ export function CareersView() {
           title={t("careersPage.hero.title")}
           description={t("careersPage.hero.description")}
           icon={Briefcase}
-          heroImage={heroImage}
+          heroImage={managedHeroImage}
           crumbs={[{ label: t("careersPage.hero.crumb") }]}
           ctas={[
             {

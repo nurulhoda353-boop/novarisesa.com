@@ -4,11 +4,13 @@ import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion
 import { ArrowUpRight } from "lucide-react";
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 const heroImg = "/assets/hero-industrial.jpg";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { MagneticButton } from "./MagneticButton";
 
 export function Hero() {
+  const managedHeroImg = useCmsAsset("home.hero", heroImg);
   const { t, i18n } = useTranslation();
   const isRtl = i18n.dir() === "rtl";
   const ref = useRef<HTMLElement>(null);
@@ -42,7 +44,7 @@ export function Hero() {
     >
       <motion.div style={{ y: yImg }} className="absolute inset-0 will-change-transform">
         <motion.img
-          src={heroImg}
+          src={managedHeroImg}
           alt="Saudi Arabian industrial megaproject at golden hour"
           className="w-full h-[115%] object-cover origin-center"
           width={1920}

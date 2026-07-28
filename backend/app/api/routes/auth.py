@@ -1,5 +1,7 @@
 import uuid
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
+from threading import Lock
 from typing import Annotated
 
 import jwt
@@ -7,7 +9,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.auth import CurrentUser
+from app.core.auth import CurrentUser, user_permission_codes
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import (
@@ -18,7 +20,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models import AuditLog, RefreshToken, User
+from app.models import AuditLog, RefreshToken, Role, User
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -28,6 +30,33 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth")
 DBSession = Annotated[Session, Depends(get_db)]
+_login_attempts: dict[str, list[datetime]] = defaultdict(list)
+_login_attempts_lock = Lock()
+
+
+def login_key(request: Request, email: str) -> str:
+    client = request.client.host if request.client else "unknown"
+    return f"{client}:{email.casefold()}"
+
+
+def check_login_rate_limit(request: Request, email: str) -> str:
+    key = login_key(request, email)
+    cutoff = datetime.now(UTC) - timedelta(minutes=settings.LOGIN_WINDOW_MINUTES)
+    with _login_attempts_lock:
+        recent = [attempt for attempt in _login_attempts[key] if attempt >= cutoff]
+        _login_attempts[key] = recent
+        if len(recent) >= settings.LOGIN_MAX_ATTEMPTS:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many sign-in attempts. Please try again later.",
+                headers={"Retry-After": str(settings.LOGIN_WINDOW_MINUTES * 60)},
+            )
+    return key
+
+
+def record_failed_login(key: str) -> None:
+    with _login_attempts_lock:
+        _login_attempts[key].append(datetime.now(UTC))
 
 
 def user_response(user: User) -> UserResponse:
@@ -36,6 +65,7 @@ def user_response(user: User) -> UserResponse:
         email=user.email,
         full_name=user.full_name,
         roles=[role.name for role in user.roles],
+        permissions=sorted(user_permission_codes(user)),
         last_login_at=user.last_login_at,
     )
 
@@ -106,9 +136,10 @@ def login(
     response: Response,
     db: DBSession,
 ) -> SessionResponse:
+    attempt_key = check_login_rate_limit(request, payload.email)
     user = db.scalar(
         select(User)
-        .options(selectinload(User.roles))
+        .options(selectinload(User.roles).selectinload(Role.permissions))
         .where(User.email == payload.email.lower())
     )
     if (
@@ -117,11 +148,14 @@ def login(
         or user.deleted_at is not None
         or not verify_password(payload.password, user.password_hash)
     ):
+        record_failed_login(attempt_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
+    with _login_attempts_lock:
+        _login_attempts.pop(attempt_key, None)
     user.last_login_at = datetime.now(UTC)
     issue_session(db, user, request, response)
     db.add(
@@ -177,7 +211,9 @@ def refresh_session(
         raise unauthorized
 
     user = db.scalar(
-        select(User).options(selectinload(User.roles)).where(User.id == user_id)
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.id == user_id)
     )
     if not user or not user.is_active or user.deleted_at is not None:
         raise unauthorized

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Link } from "@/components/nav/AppLink";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "framer-motion";
@@ -27,15 +27,17 @@ import {
   CalendarDays,
   Mail,
   Phone,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 const logoColor = "/assets/logo-navy-full.png";
 const logoWhite = "/assets/logo-white-full.png";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
+import { useCmsAsset, useCmsNavigation } from "@/lib/cms-content";
 
 
-type NavChild = { key: string; hash: string; icon: LucideIcon; labelKey?: string; descKey?: string };
-type NavItem = { key: string; hash: string; icon: LucideIcon; children?: NavChild[] };
+type NavChild = { key: string; hash: string; icon: LucideIcon; label?: string; labelKey?: string; descKey?: string };
+type NavItem = { key: string; hash: string; icon: LucideIcon; label?: string; children?: NavChild[] };
 
 const nav: NavItem[] = [
   { key: "home", hash: "/", icon: Home },
@@ -75,12 +77,33 @@ function isActivePath(pathname: string, href: string) {
 }
 
 export function Header() {
+  const managedLogoColor = useCmsAsset("brand.logoColor", logoColor);
+  const managedLogoWhite = useCmsAsset("brand.logoWhite", logoWhite);
+  const cmsNavigation = useCmsNavigation("header");
   const { t, i18n } = useTranslation();
   const pathname = usePathname();
   const isRtl = i18n.dir() === "rtl";
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [openSub, setOpenSub] = useState<string | null>(null);
+  const displayNav = useMemo<NavItem[]>(() => cmsNavigation.length
+    ? cmsNavigation
+        .filter((item) => !item.parent_id)
+        .map((item) => ({
+          key: item.id,
+          hash: item.url,
+          label: item.label,
+          icon: Link2,
+          children: cmsNavigation
+            .filter((child) => child.parent_id === item.id)
+            .map((child) => ({
+              key: child.id,
+              hash: child.url,
+              label: child.label,
+              icon: Link2,
+            })),
+        }))
+    : nav, [cmsNavigation]);
 
   const closeMenu = () => {
     setOpen(false);
@@ -111,11 +134,11 @@ export function Header() {
   // Auto-expand section that contains the active route
   useEffect(() => {
     if (!open) return;
-    const activeParent = nav.find(
+    const activeParent = displayNav.find(
       (item) => item.children?.some((c) => isActivePath(pathname, c.hash)),
     );
     if (activeParent) setOpenSub(activeParent.key);
-  }, [open, pathname]);
+  }, [open, pathname, displayNav]);
 
   return (
     <>
@@ -140,7 +163,7 @@ export function Header() {
             <Link to="/" className="relative flex items-center gap-2.5 pl-1 pr-3 group" aria-label="NOVARISE — Home">
               <div className="relative h-8 lg:h-9 w-[130px] lg:w-[170px] transition-transform duration-500 group-hover:scale-[1.03]">
                 <Image
-                  src={logoWhite}
+                  src={managedLogoWhite}
                   alt="NOVARISE Trading and Contracting Company"
                   fill
                   priority
@@ -148,7 +171,7 @@ export function Header() {
                   className={`object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)] transition-opacity duration-500 ${scrolled ? "opacity-0" : "opacity-100"}`}
                 />
                 <Image
-                  src={logoColor}
+                  src={managedLogoColor}
                   alt=""
                   aria-hidden
                   fill
@@ -160,7 +183,7 @@ export function Header() {
 
             {/* Center nav */}
             <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
-              {nav.map((item) => {
+              {displayNav.map((item) => {
                 const linkCls = `group relative inline-flex items-center gap-1 px-3.5 py-2 text-[15px] font-medium tracking-[0.005em] transition-colors rounded-full ${
                   scrolled ? "text-navy/75 hover:text-navy" : "text-white/85 hover:text-white"
                 }`;
@@ -174,7 +197,7 @@ export function Header() {
                   return (
                     <div key={item.key} className="relative group/menu">
                       <Link to={item.hash} className={linkCls}>
-                        {t(`nav.${item.key}`)}
+                        {item.label ?? t(`nav.${item.key}`)}
                         <ChevronDown className="h-3.5 w-3.5 opacity-60 transition-transform duration-300 group-hover/menu:rotate-180" />
                         {underline}
                       </Link>
@@ -192,7 +215,7 @@ export function Header() {
                                   <c.icon className="h-4 w-4" />
                                 </span>
                                 <span className="flex-1 min-w-0">
-                                  <span className="block text-sm font-semibold text-navy truncate">{c.labelKey ? t(c.labelKey) : t(`services.${c.key}.label`)}</span>
+                                  <span className="block text-sm font-semibold text-navy truncate">{c.label ?? (c.labelKey ? t(c.labelKey) : t(`services.${c.key}.label`))}</span>
                                   <span className="block text-[11px] text-muted-foreground mt-0.5 truncate">{c.descKey ? t(c.descKey) : t(`services.${c.key}.desc`)}</span>
                                 </span>
                               </Link>
@@ -206,7 +229,7 @@ export function Header() {
 
                 return (
                   <Link key={item.key} to={item.hash} className={linkCls}>
-                    {t(`nav.${item.key}`)}
+                    {item.label ?? t(`nav.${item.key}`)}
                     {underline}
                   </Link>
                 );
@@ -284,7 +307,7 @@ export function Header() {
               {/* Header: logo + lang + close */}
               <div className="relative flex items-center justify-between gap-2 px-4 h-14 border-b border-white/[0.08]">
                 <Link to="/" onClick={closeMenu} className="relative block h-7 w-[7rem] shrink-0" aria-label="NOVARISE — Home">
-                  <Image src={logoWhite} alt="NOVARISE" fill sizes="112px" className="object-contain object-left" />
+                  <Image src={managedLogoWhite} alt="NOVARISE" fill sizes="112px" className="object-contain object-left" />
                 </Link>
                 <div className="flex items-center gap-2">
                   <LanguageSwitcher variant="light" compact />
@@ -302,7 +325,7 @@ export function Header() {
               {/* Nav links */}
               <nav className="relative flex-1 overflow-y-auto overscroll-contain px-3 py-3">
                 <ul className="flex flex-col gap-1">
-                  {nav.map((item, i) => {
+                  {displayNav.map((item, i) => {
                     const Icon = item.icon;
                     const active = isActivePath(pathname, item.hash);
                     const hasChildren = Boolean(item.children?.length);
@@ -328,7 +351,7 @@ export function Header() {
                               }`}
                             >
                               <Icon className={`h-4 w-4 shrink-0 ${active || expanded ? "text-gold" : "text-white/55"}`} />
-                              <span className="flex-1 text-start">{t(`nav.${item.key}`)}</span>
+                              <span className="flex-1 text-start">{item.label ?? t(`nav.${item.key}`)}</span>
                               <ChevronDown
                                 className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${
                                   expanded ? "rotate-180 text-gold" : "text-white/35"
@@ -359,7 +382,7 @@ export function Header() {
                                           }`}
                                         >
                                           <c.icon className="h-3.5 w-3.5 shrink-0 opacity-80" />
-                                          <span>{c.labelKey ? t(c.labelKey) : t(`services.${c.key}.label`)}</span>
+                                          <span>{c.label ?? (c.labelKey ? t(c.labelKey) : t(`services.${c.key}.label`))}</span>
                                         </Link>
                                       );
                                     })}
@@ -379,7 +402,7 @@ export function Header() {
                             }`}
                           >
                             <Icon className={`h-4 w-4 shrink-0 ${active ? "text-gold" : "text-white/55"}`} />
-                            <span className="flex-1 text-start">{t(`nav.${item.key}`)}</span>
+                            <span className="flex-1 text-start">{item.label ?? t(`nav.${item.key}`)}</span>
                             <ChevronRight className={`h-3.5 w-3.5 shrink-0 transition-colors ${active ? "text-gold" : "text-white/25 group-hover:text-white/50"} ${isRtl ? "rotate-180" : ""}`} />
                           </Link>
                         )}

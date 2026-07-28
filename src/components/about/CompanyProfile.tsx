@@ -4,11 +4,13 @@ import Image from "next/image";
 
 import { Building2, Users, Globe2, Briefcase } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useCmsAsset } from "@/lib/cms-content";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
 import { AnimatedNumber } from "@/components/site/AnimatedNumber";
 const profileImg = "/assets/manpower.jpg";
 
 export function CompanyProfile() {
+  const managedProfileImg = useCmsAsset("about.profile", profileImg);
   const { t } = useTranslation();
   const pillars = [
     { icon: Building2, label: t("aboutPage.profile.pillars.civil") },
@@ -41,7 +43,7 @@ export function CompanyProfile() {
 
             <div className="mt-8 relative h-72 rounded-2xl overflow-hidden border border-border shadow-elegant group">
               <Image
-                src={profileImg}
+                src={managedProfileImg}
                 alt="NOVARISE crew on site"
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
@@ -99,4 +101,3 @@ export function CompanyProfile() {
     </section>
   );
 }
-
