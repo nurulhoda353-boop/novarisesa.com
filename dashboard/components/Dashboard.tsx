@@ -501,8 +501,6 @@ function SiteContentPage({ user }: { user: User }) {
   const [activePage, setActivePage] = useState("home");
   const [activeSection, setActiveSection] = useState("all");
   const [query, setQuery] = useState("");
-  const [advanced, setAdvanced] = useState(false);
-  const [raw, setRaw] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(true);
@@ -530,7 +528,6 @@ function SiteContentPage({ user }: { user: User }) {
           ? cloneDocument(stored.value)
           : cloneDocument(fallback);
       setDocument(nextDocument);
-      setRaw(JSON.stringify(nextDocument, null, 2));
       setAssets(Object.fromEntries(
         settingsResponse.items
           .filter((item) => item.group_name === "assets" && typeof item.value === "string")
@@ -614,20 +611,7 @@ function SiteContentPage({ user }: { user: User }) {
     if (leaf.value === null && rawValue === "") value = null;
     const next = replaceAtPath(document, leaf.path, value);
     setDocument(next);
-    setRaw(JSON.stringify(next, null, 2));
     setNotice("");
-  }
-
-  function applyRaw() {
-    try {
-      const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error();
-      setDocument(parsed);
-      setError("");
-      setNotice("Advanced changes applied. Save to publish them.");
-    } catch {
-      setError("The advanced JSON is not valid.");
-    }
   }
 
   async function save() {
@@ -668,7 +652,6 @@ function SiteContentPage({ user }: { user: User }) {
     if (!window.confirm(`Restore the bundled ${locale.toUpperCase()} copy in this editor?`)) return;
     const next = cloneDocument(defaults);
     setDocument(next);
-    setRaw(JSON.stringify(next, null, 2));
     setNotice("Defaults restored in the editor. Save to publish them.");
   }
 
@@ -684,10 +667,6 @@ function SiteContentPage({ user }: { user: User }) {
       ) : undefined}
     />
     <div className="content-editor-toolbar panel">
-      <div className="segmented">
-        <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
-        <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
-      </div>
       <div className="search-input">
         <Search size={17} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search website copy…" />
@@ -719,7 +698,13 @@ function SiteContentPage({ user }: { user: User }) {
         <div className="site-content-layout">
         <div className="panel copy-editor">
           <div className="section-editor-head">
-            <PanelTitle title={`${pageTitle(activePage)} copy`} detail={`${visible.length} of ${pageLeaves.length} editable values shown`} />
+            <div className="section-title-row">
+              <PanelTitle title={`${pageTitle(activePage)} copy`} detail={`${visible.length} of ${pageLeaves.length} editable values shown`} />
+              <div className="segmented language-tabs" aria-label="Content language">
+                <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
+                <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
+              </div>
+            </div>
             <div className="section-tabs">
               <button className={activeSection === "all" ? "active" : ""} onClick={() => setActiveSection("all")}>All</button>
               {sections.map((value) => (
@@ -756,14 +741,6 @@ function SiteContentPage({ user }: { user: User }) {
             ))}
             {!visible.length && <Empty copy="No content matches this page or filter." />}
           </div>
-          <label className="check-row advanced-toggle">
-            <input type="checkbox" checked={advanced} onChange={(event) => setAdvanced(event.target.checked)} />
-            Advanced structure editor
-          </label>
-          {advanced && <div className="advanced-editor">
-            <textarea rows={18} value={raw} onChange={(event) => setRaw(event.target.value)} spellCheck={false} />
-            <button className="secondary-button" onClick={applyRaw}>Apply structure</button>
-          </div>}
         </div>
         <div className="panel asset-editor">
           <PanelTitle title={`${pageTitle(activePage)} images`} detail={activeAssets.length ? "Choose an uploaded file or paste a CDN URL" : "No managed image slots on this page"} />
@@ -786,8 +763,7 @@ function SiteContentPage({ user }: { user: User }) {
                   onChange={(event) => setAssets({ ...assets, [key]: event.target.value })}
                   placeholder="https://…"
                 />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={value} alt="" />
+                <AssetPreview src={value} label={label} />
               </label>;
             })}
             {!activeAssets.length && <Empty copy="Image controls for this page will appear here when configured." />}
@@ -797,6 +773,31 @@ function SiteContentPage({ user }: { user: User }) {
       </section>
     )}
   </>;
+}
+
+function AssetPreview({ src, label }: { src: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return (
+      <div className="asset-preview empty-preview">
+        <ImageIcon size={22} />
+        <strong>{failed ? "Preview unavailable" : "No image selected"}</strong>
+        <small>{failed ? src : "Choose a media file or paste an image URL."}</small>
+      </div>
+    );
+  }
+
+  return (
+    <div className="asset-preview">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={`${label} preview`} onError={() => setFailed(true)} />
+    </div>
+  );
 }
 
 function ContentPage({ resource, user }: { resource: string; user: User }) {
@@ -910,7 +911,6 @@ function ContentModal({
   const [accommodation, setAccommodation] = useState("");
   const [documents, setDocuments] = useState("");
   const [bodyJson, setBodyJson] = useState("{}");
-  const [advanced, setAdvanced] = useState(false);
   const [categories, setCategories] = useState<TaxonomyItem[]>([]);
   const [tags, setTags] = useState<TaxonomyItem[]>([]);
   const [categoryId, setCategoryId] = useState("");
@@ -974,9 +974,7 @@ function ContentModal({
     setBodyError("");
     let parsedBody: Record<string, unknown> = {};
     try {
-      if (advanced) {
-        parsedBody = bodyJson.trim() ? JSON.parse(bodyJson) : {};
-      } else if (isService) {
+      if (isService) {
         parsedBody = { eyebrow, lead, intro, sub_services: [], faqs: [] };
         try {
           const existing = bodyJson.trim() ? JSON.parse(bodyJson) : {};
@@ -1004,7 +1002,7 @@ function ContentModal({
       }
     } catch {
       setSaving(false);
-      setBodyError("Body content is invalid. Check the fields or advanced JSON.");
+      setBodyError("Body content is invalid. Please reload this item and try again.");
       return;
     }
     const body = {
@@ -1056,6 +1054,7 @@ function ContentModal({
     : canPublish
       ? ["draft", "published", "archived"]
       : ["draft", "archived"];
+  const selectedMedia = mediaItems.find((media) => media.id === mediaId);
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -1074,12 +1073,13 @@ function ContentModal({
           <label>Identifier / slug
             <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
           </label>
-          <label>Locale
-            <select value={locale} onChange={(event) => setLocale(event.target.value)}>
-              <option value="en">English</option>
-              <option value="ar">Arabic</option>
-            </select>
-          </label>
+          <div className="full modal-language-row">
+            <span>Language</span>
+            <div className="segmented language-tabs" aria-label="Content language">
+              <button type="button" className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
+              <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
+            </div>
+          </div>
           <label>Status
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               {statusOptions.map((value) => <option key={value}>{value}</option>)}
@@ -1095,6 +1095,7 @@ function ContentModal({
                 <option value={media.id} key={media.id}>{media.file_name}</option>
               ))}
             </select>
+            <AssetPreview src={selectedMedia?.public_url ?? ""} label="Primary image" />
           </label>}
           {!isRequirement && <label className="check-row">
             <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
@@ -1111,7 +1112,7 @@ function ContentModal({
             <label className="full">Accommodation<input value={accommodation} onChange={(event) => setAccommodation(event.target.value)} /></label>
             <label className="full">Documents (one per line)<textarea rows={4} value={documents} onChange={(event) => setDocuments(event.target.value)} /></label>
           </>}
-          {isService && !advanced && <>
+          {isService && <>
             <label>Eyebrow<input value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} /></label>
             <label>Lead<input value={lead} onChange={(event) => setLead(event.target.value)} /></label>
             <label className="full">Intro<textarea rows={4} value={intro} onChange={(event) => setIntro(event.target.value)} /></label>
@@ -1139,15 +1140,6 @@ function ContentModal({
             </label>
           </>}
           <label className="full">Summary<textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
-          {(advanced || (!isService && !isRequirement)) && (
-            <label className="full">Body JSON<textarea rows={8} value={bodyJson} onChange={(event) => setBodyJson(event.target.value)} spellCheck={false} /></label>
-          )}
-          {(isService || isRequirement) && (
-            <label className="check-row full">
-              <input type="checkbox" checked={advanced} onChange={(event) => setAdvanced(event.target.checked)} />
-              Advanced JSON editor
-            </label>
-          )}
           {bodyError && <p className="form-error full">{bodyError}</p>}
           <label>Meta title<input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} /></label>
           <label>Meta description<textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} /></label>
