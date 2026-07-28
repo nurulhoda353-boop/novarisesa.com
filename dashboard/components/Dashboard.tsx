@@ -24,6 +24,7 @@ import {
   Settings,
   ShieldCheck,
   Tags,
+  Upload,
   Users,
   X,
 } from "lucide-react";
@@ -505,6 +506,7 @@ function SiteContentPage({ user }: { user: User }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingSlot, setUploadingSlot] = useState("");
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -648,6 +650,27 @@ function SiteContentPage({ user }: { user: User }) {
     }
   }
 
+  async function uploadAsset(slotKey: string, label: string, file?: File) {
+    if (!file || !can(user, "cms.manage_media")) return;
+    setUploadingSlot(slotKey);
+    setError("");
+    setNotice("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("folder", "site-content");
+      body.append("alt_en", label);
+      const uploaded = await api<MediaItem>("/cms/media", { method: "POST", body });
+      setMedia((items) => [uploaded, ...items.filter((item) => item.id !== uploaded.id)]);
+      setAssets((current) => ({ ...current, [slotKey]: uploaded.public_url }));
+      setNotice(`${label} image uploaded and selected. Save & publish to update the public site.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not upload image");
+    } finally {
+      setUploadingSlot("");
+    }
+  }
+
   function restoreDefaults() {
     if (!window.confirm(`Restore the bundled ${locale.toUpperCase()} copy in this editor?`)) return;
     const next = cloneDocument(defaults);
@@ -747,8 +770,32 @@ function SiteContentPage({ user }: { user: User }) {
           <div className="asset-fields">
             {activeAssets.map(({ key, label, fallback }) => {
               const value = assets[key] || fallback;
-              return <label key={key}>
+              return <article className="asset-slot" key={key}>
                 <span>{label}</span>
+                <AssetPreview src={value} label={label} />
+                <div className="asset-actions">
+                  <label className={`upload-inline ${uploadingSlot === key ? "loading" : ""}`}>
+                    <Upload size={15} />
+                    <span>{uploadingSlot === key ? "Uploading..." : "Browse & replace"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingSlot === key || !can(user, "cms.manage_media")}
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        void uploadAsset(key, label, file);
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="secondary-button mini"
+                    onClick={() => setAssets({ ...assets, [key]: fallback })}
+                  >
+                    Default
+                  </button>
+                </div>
                 <select
                   value={media.some((item) => item.public_url === value) ? value : ""}
                   onChange={(event) => setAssets({ ...assets, [key]: event.target.value || fallback })}
@@ -763,8 +810,7 @@ function SiteContentPage({ user }: { user: User }) {
                   onChange={(event) => setAssets({ ...assets, [key]: event.target.value })}
                   placeholder="https://…"
                 />
-                <AssetPreview src={value} label={label} />
-              </label>;
+              </article>;
             })}
             {!activeAssets.length && <Empty copy="Image controls for this page will appear here when configured." />}
           </div>
@@ -777,17 +823,18 @@ function SiteContentPage({ user }: { user: User }) {
 
 function AssetPreview({ src, label }: { src: string; label: string }) {
   const [failed, setFailed] = useState(false);
+  const previewSrc = src.startsWith("/") ? `https://novarisesa.com${src}` : src;
 
   useEffect(() => {
     setFailed(false);
-  }, [src]);
+  }, [previewSrc]);
 
-  if (!src || failed) {
+  if (!previewSrc || failed) {
     return (
       <div className="asset-preview empty-preview">
         <ImageIcon size={22} />
         <strong>{failed ? "Preview unavailable" : "No image selected"}</strong>
-        <small>{failed ? src : "Choose a media file or paste an image URL."}</small>
+        <small>{failed ? previewSrc : "Choose a media file or paste an image URL."}</small>
       </div>
     );
   }
@@ -795,7 +842,7 @@ function AssetPreview({ src, label }: { src: string; label: string }) {
   return (
     <div className="asset-preview">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={`${label} preview`} onError={() => setFailed(true)} />
+      <img src={previewSrc} alt={`${label} preview`} onError={() => setFailed(true)} />
     </div>
   );
 }
