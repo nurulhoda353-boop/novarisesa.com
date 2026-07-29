@@ -13,8 +13,6 @@ import {
   Globe2,
   ImageIcon,
   Inbox,
-  LayoutTemplate,
-  Link2,
   LogOut,
   Menu,
   MessageSquareText,
@@ -23,7 +21,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Tags,
   Upload,
   Users,
   X,
@@ -102,12 +99,13 @@ type TeamUser = {
 };
 
 const contentNav = [
-  ["pages", "Pages", LayoutTemplate],
   ["services", "Services", BriefcaseBusiness],
   ["projects", "Projects", FolderKanban],
   ["posts", "Insights", Newspaper],
   ["requirements", "Requirements", Users],
 ] as const;
+const hiddenRoutes = new Set(["media", "navigation", "taxonomy"]);
+const hiddenContentResources = new Set(["pages"]);
 const inboxNav = [
   ["contact", "Contact", MessageSquareText],
   ["rfq", "RFQ", FileText],
@@ -179,6 +177,15 @@ export default function Dashboard({ route }: { route: string[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    if (
+      hiddenRoutes.has(route[0] ?? "") ||
+      (route[0] === "content" && hiddenContentResources.has(route[1] ?? ""))
+    ) {
+      router.replace("/site-content");
+    }
+  }, [route, router]);
+
   async function logout() {
     await api("/auth/logout", { method: "POST" });
     router.replace("/");
@@ -201,9 +208,6 @@ export default function Dashboard({ route }: { route: string[] }) {
         {contentNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/content/${key}`} icon={Icon} label={label} active={active === `content/${key}`} />
         ))}
-        <Nav href="/media" icon={ImageIcon} label="Media library" active={active === "media"} />
-        <Nav href="/navigation" icon={Link2} label="Navigation" active={active === "navigation"} />
-        <Nav href="/taxonomy" icon={Tags} label="Categories & tags" active={active === "taxonomy"} />
         <p className="nav-label">Inbox</p>
         {inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
@@ -233,10 +237,9 @@ export default function Dashboard({ route }: { route: string[] }) {
         <main className="content">
           {route[0] === "overview" && <OverviewPage user={user} />}
           {route[0] === "site-content" && <SiteContentPage user={user} />}
-          {route[0] === "content" && <ContentPage resource={route[1] ?? "pages"} user={user} />}
-          {route[0] === "media" && <MediaPage user={user} />}
-          {route[0] === "navigation" && <NavigationPage user={user} />}
-          {route[0] === "taxonomy" && <TaxonomyPage user={user} />}
+          {route[0] === "content" && !hiddenContentResources.has(route[1] ?? "") && (
+            <ContentPage resource={route[1] ?? "services"} user={user} />
+          )}
           {route[0] === "inbox" && <InboxPage inbox={route[1] ?? "contact"} />}
           {route[0] === "settings" && <SettingsPage />}
           {route[0] === "users" && <UsersPage user={user} />}
@@ -283,7 +286,7 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
     const timer = window.setTimeout(() => {
       setBusy(true);
       api<{ items: SearchHit[] }>(`/cms/search?q=${encodeURIComponent(query.trim())}`)
-        .then((response) => setItems(response.items))
+        .then((response) => setItems(response.items.filter((item) => !isHiddenDashboardHref(item.href))))
         .finally(() => setBusy(false));
     }, 220);
     return () => window.clearTimeout(timer);
@@ -321,6 +324,13 @@ function SearchPalette({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+}
+
+function isHiddenDashboardHref(href: string) {
+  return href === "/media" ||
+    href === "/navigation" ||
+    href === "/taxonomy" ||
+    href === "/content/pages";
 }
 
 function OverviewPage({ user }: { user: User }) {
@@ -421,6 +431,7 @@ type ContentLeaf = {
   page: string;
   section: string;
   label: string;
+  context: string;
   value: string | number | boolean | null;
 };
 
@@ -442,7 +453,7 @@ const contentPageGroups: ContentPageGroup[] = [
   { id: "contact", title: "Contact", detail: "Contact page, office details and contact form labels", roots: ["contactPage"] },
   { id: "rfq", title: "RFQ", detail: "RFQ page, quote form and sidebar copy", roots: ["rfqPage"] },
   { id: "blog", title: "Insights", detail: "Blog, events, newsletter and article labels", roots: ["blogPage"] },
-  { id: "navigation", title: "Navigation", detail: "Menus, language switcher and global labels", roots: ["nav", "language"] },
+  { id: "navigation", title: "Menus & language", detail: "Header menu, language switcher and global labels", roots: ["nav", "language"] },
   { id: "global", title: "Global sections", detail: "Shared footer, call to action and reusable labels", roots: ["footer", "cta"] },
 ];
 
@@ -467,14 +478,15 @@ function contentLeaves(value: unknown, path: Array<string | number> = []): Conte
   if (value && typeof value === "object") {
     return Object.entries(value).flatMap(([key, entry]) => contentLeaves(entry, [...path, key]));
   }
-  const pathText = path.map((part) => typeof part === "number" ? `Item ${part + 1}` : humanize(part)).join(" / ");
+  const labels = path.map((part) => typeof part === "number" ? `Item ${part + 1}` : humanize(part));
   const root = String(path[0] ?? "general");
   const sectionSource = typeof path[1] === "string" ? path[1] : root;
   return [{
     path,
     page: pageForRoot(root),
     section: sectionSource,
-    label: pathText,
+    label: labels.at(-1) ?? "Value",
+    context: labels.slice(0, -1).join(" / "),
     value: value as ContentLeaf["value"],
   }];
 }
@@ -593,7 +605,7 @@ function SiteContentPage({ user }: { user: User }) {
     return pageLeaves.filter((leaf) => {
       if (activeSection !== "all" && leaf.section !== activeSection) return false;
       if (!needle) return true;
-      return `${leaf.label} ${String(leaf.value ?? "")}`.toLowerCase().includes(needle);
+      return `${leaf.label} ${leaf.context} ${String(leaf.value ?? "")}`.toLowerCase().includes(needle);
     });
   }, [activeSection, pageLeaves, query]);
 
@@ -682,7 +694,7 @@ function SiteContentPage({ user }: { user: User }) {
     <PageHead
       eyebrow="Visual content editor"
       title="Site content"
-      copy="Edit every public website label, paragraph, list and image without touching code."
+      copy="Choose a page, edit its text, replace its images, then publish the update to the website."
       action={can(user, "cms.manage_settings") ? (
         <button className="primary-button compact" onClick={save} disabled={saving}>
           {saving ? "Publishing…" : "Save & publish"}
@@ -701,7 +713,13 @@ function SiteContentPage({ user }: { user: User }) {
     {busy ? <Skeleton /> : (
       <section className="site-content-shell">
         <aside className="panel content-page-list">
-          <PanelTitle title="Pages" detail="Choose one website area" />
+          <PanelTitle title="Website areas" detail="Choose one area to edit" />
+          <div className="content-guide">
+            <span>1. Pick website area</span>
+            <span>2. Choose section</span>
+            <span>3. Edit text or replace image</span>
+            <span>4. Save & publish</span>
+          </div>
           <div>
             {pages.map((page) => (
               <button
@@ -722,7 +740,7 @@ function SiteContentPage({ user }: { user: User }) {
         <div className="panel copy-editor">
           <div className="section-editor-head">
             <div className="section-title-row">
-              <PanelTitle title={`${pageTitle(activePage)} copy`} detail={`${visible.length} of ${pageLeaves.length} editable values shown`} />
+              <PanelTitle title={`${pageTitle(activePage)} content`} detail={`${visible.length} of ${pageLeaves.length} editable fields shown`} />
               <div className="segmented language-tabs" aria-label="Content language">
                 <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
                 <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
@@ -740,7 +758,7 @@ function SiteContentPage({ user }: { user: User }) {
           <div className="copy-fields" dir={locale === "ar" ? "rtl" : "ltr"}>
             {visible.map((leaf) => (
               <label key={leaf.path.join(".")}>
-                <span>{leaf.label}</span>
+                <span>{leaf.label}{leaf.context && <small>{leaf.context}</small>}</span>
                 {typeof leaf.value === "boolean" ? (
                   <input
                     type="checkbox"
@@ -1202,6 +1220,7 @@ function ContentModal({
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MediaPage({ user }: { user: User }) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(true);
@@ -1300,6 +1319,7 @@ function MediaPage({ user }: { user: User }) {
   </>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NavigationPage({ user }: { user: User }) {
   const [items, setItems] = useState<NavItem[]>([]);
   const [form, setForm] = useState({
@@ -1395,6 +1415,7 @@ function NavigationPage({ user }: { user: User }) {
   </>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TaxonomyPage({ user }: { user: User }) {
   const [kind, setKind] = useState<"categories" | "tags">("categories");
   const [items, setItems] = useState<TaxonomyItem[]>([]);
