@@ -600,6 +600,10 @@ function SiteContentPage({ user }: { user: User }) {
     () => assetPageSlots.filter((slot) => slot.page === activePage),
     [activePage, assetPageSlots],
   );
+  const visibleAssets = useMemo(
+    () => activeAssets.filter((slot) => activeSection === "all" || slot.key.split(".")[1] === activeSection),
+    [activeAssets, activeSection],
+  );
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return pageLeaves.filter((leaf) => {
@@ -702,6 +706,10 @@ function SiteContentPage({ user }: { user: User }) {
       ) : undefined}
     />
     <div className="content-editor-toolbar panel">
+      <div className="segmented language-tabs" aria-label="Content language">
+        <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
+        <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
+      </div>
       <div className="search-input">
         <Search size={17} />
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search website copy…" />
@@ -725,7 +733,10 @@ function SiteContentPage({ user }: { user: User }) {
               <button
                 key={page.id}
                 className={activePage === page.id ? "active" : ""}
-                onClick={() => setActivePage(page.id)}
+                onClick={() => {
+                  setActivePage(page.id);
+                  setActiveSection("all");
+                }}
               >
                 <span>
                   <strong>{page.title}</strong>
@@ -741,18 +752,6 @@ function SiteContentPage({ user }: { user: User }) {
           <div className="section-editor-head">
             <div className="section-title-row">
               <PanelTitle title={`${pageTitle(activePage)} content`} detail={`${visible.length} of ${pageLeaves.length} editable fields shown`} />
-              <div className="segmented language-tabs" aria-label="Content language">
-                <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
-                <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
-              </div>
-            </div>
-            <div className="section-tabs">
-              <button className={activeSection === "all" ? "active" : ""} onClick={() => setActiveSection("all")}>All</button>
-              {sections.map((value) => (
-                <button className={activeSection === value ? "active" : ""} onClick={() => setActiveSection(value)} key={value}>
-                  {humanize(value)}
-                </button>
-              ))}
             </div>
           </div>
           <div className="copy-fields" dir={locale === "ar" ? "rtl" : "ltr"}>
@@ -782,57 +781,69 @@ function SiteContentPage({ user }: { user: User }) {
             ))}
             {!visible.length && <Empty copy="No content matches this page or filter." />}
           </div>
+          {visibleAssets.length > 0 && (
+            <div className="inline-asset-block">
+              <PanelTitle title={`${activeSection === "all" ? pageTitle(activePage) : humanize(activeSection)} images`} detail="Replace the matching website images beside the content they belong to" />
+              <div className="asset-fields inline-assets">
+                {visibleAssets.map(({ key, label, fallback }) => {
+                  const value = assets[key] || fallback;
+                  return <article className="asset-slot" key={key}>
+                    <span>{label}</span>
+                    <AssetPreview src={value} label={label} />
+                    <div className="asset-actions">
+                      <label className={`upload-inline ${uploadingSlot === key ? "loading" : ""}`}>
+                        <Upload size={15} />
+                        <span>{uploadingSlot === key ? "Uploading..." : "Browse & replace"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingSlot === key || !can(user, "cms.manage_media")}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            void uploadAsset(key, label, file);
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="secondary-button mini"
+                        onClick={() => setAssets({ ...assets, [key]: fallback })}
+                      >
+                        Default
+                      </button>
+                    </div>
+                    <select
+                      value={media.some((item) => item.public_url === value) ? value : ""}
+                      onChange={(event) => setAssets({ ...assets, [key]: event.target.value || fallback })}
+                    >
+                      <option value="">Bundled default</option>
+                      {media.filter((item) => item.mime_type.startsWith("image/")).map((item) => (
+                        <option value={item.public_url} key={item.id}>{item.file_name}</option>
+                      ))}
+                    </select>
+                  </article>;
+                })}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="panel asset-editor">
-          <PanelTitle title={`${pageTitle(activePage)} images`} detail={activeAssets.length ? "Choose an uploaded file or paste a CDN URL" : "No managed image slots on this page"} />
-          <div className="asset-fields">
-            {activeAssets.map(({ key, label, fallback }) => {
-              const value = assets[key] || fallback;
-              return <article className="asset-slot" key={key}>
-                <span>{label}</span>
-                <AssetPreview src={value} label={label} />
-                <div className="asset-actions">
-                  <label className={`upload-inline ${uploadingSlot === key ? "loading" : ""}`}>
-                    <Upload size={15} />
-                    <span>{uploadingSlot === key ? "Uploading..." : "Browse & replace"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingSlot === key || !can(user, "cms.manage_media")}
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        event.target.value = "";
-                        void uploadAsset(key, label, file);
-                      }}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="secondary-button mini"
-                    onClick={() => setAssets({ ...assets, [key]: fallback })}
-                  >
-                    Default
-                  </button>
-                </div>
-                <select
-                  value={media.some((item) => item.public_url === value) ? value : ""}
-                  onChange={(event) => setAssets({ ...assets, [key]: event.target.value || fallback })}
-                >
-                  <option value="">Bundled default</option>
-                  {media.filter((item) => item.mime_type.startsWith("image/")).map((item) => (
-                    <option value={item.public_url} key={item.id}>{item.file_name}</option>
-                  ))}
-                </select>
-                <input
-                  value={value}
-                  onChange={(event) => setAssets({ ...assets, [key]: event.target.value })}
-                  placeholder="https://…"
-                />
-              </article>;
-            })}
-            {!activeAssets.length && <Empty copy="Image controls for this page will appear here when configured." />}
+        <aside className="panel section-control-panel">
+          <PanelTitle title="Section" detail="Select one section, or keep the full page editable" />
+          <label className="section-select-field">Editing scope
+            <select value={activeSection} onChange={(event) => setActiveSection(event.target.value)}>
+              <option value="all">Full page</option>
+              {sections.map((value) => <option value={value} key={value}>{humanize(value)}</option>)}
+            </select>
+          </label>
+          <div className="search-input">
+            <Search size={17} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search content..." />
           </div>
-        </div>
+          <p className="section-help">
+            Click a page on the left. Until you choose a section here, the full page stays editable.
+          </p>
+        </aside>
         </div>
       </section>
     )}
