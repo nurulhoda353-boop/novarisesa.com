@@ -505,6 +505,30 @@ function replaceAtPath(
   return next;
 }
 
+function leafText(leaf?: ContentLeaf) {
+  if (!leaf || leaf.value === null || typeof leaf.value === "boolean") return "";
+  return String(leaf.value).trim();
+}
+
+function findCopy(leaves: ContentLeaf[], names: string[]) {
+  const lowered = names.map((name) => name.toLowerCase());
+  return leaves.find((leaf) => {
+    const label = leaf.label.toLowerCase();
+    const context = leaf.context.toLowerCase();
+    return lowered.some((name) => label.includes(name) || context.includes(name)) && leafText(leaf);
+  });
+}
+
+function sectionPreviewCopy(leaves: ContentLeaf[]) {
+  const title = leafText(findCopy(leaves, ["title", "headline", "heading", "name"])) ||
+    leafText(leaves.find((leaf) => leafText(leaf).length > 3)) ||
+    "Untitled section";
+  const body = leafText(findCopy(leaves, ["subtitle", "summary", "lead", "description", "copy", "body"])) ||
+    leafText(leaves.find((leaf) => leafText(leaf).length > 40 && leafText(leaf) !== title)) ||
+    "Open this section to edit the website text and image.";
+  return { title, body };
+}
+
 function SiteContentPage({ user }: { user: User }) {
   const [locale, setLocale] = useState<"en" | "ar">("en");
   const [document, setDocument] = useState<Record<string, unknown>>({});
@@ -612,6 +636,23 @@ function SiteContentPage({ user }: { user: User }) {
       return `${leaf.label} ${leaf.context} ${String(leaf.value ?? "")}`.toLowerCase().includes(needle);
     });
   }, [activeSection, pageLeaves, query]);
+  const sectionCards = useMemo(() => {
+    const names = Array.from(new Set([
+      ...pageLeaves.map((leaf) => leaf.section),
+      ...activeAssets.map((slot) => slot.key.split(".")[1]).filter(Boolean),
+    ])).sort();
+    return names.map((section) => {
+      const fields = pageLeaves.filter((leaf) => leaf.section === section);
+      const images = activeAssets.filter((slot) => slot.key.split(".")[1] === section);
+      const preview = sectionPreviewCopy(fields);
+      const image = images.map((slot) => assets[slot.key] || slot.fallback).find(Boolean) ?? "";
+      return { section, fields, images, preview, image };
+    });
+  }, [activeAssets, assets, pageLeaves]);
+  const activePageInfo = pages.find((page) => page.id === activePage);
+  const selectedSection = activeSection === "all"
+    ? null
+    : sectionCards.find((section) => section.section === activeSection) ?? null;
 
   useEffect(() => {
     if (pages.length && !pages.some((page) => page.id === activePage)) {
@@ -692,6 +733,217 @@ function SiteContentPage({ user }: { user: User }) {
     const next = cloneDocument(defaults);
     setDocument(next);
     setNotice("Defaults restored in the editor. Save to publish them.");
+  }
+
+  const editorExperience = "mini-site";
+  if (editorExperience === "mini-site") {
+    return <>
+      <PageHead
+        eyebrow="Mini website editor"
+        title="Site content"
+        copy="Edit each website page like a familiar social post: open a page, choose a section, change the image and text, then publish."
+        action={can(user, "cms.manage_settings") ? (
+          <button className="primary-button compact" onClick={save} disabled={saving}>
+            {saving ? "Publishing..." : "Save & publish"}
+          </button>
+        ) : undefined}
+      />
+      <div className="content-editor-toolbar panel mini-toolbar">
+        <div>
+          <strong>Editing language</strong>
+          <div className="segmented language-tabs" aria-label="Content language">
+            <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
+            <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
+          </div>
+        </div>
+        <div className="toolbar-actions">
+          <div className="search-input">
+            <Search size={17} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search this mini site..." />
+          </div>
+          <button className="secondary-button" onClick={restoreDefaults}>Restore defaults</button>
+        </div>
+      </div>
+      {error && <p className="form-error notice-bar">{error}</p>}
+      {notice && <p className="success-note notice-bar">{notice}</p>}
+      {busy ? <Skeleton /> : (
+        <section className="site-content-shell mini-site-editor">
+          <aside className="panel content-page-list website-map">
+            <PanelTitle title="Website map" detail="Pick a page to open its mini version" />
+            <div>
+              {pages.map((page) => (
+                <button
+                  key={page.id}
+                  className={activePage === page.id ? "active" : ""}
+                  onClick={() => {
+                    setActivePage(page.id);
+                    setActiveSection("all");
+                  }}
+                >
+                  <span>
+                    <strong>{page.title}</strong>
+                    <small>{page.detail}</small>
+                  </span>
+                  <b>{page.fields}{page.images ? ` + ${page.images} img` : ""}</b>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <div className="mini-site-stage">
+            <div className="panel mini-browser">
+              <div className="mini-browser-bar">
+                <span><i /> <i /> <i /></span>
+                <strong>novarisesa.com / {activePage}</strong>
+                <a href={`https://novarisesa.com/${activePage === "home" ? "" : activePage}`} target="_blank" rel="noreferrer">
+                  <Globe2 size={14} /> Open live
+                </a>
+              </div>
+              <header className="mini-page-cover">
+                <div>
+                  <p className="eyebrow">{locale.toUpperCase()} page preview</p>
+                  <h2>{activePageInfo?.title ?? pageTitle(activePage)}</h2>
+                  <p>{activePageInfo?.detail ?? "Website copy and images"}</p>
+                </div>
+                <div className="mini-page-stats">
+                  <span>{pageLeaves.length} text fields</span>
+                  <span>{activeAssets.length} images</span>
+                </div>
+              </header>
+              <div className="section-feed">
+                <button
+                  type="button"
+                  className={`section-post all-post ${activeSection === "all" ? "active" : ""}`}
+                  onClick={() => setActiveSection("all")}
+                >
+                  <div className="post-avatar"><FilePenLine size={18} /></div>
+                  <div>
+                    <strong>Full page</strong>
+                    <p>Show every editable text and image from this page in the editor.</p>
+                    <small>{pageLeaves.length} fields and {activeAssets.length} images</small>
+                  </div>
+                </button>
+                {sectionCards.map(({ section, fields, images, preview, image }) => (
+                  <button
+                    type="button"
+                    key={section}
+                    className={`section-post ${activeSection === section ? "active" : ""}`}
+                    onClick={() => setActiveSection(section)}
+                  >
+                    <div className="post-avatar">{humanize(section).slice(0, 1)}</div>
+                    <div className="post-body">
+                      <span className="post-kicker">{humanize(section)}</span>
+                      <strong>{preview.title}</strong>
+                      <p>{preview.body}</p>
+                      {image ? <AssetPreview src={image} label={preview.title} /> : (
+                        <div className="mini-empty-image"><ImageIcon size={18} /> Text-only section</div>
+                      )}
+                      <small>{fields.length} editable fields{images.length ? ` / ${images.length} image slots` : ""}</small>
+                    </div>
+                    <ChevronRight size={17} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <aside className="panel post-composer">
+            <div className="composer-head">
+              <div className="post-avatar brand">N</div>
+              <div>
+                <p className="eyebrow">Editing now</p>
+                <h2>{activeSection === "all" ? `${pageTitle(activePage)} page` : humanize(activeSection)}</h2>
+                <span>{visible.length} visible fields</span>
+              </div>
+            </div>
+            {selectedSection?.image && <AssetPreview src={selectedSection.image} label={selectedSection.preview.title} />}
+            <div className="composer-tools">
+              <label className="section-select-field">Section
+                <select value={activeSection} onChange={(event) => setActiveSection(event.target.value)}>
+                  <option value="all">Full page</option>
+                  {sections.map((value) => <option value={value} key={value}>{humanize(value)}</option>)}
+                </select>
+              </label>
+              <div className="search-input">
+                <Search size={17} />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a field..." />
+              </div>
+            </div>
+            <div className="composer-fields" dir={locale === "ar" ? "rtl" : "ltr"}>
+              {visible.map((leaf) => (
+                <label key={leaf.path.join(".")}>
+                  <span>{leaf.label}{leaf.context && <small>{leaf.context}</small>}</span>
+                  {typeof leaf.value === "boolean" ? (
+                    <input
+                      type="checkbox"
+                      checked={leaf.value}
+                      onChange={(event) => updateLeaf(leaf, event.target.checked)}
+                    />
+                  ) : String(leaf.value ?? "").length > 90 ? (
+                    <textarea
+                      rows={4}
+                      value={String(leaf.value ?? "")}
+                      onChange={(event) => updateLeaf(leaf, event.target.value)}
+                    />
+                  ) : (
+                    <input
+                      type={typeof leaf.value === "number" ? "number" : "text"}
+                      value={String(leaf.value ?? "")}
+                      onChange={(event) => updateLeaf(leaf, event.target.value)}
+                    />
+                  )}
+                </label>
+              ))}
+              {!visible.length && <Empty copy="No content matches this page or filter." />}
+            </div>
+            {visibleAssets.length > 0 && (
+              <div className="composer-assets">
+                <PanelTitle title="Images" detail="Replace the visual used by this page or section" />
+                {visibleAssets.map(({ key, label, fallback }) => {
+                  const value = assets[key] || fallback;
+                  return <article className="asset-slot" key={key}>
+                    <span>{label}</span>
+                    <AssetPreview src={value} label={label} />
+                    <div className="asset-actions">
+                      <label className={`upload-inline ${uploadingSlot === key ? "loading" : ""}`}>
+                        <Upload size={15} />
+                        <span>{uploadingSlot === key ? "Uploading..." : "Replace"}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingSlot === key || !can(user, "cms.manage_media")}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            event.target.value = "";
+                            void uploadAsset(key, label, file);
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="secondary-button mini"
+                        onClick={() => setAssets({ ...assets, [key]: fallback })}
+                      >
+                        Default
+                      </button>
+                    </div>
+                    <select
+                      value={media.some((item) => item.public_url === value) ? value : ""}
+                      onChange={(event) => setAssets({ ...assets, [key]: event.target.value || fallback })}
+                    >
+                      <option value="">Bundled default</option>
+                      {media.filter((item) => item.mime_type.startsWith("image/")).map((item) => (
+                        <option value={item.public_url} key={item.id}>{item.file_name}</option>
+                      ))}
+                    </select>
+                  </article>;
+                })}
+              </div>
+            )}
+          </aside>
+        </section>
+      )}
+    </>;
   }
 
   return <>
