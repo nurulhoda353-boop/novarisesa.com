@@ -5,6 +5,7 @@ import {
   Bell,
   BookOpen,
   BriefcaseBusiness,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -111,6 +112,7 @@ const contentNav = [
   ["projects", "Projects", FolderKanban],
   ["posts", "Insights", Newspaper],
   ["requirements", "Requirements", Users],
+  ["events", "Events", CalendarDays],
 ] as const;
 const hiddenContentResources = new Set(["pages"]);
 const inboxNav = [
@@ -799,6 +801,13 @@ function contentDetailToUpsertPayload(
       category_id: detail.extra.category_id || null,
       tag_ids: Array.isArray(detail.extra.tag_ids) ? detail.extra.tag_ids : [],
     });
+  } else if (resource === "events") {
+    Object.assign(base, {
+      location: b.location,
+      started_on: b.starts_on,
+      completed_on: b.ends_on,
+      featured_media_id: b.featured_media_id ?? null,
+    });
   }
   return { ...base, ...overrides };
 }
@@ -980,7 +989,7 @@ function ContentModal({
   const isRequirement = resource === "requirements";
   const isService = resource === "services";
   const isPost = resource === "posts";
-  const supportsMedia = ["services", "projects", "posts"].includes(resource);
+  const supportsMedia = ["services", "projects", "posts", "events"].includes(resource);
   const [title, setTitle] = useState(item?.title ?? "");
   const [slug, setSlug] = useState(item?.slug ?? "");
   const [summary, setSummary] = useState(item?.summary ?? "");
@@ -1027,6 +1036,17 @@ function ContentModal({
   const [projectLong, setProjectLong] = useState<string[]>([]);
   const [projectHighlights, setProjectHighlights] = useState<string[]>([]);
   const [contactsList, setContactsList] = useState<{ display: string; raw: string; whatsapp: boolean }[]>([]);
+  const [postCategory, setPostCategory] = useState("Insights");
+  const [postAuthor, setPostAuthor] = useState("");
+  const [postAuthorRole, setPostAuthorRole] = useState("");
+  const [postReadMins, setPostReadMins] = useState(5);
+  const [postDate, setPostDate] = useState("");
+  const [postParagraphs, setPostParagraphs] = useState<string[]>([]);
+  const isEvent = resource === "events";
+  const [eventType, setEventType] = useState("Conference");
+  const [eventDateDisplay, setEventDateDisplay] = useState("");
+  const [eventStartsOn, setEventStartsOn] = useState("");
+  const [eventEndsOn, setEventEndsOn] = useState("");
 
   useEffect(() => {
     if (!isPost) return;
@@ -1093,6 +1113,16 @@ function ContentModal({
         const row = c as { display?: unknown; raw?: unknown; whatsapp?: unknown };
         return { display: String(row.display ?? ""), raw: String(row.raw ?? ""), whatsapp: Boolean(row.whatsapp) };
       }) : []);
+      setPostCategory(String(detail.body.category ?? "Insights"));
+      setPostAuthor(String(detail.body.author ?? ""));
+      setPostAuthorRole(String(detail.body.authorRole ?? ""));
+      setPostReadMins(Number(detail.body.readMins ?? 5));
+      setPostDate(String(detail.body.date ?? ""));
+      setPostParagraphs(Array.isArray(detail.body.paragraphs) ? detail.body.paragraphs.map(String) : []);
+      setEventType(String(detail.body.event_type ?? "Conference"));
+      setEventDateDisplay(String(detail.body.date_display ?? ""));
+      setEventStartsOn(String(detail.body.starts_on ?? "").slice(0, 10));
+      setEventEndsOn(String(detail.body.ends_on ?? "").slice(0, 10));
       setCategoryId(String(detail.extra.category_id ?? ""));
       setTagIds(Array.isArray(detail.extra.tag_ids) ? detail.extra.tag_ids.map(String) : []);
       setProjectName(String(detail.extra.project_name ?? ""));
@@ -1155,6 +1185,20 @@ function ContentModal({
           documents: documents.split("\n").map((line) => line.trim()).filter(Boolean),
           contacts: contactsList.filter((c) => c.raw.trim()),
         };
+      } else if (isPost) {
+        parsedBody = {
+          category: postCategory,
+          author: postAuthor,
+          authorRole: postAuthorRole,
+          readMins: postReadMins,
+          date: postDate,
+          paragraphs: postParagraphs.filter(Boolean),
+        };
+      } else if (isEvent) {
+        parsedBody = {
+          event_type: eventType,
+          date_display: eventDateDisplay,
+        };
       } else {
         parsedBody = bodyJson.trim() ? JSON.parse(bodyJson) : {};
       }
@@ -1181,7 +1225,7 @@ function ContentModal({
       number: typeof parsedBody.number === "string" ? parsedBody.number : undefined,
       icon: typeof parsedBody.icon === "string" ? parsedBody.icon : undefined,
       hero_media_id: isService && mediaId ? mediaId : null,
-      featured_media_id: (resource === "projects" || isPost) && mediaId ? mediaId : null,
+      featured_media_id: (resource === "projects" || isPost || isEvent) && mediaId ? mediaId : null,
       stats: Array.isArray(parsedBody.stats) ? parsedBody.stats : [],
       capabilities: Array.isArray(parsedBody.capabilities) ? parsedBody.capabilities : [],
       process: Array.isArray(parsedBody.process) ? parsedBody.process : [],
@@ -1194,6 +1238,8 @@ function ContentModal({
       rate_unit: parsedBody.rate_unit || null,
       opens_at: parsedBody.opens_at || null,
       closes_at: parsedBody.closes_at || null,
+      started_on: isEvent ? (eventStartsOn || null) : undefined,
+      completed_on: isEvent ? (eventEndsOn || null) : undefined,
       contacts: Array.isArray(parsedBody.contacts) ? parsedBody.contacts : [],
       body: parsedBody,
       locale,
@@ -1262,7 +1308,7 @@ function ContentModal({
             <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
             Feature this item
           </label>}
-          {(isRequirement || isProject) && (
+          {(isRequirement || isProject || isEvent) && (
             <label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
           )}
           {isRequirement && <>
@@ -1376,8 +1422,38 @@ function ContentModal({
               renderItem={(h, set) => <input value={h} onChange={(event) => set(event.target.value)} />}
             />
           </>}
+          {isEvent && <>
+            <label>Type
+              <select value={eventType} onChange={(event) => setEventType(event.target.value)}>
+                {["Conference", "Exhibition", "Site Visit", "Webinar"].map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <label>Display date<input placeholder="e.g. June 18 – 20, 2026" value={eventDateDisplay} onChange={(event) => setEventDateDisplay(event.target.value)} /></label>
+            <label>Starts on<input type="date" value={eventStartsOn} onChange={(event) => setEventStartsOn(event.target.value)} /></label>
+            <label>Ends on<input type="date" value={eventEndsOn} onChange={(event) => setEventEndsOn(event.target.value)} /></label>
+          </>}
           {isPost && <>
-            <label>Category
+            <label>Card badge
+              <select value={postCategory} onChange={(event) => setPostCategory(event.target.value)}>
+                {["Insights", "Case Study", "Safety", "Vision 2030", "Industry"].map((value) => (
+                  <option key={value} value={value}>{value}</option>
+                ))}
+              </select>
+            </label>
+            <label>Display date<input placeholder="e.g. May 12, 2026" value={postDate} onChange={(event) => setPostDate(event.target.value)} /></label>
+            <label>Author<input value={postAuthor} onChange={(event) => setPostAuthor(event.target.value)} /></label>
+            <label>Author role<input value={postAuthorRole} onChange={(event) => setPostAuthorRole(event.target.value)} /></label>
+            <label>Read time (minutes)<input type="number" min="1" value={postReadMins} onChange={(event) => setPostReadMins(Number(event.target.value))} /></label>
+            <ListEditor
+              label="Article body (paragraphs)"
+              items={postParagraphs}
+              onChange={setPostParagraphs}
+              empty=""
+              renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
+            />
+            <label>Taxonomy category
               <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
                 <option value="">No category</option>
                 {categories.map((category) => (

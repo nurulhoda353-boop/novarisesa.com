@@ -366,6 +366,47 @@ class PostTranslation(UUIDMixin, TimestampMixin, Base):
     post: Mapped[Post] = relationship(back_populates="translations")
 
 
+class Event(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "events"
+
+    slug: Mapped[str] = mapped_column(String(180), unique=True)
+    featured_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("media_assets.id", ondelete="SET NULL")
+    )
+    starts_on: Mapped[date | None] = mapped_column(Date)
+    ends_on: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[PublishStatus] = mapped_column(
+        Enum(
+            PublishStatus,
+            name="publish_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
+        default=PublishStatus.DRAFT,
+    )
+    is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    translations: Mapped[list["EventTranslation"]] = relationship(
+        back_populates="event", cascade="all, delete-orphan"
+    )
+
+
+class EventTranslation(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "event_translations"
+    __table_args__ = (UniqueConstraint("event_id", "locale", name="uq_event_translation_locale"),)
+
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
+    locale: Mapped[str] = mapped_column(String(10))
+    title: Mapped[str] = mapped_column(String(255))
+    event_type: Mapped[str | None] = mapped_column(String(40))
+    location: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    date_display: Mapped[str | None] = mapped_column(String(120))
+    meta_title: Mapped[str | None] = mapped_column(String(255))
+    meta_description: Mapped[str | None] = mapped_column(Text)
+    event: Mapped[Event] = relationship(back_populates="translations")
+
+
 class Requirement(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "requirements"
 

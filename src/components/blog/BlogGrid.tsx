@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Reveal } from "@/components/site/Reveal";
+import { Link } from "@/components/nav/AppLink";
 import { type BlogPost } from "@/lib/blog-data";
 import { useTranslatedPosts } from "@/i18n/use-translated-blog";
 
@@ -72,12 +73,13 @@ export function BlogGrid() {
 function PostCard({ post }: { post: BlogPost }) {
   const { t } = useTranslation();
   return (
+    <Link to="/blog/$slug" params={{ slug: post.slug }} className="block h-full">
     <motion.article
       variants={{
         hidden: { opacity: 0, y: 30 },
         show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
       }}
-      className="group relative flex flex-col rounded-2xl border border-border bg-card overflow-hidden hover-lift"
+      className="group relative flex flex-col h-full rounded-2xl border border-border bg-card overflow-hidden hover-lift"
     >
       <div className="relative aspect-[16/10] overflow-hidden">
         <Image
@@ -123,5 +125,6 @@ function PostCard({ post }: { post: BlogPost }) {
         </div>
       </div>
     </motion.article>
+    </Link>
   );
 }

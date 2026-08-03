@@ -24,6 +24,8 @@ from app.models import (
     AuditLog,
     Category,
     ContactSubmission,
+    Event,
+    EventTranslation,
     MediaAsset,
     NavigationItem,
     NewsletterSubscriber,
@@ -64,7 +66,7 @@ from app.schemas.cms import (
 
 router = APIRouter(prefix="/cms")
 DBSession = Annotated[Session, Depends(get_db)]
-ResourceName = Literal["pages", "services", "projects", "posts", "requirements"]
+ResourceName = Literal["pages", "services", "projects", "posts", "requirements", "events"]
 InboxName = Literal["contact", "rfq", "applications"]
 
 RESOURCE_CONFIG: dict[str, dict[str, Any]] = {
@@ -97,6 +99,12 @@ RESOURCE_CONFIG: dict[str, dict[str, Any]] = {
         "translation": RequirementTranslation,
         "foreign_key": "requirement_id",
         "title_key": "position",
+    },
+    "events": {
+        "model": Event,
+        "translation": EventTranslation,
+        "foreign_key": "event_id",
+        "title_key": "title",
     },
 }
 
@@ -233,6 +241,18 @@ def serialize_detail(resource: str, item: Any, locale: str) -> ContentDetail:
                     str(item.featured_media_id) if item.featured_media_id else None
                 ),
             }
+        if resource == "events":
+            body = {
+                "location": getattr(translation, "location", None),
+                "description": getattr(translation, "description", None),
+                "date_display": getattr(translation, "date_display", None),
+                "event_type": getattr(translation, "event_type", None),
+                "starts_on": item.starts_on.isoformat() if item.starts_on else None,
+                "ends_on": item.ends_on.isoformat() if item.ends_on else None,
+                "featured_media_id": (
+                    str(item.featured_media_id) if item.featured_media_id else None
+                ),
+            }
         if resource == "requirements":
             body = {
                 "approval": getattr(translation, "approval", None),
@@ -301,6 +321,17 @@ def translation_values(resource: str, payload: ContentUpsert) -> dict[str, Any]:
             "title": payload.title,
             "excerpt": payload.summary,
             "body": payload.body,
+            "meta_title": payload.meta_title,
+            "meta_description": payload.meta_description,
+        }
+    if resource == "events":
+        return {
+            **common,
+            "title": payload.title,
+            "location": payload.location,
+            "description": payload.summary,
+            "date_display": payload.body.get("date_display"),
+            "event_type": payload.body.get("event_type"),
             "meta_title": payload.meta_title,
             "meta_description": payload.meta_description,
         }
@@ -390,6 +421,10 @@ def apply_resource_values(
         item.facts = payload.facts
     elif resource == "posts":
         apply_post_relations(db, item, payload)
+    elif resource == "events":
+        item.starts_on = payload.started_on
+        item.ends_on = payload.completed_on
+        item.featured_media_id = payload.featured_media_id
     elif resource == "requirements":
         item.rate_amount = payload.rate_amount
         item.rate_currency = payload.rate_currency.upper()

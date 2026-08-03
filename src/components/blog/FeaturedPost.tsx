@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ArrowUpRight, Clock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Reveal } from "@/components/site/Reveal";
+import { Link } from "@/components/nav/AppLink";
 import { useTranslatedPosts } from "@/i18n/use-translated-blog";
 
 export function FeaturedPost() {
@@ -34,6 +35,7 @@ export function FeaturedPost() {
         </Reveal>
 
         <Reveal>
+          <Link to="/blog/$slug" params={{ slug: p.slug }}>
           <article
             data-cursor-label="Read story"
             className="group relative grid lg:grid-cols-12 gap-6 lg:gap-10 items-center"
@@ -87,6 +89,7 @@ export function FeaturedPost() {
               </div>
             </div>
           </article>
+          </Link>
         </Reveal>
       </div>
     </section>

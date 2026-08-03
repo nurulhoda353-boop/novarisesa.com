@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.database import get_db
 from app.models import (
     ContactSubmission,
+    Event,
     MediaAsset,
     NavigationItem,
     NewsletterSubscriber,
@@ -105,7 +106,16 @@ def serialize_public_item(
             "certifications": getattr(item, "certifications", None),
             "facts": getattr(item, "facts", None),
             "client_name": getattr(item, "client_name", None),
-            "location": getattr(item, "location", None),
+            "location": getattr(item, "location", None)
+            or (getattr(translation, "location", None) if translation else None),
+            "event_type": getattr(translation, "event_type", None) if translation else None,
+            "date_display": getattr(translation, "date_display", None) if translation else None,
+            "starts_on": (
+                item.starts_on.isoformat() if getattr(item, "starts_on", None) else None
+            ),
+            "ends_on": (
+                item.ends_on.isoformat() if getattr(item, "ends_on", None) else None
+            ),
             "headcount": getattr(item, "headcount", None),
             "project_name": getattr(item, "project_name", None),
             "rate_amount": str(getattr(item, "rate_amount", "") or ""),
@@ -180,6 +190,12 @@ def site_content(
             .options(selectinload(Requirement.translations))
             .where(Requirement.status.in_([RequirementStatus.ACTIVE, RequirementStatus.URGENT]))
             .order_by(Requirement.updated_at.desc())
+        )),
+        "events": list(db.scalars(
+            select(Event)
+            .options(selectinload(Event.translations))
+            .where(Event.status == PublishStatus.PUBLISHED)
+            .order_by(Event.sort_order, Event.starts_on.nullslast())
         )),
     }
     requirement_rows = list(collections["requirements"])

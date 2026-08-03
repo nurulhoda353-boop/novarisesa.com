@@ -18,6 +18,7 @@ export type BlogPost = {
   author: string;
   authorRole: string;
   image: string;
+  paragraphs?: string[];
 };
 
 export const featuredPost: BlogPost = {
