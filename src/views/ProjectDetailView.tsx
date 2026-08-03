@@ -21,28 +21,27 @@ import { Reveal } from "@/components/site/Reveal";
 import { ContactForm } from "@/components/contact/ContactForm";
 import { type Project } from "@/lib/projects-data";
 import { useManagedProjects } from "@/lib/use-managed-projects";
-import { projectContent, projectFaq } from "@/lib/projects-content";
 
 export function ProjectDetailView({ project }: { project: Project }) {
   const allProjects = useManagedProjects();
   const managedProject = allProjects.find((item) => item.slug === project.slug) ?? project;
   project = managedProject;
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const k = project.key;
-  const lang = (i18n.language?.startsWith("ar") ? "ar" : "en") as "en" | "ar";
 
-  const content = projectContent[k];
-  const faqs = projectFaq[lang];
+  const longParagraphs = t(`projects.content.${k}.long`, { returnObjects: true, defaultValue: [] }) as string[];
+  const highlights = t(`projects.content.${k}.highlights`, { returnObjects: true, defaultValue: [] }) as string[];
+  const faqs = t("projects.faqs", { returnObjects: true, defaultValue: [] }) as { q: string; a: string }[];
 
   const currentIdx = allProjects.findIndex((p) => p.slug === project.slug);
   const nextProject = allProjects[(currentIdx + 1) % allProjects.length];
   const prevProject = allProjects[(currentIdx - 1 + allProjects.length) % allProjects.length];
 
   const stats = [
-    { icon: Briefcase, label: t("projects.details.client"), value: t(`projects.items.${k}.client`) },
-    { icon: MapPin, label: t("projects.details.location"), value: t(`projects.items.${k}.location`) },
-    { icon: Coins, label: t("projects.details.value"), value: t(`projects.items.${k}.value`) },
-    { icon: Calendar, label: t("projects.details.duration"), value: t(`projects.items.${k}.duration`) },
+    { icon: Briefcase, label: t("projects.details.client"), value: t(`projects.items.${k}.client`), field: `projects.items.${k}.client` },
+    { icon: MapPin, label: t("projects.details.location"), value: t(`projects.items.${k}.location`), field: `projects.items.${k}.location` },
+    { icon: Coins, label: t("projects.details.value"), value: t(`projects.items.${k}.value`), field: `projects.items.${k}.value` },
+    { icon: Calendar, label: t("projects.details.duration"), value: t(`projects.items.${k}.duration`), field: `projects.items.${k}.duration` },
   ];
 
   return (
@@ -66,7 +65,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
 
             <div className="max-w-4xl">
               <div className="flex flex-wrap items-center gap-3 mb-6">
-                <span className="rounded-full bg-gold px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-navy">
+                <span className="rounded-full bg-gold px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-navy" data-cms-field={`projects.items.${k}.sector`}>
                   {t(`projects.items.${k}.sector`)}
                 </span>
                 {project.featured && (
@@ -78,10 +77,10 @@ export function ProjectDetailView({ project }: { project: Project }) {
                   #{String(project.rank).padStart(2, "0")} · {t("projects.rankLabel")}
                 </span>
               </div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-8">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-8" data-cms-field={`projects.items.${k}.title`}>
                 {t(`projects.items.${k}.title`)}
               </h1>
-              <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-3xl">
+              <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-3xl" data-cms-field={`projects.items.${k}.scope`}>
                 {t(`projects.items.${k}.scope`)}
               </p>
             </div>
@@ -109,7 +108,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
                 >
                   <s.icon className="h-6 w-6 text-gold mb-4" />
                   <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">{s.label}</div>
-                  <div className="text-lg font-bold text-navy leading-tight">{s.value}</div>
+                  <div className="text-lg font-bold text-navy leading-tight" data-cms-field={s.field}>{s.value}</div>
                 </div>
               ))}
             </div>
@@ -127,12 +126,14 @@ export function ProjectDetailView({ project }: { project: Project }) {
                     {t("projects.overview")}
                   </span>
                 </div>
-                <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight mb-6">
+                <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight mb-6" data-cms-field={`projects.items.${k}.title`}>
                   {t(`projects.items.${k}.title`)}
                 </h2>
                 <div className="space-y-5 text-base md:text-lg text-muted-foreground leading-relaxed">
-                  {content?.long[lang].map((p, i) => <p key={i}>{p}</p>) ?? (
-                    <p>{t(`projects.items.${k}.scope`)}</p>
+                  {longParagraphs.length ? longParagraphs.map((p, i) => (
+                    <p key={i} data-cms-field={`projects.content.${k}.long.${i}`}>{p}</p>
+                  )) : (
+                    <p data-cms-field={`projects.items.${k}.scope`}>{t(`projects.items.${k}.scope`)}</p>
                   )}
                 </div>
               </Reveal>
@@ -149,12 +150,12 @@ export function ProjectDetailView({ project }: { project: Project }) {
                     </div>
                     <h3 className="text-2xl font-bold mb-6">{t("projects.highlightsTitle")}</h3>
                     <ul className="space-y-3.5">
-                      {(content?.highlights[lang] ?? []).map((h, i) => (
+                      {highlights.map((h, i) => (
                         <li key={i} className="flex items-start gap-3">
                           <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gold/15 text-gold">
                             <Check className="h-3.5 w-3.5" strokeWidth={3} />
                           </span>
-                          <span className="text-sm text-white/85 leading-relaxed">{h}</span>
+                          <span className="text-sm text-white/85 leading-relaxed" data-cms-field={`projects.content.${k}.highlights.${i}`}>{h}</span>
                         </li>
                       ))}
                     </ul>
@@ -267,7 +268,7 @@ function FaqList({ items }: { items: { q: string; a: string }[] }) {
         const isOpen = open === i;
         return (
           <div
-            key={f.q}
+            key={i}
             className={`rounded-2xl border transition-all duration-500 ${
               isOpen ? "border-gold bg-white/[0.05]" : "border-white/10 hover:border-white/25"
             }`}
@@ -276,7 +277,7 @@ function FaqList({ items }: { items: { q: string; a: string }[] }) {
               onClick={() => setOpen(isOpen ? null : i)}
               className="w-full flex items-center justify-between gap-6 px-6 py-5 text-left"
             >
-              <span className="text-base font-display font-bold text-white leading-snug">{f.q}</span>
+              <span className="text-base font-display font-bold text-white leading-snug" data-cms-field={`projects.faqs.${i}.q`} suppressContentEditableWarning>{f.q}</span>
               <span
                 className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full transition-all duration-400 ${
                   isOpen ? "bg-gold text-navy rotate-180" : "bg-white/10 text-white/60"
@@ -291,7 +292,7 @@ function FaqList({ items }: { items: { q: string; a: string }[] }) {
               }`}
             >
               <div className="overflow-hidden">
-                <p className="px-6 pb-6 text-[14px] text-white/70 leading-relaxed">{f.a}</p>
+                <p className="px-6 pb-6 text-[14px] text-white/70 leading-relaxed" data-cms-field={`projects.faqs.${i}.a`}>{f.a}</p>
               </div>
             </div>
           </div>

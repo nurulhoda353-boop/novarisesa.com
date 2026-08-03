@@ -85,13 +85,13 @@ function Hero({ service }: Props) {
                 </span>
                 <span className="text-[10px] font-mono text-gold tracking-[0.25em]">{service.num}</span>
                 <span className="h-1 w-1 rounded-full bg-gold" />
-                <span className="text-[10px] uppercase tracking-[0.3em] text-white/80">{service.eyebrow}</span>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-white/80" data-cms-field={`serviceDetails.${service.slug}.eyebrow`}>{service.eyebrow}</span>
               </div>
 
               <h1 className="text-4xl md:text-5xl lg:text-[64px] font-bold tracking-tight leading-[1.02] text-white max-w-4xl">
-                {service.title}
+                <span data-cms-field={`serviceDetails.${service.slug}.title`}>{service.title}</span>
               </h1>
-              <p className="mt-6 text-base md:text-lg text-white/75 font-light leading-relaxed max-w-2xl">
+              <p className="mt-6 text-base md:text-lg text-white/75 font-light leading-relaxed max-w-2xl" data-cms-field={`serviceDetails.${service.slug}.lead`}>
                 {service.lead}
               </p>
             </Reveal>
@@ -211,13 +211,13 @@ function Overview({ service }: Props) {
               {t("servicesPage.detail.overviewBadge")}
             </div>
 
-            <h2 className="text-2xl md:text-[26px] lg:text-[30px] font-semibold tracking-tight text-navy leading-[1.2]">
+            <h2 className="text-2xl md:text-[26px] lg:text-[30px] font-semibold tracking-tight text-navy leading-[1.2]" data-cms-field={`serviceDetails.${service.slug}.lead`}>
               {service.lead}
             </h2>
 
             <div className="mt-5 h-px w-20 bg-gradient-to-r from-gold to-transparent" />
 
-            <p className="mt-6 text-lg lg:text-[19px] text-muted-foreground leading-[1.8]">
+            <p className="mt-6 text-lg lg:text-[19px] text-muted-foreground leading-[1.8]" data-cms-field={`serviceDetails.${service.slug}.intro`}>
               {service.intro}
             </p>
 
@@ -258,8 +258,8 @@ function SubServices({ service }: Props) {
         </Reveal>
 
         <StaggerGroup className="grid md:grid-cols-2 lg:grid-cols-3 gap-5" stagger={0.06}>
-          {service.subServices.map((s) => (
-            <StaggerItem key={s.title}>
+          {service.subServices.map((s, i) => (
+            <StaggerItem key={i}>
               <article className="group relative h-full bg-card border border-border rounded-2xl p-6 hover:border-gold hover:shadow-card hover:-translate-y-1 transition-all duration-500">
                 <div className="flex items-start justify-between mb-5">
                   <div className="h-12 w-12 rounded-xl bg-gold/12 group-hover:bg-gold flex items-center justify-center transition-all duration-500 group-hover:rotate-[-6deg]">
@@ -267,8 +267,8 @@ function SubServices({ service }: Props) {
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-gold group-hover:rotate-45 transition-all duration-500" />
                 </div>
-                <h3 className="text-[17px] font-display font-bold text-navy leading-snug">{s.title}</h3>
-                <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed">{s.desc}</p>
+                <h3 className="text-[17px] font-display font-bold text-navy leading-snug" data-cms-field={`serviceDetails.${service.slug}.subServices.${i}.title`}>{s.title}</h3>
+                <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed" data-cms-field={`serviceDetails.${service.slug}.subServices.${i}.desc`}>{s.desc}</p>
               </article>
             </StaggerItem>
           ))}
@@ -291,7 +291,7 @@ function Capabilities({ service }: Props) {
               <span className="h-px w-8 bg-gold" />
               {t("servicesPage.detail.capSnapshot")}
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-[42px] font-bold tracking-tight leading-[1.05] text-white">
+            <h2 className="text-3xl md:text-4xl lg:text-[42px] font-bold tracking-tight leading-[1.05] text-white" data-cms-field={`serviceDetails.${service.slug}.capabilities.heading`}>
               {service.capabilities.heading}
             </h2>
             <p className="mt-5 text-white/65 leading-relaxed">
@@ -309,13 +309,13 @@ function Capabilities({ service }: Props) {
 
           <Reveal className="lg:col-span-7" delay={0.1}>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden divide-y divide-white/8">
-              {service.capabilities.rows.map((row) => (
+              {service.capabilities.rows.map((row, i) => (
                 <div
-                  key={row.label}
+                  key={i}
                   className="group flex items-center justify-between gap-6 px-6 py-5 hover:bg-white/[0.04] transition-colors"
                 >
-                  <span className="text-sm uppercase tracking-[0.18em] text-white/55">{row.label}</span>
-                  <span className="text-base lg:text-lg font-display font-bold text-white text-right">{row.value}</span>
+                  <span className="text-sm uppercase tracking-[0.18em] text-white/55" data-cms-field={`serviceDetails.${service.slug}.capabilities.rows.${i}.label`}>{row.label}</span>
+                  <span className="text-base lg:text-lg font-display font-bold text-white text-right" data-cms-field={`serviceDetails.${service.slug}.capabilities.rows.${i}.value`}>{row.value}</span>
                 </div>
               ))}
             </div>
@@ -394,14 +394,14 @@ function Process({ service }: Props) {
         <div className="relative">
           <div className="hidden lg:block absolute top-9 left-[8%] right-[8%] h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
           <StaggerGroup className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8" stagger={0.08}>
-            {service.process.map((step) => (
-              <StaggerItem key={step.num}>
+            {service.process.map((step, i) => (
+              <StaggerItem key={i}>
                 <div className="relative">
                   <div className="relative z-10 flex h-[72px] w-[72px] items-center justify-center rounded-2xl bg-card border border-border shadow-card">
                     <span className="text-2xl font-display font-extrabold text-gold tabular-nums">{step.num}</span>
                   </div>
-                  <h3 className="mt-5 text-lg font-display font-bold text-navy">{step.title}</h3>
-                  <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed">{step.desc}</p>
+                  <h3 className="mt-5 text-lg font-display font-bold text-navy" data-cms-field={`serviceDetails.${service.slug}.process.${i}.title`}>{step.title}</h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground leading-relaxed" data-cms-field={`serviceDetails.${service.slug}.process.${i}.desc`}>{step.desc}</p>
                 </div>
               </StaggerItem>
             ))}
@@ -430,13 +430,13 @@ function Certifications({ service }: Props) {
           </Reveal>
           <Reveal className="lg:col-span-8" delay={0.1}>
             <StaggerGroup className="grid grid-cols-2 md:grid-cols-3 gap-3" stagger={0.05}>
-              {service.certifications.map((c) => (
-                <StaggerItem key={c}>
+              {service.certifications.map((c, i) => (
+                <StaggerItem key={i}>
                   <div className="group flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3.5 hover:border-gold hover:shadow-card transition-all duration-500">
                     <span className="h-9 w-9 shrink-0 rounded-lg bg-gold/12 group-hover:bg-gold flex items-center justify-center transition-colors">
                       <Award className="h-4 w-4 text-gold group-hover:text-navy transition-colors" strokeWidth={1.8} />
                     </span>
-                    <span className="text-[13px] font-semibold text-navy leading-tight">{c}</span>
+                    <span className="text-[13px] font-semibold text-navy leading-tight" data-cms-field={`serviceDetails.${service.slug}.certifications.${i}`}>{c}</span>
                   </div>
                 </StaggerItem>
               ))}
@@ -482,7 +482,7 @@ function Faqs({ service }: Props) {
                 const isOpen = open === i;
                 return (
                   <div
-                    key={f.q}
+                    key={i}
                     className={`rounded-2xl border bg-card transition-all duration-500 ${
                       isOpen ? "border-gold shadow-card" : "border-border hover:border-navy/20"
                     }`}
@@ -491,7 +491,7 @@ function Faqs({ service }: Props) {
                       onClick={() => setOpen(isOpen ? null : i)}
                       className="w-full flex items-center justify-between gap-6 px-6 py-5 text-left"
                     >
-                      <span className="text-base font-display font-bold text-navy leading-snug">{f.q}</span>
+                      <span className="text-base font-display font-bold text-navy leading-snug" data-cms-field={`serviceDetails.${service.slug}.faqs.${i}.q`} suppressContentEditableWarning>{f.q}</span>
                       <span className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full transition-all duration-400 ${
                         isOpen ? "bg-gold text-navy rotate-180" : "bg-muted text-navy/60"
                       }`}>
@@ -504,7 +504,7 @@ function Faqs({ service }: Props) {
                       }`}
                     >
                       <div className="overflow-hidden">
-                        <p className="px-6 pb-6 text-[14px] text-muted-foreground leading-relaxed">{f.a}</p>
+                        <p className="px-6 pb-6 text-[14px] text-muted-foreground leading-relaxed" data-cms-field={`serviceDetails.${service.slug}.faqs.${i}.a`}>{f.a}</p>
                       </div>
                     </div>
                   </div>
