@@ -22,6 +22,7 @@ import { ContactForm } from "@/components/contact/ContactForm";
 import { type Project } from "@/lib/projects-data";
 import { useManagedProjects } from "@/lib/use-managed-projects";
 import { useTranslatedProject } from "@/i18n/use-translated-project";
+import { useCmsAsset } from "@/lib/cms-content";
 
 export function ProjectDetailView({ project: initialProject }: { project: Project }) {
   const allProjects = useManagedProjects();
@@ -39,6 +40,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
   };
   const { t } = useTranslation();
   const k = project.key;
+  const heroImage = useCmsAsset(`projects.${project.slug}.hero`, project.img);
 
   const longParagraphs = project.long;
   const highlights = project.highlights;
@@ -61,8 +63,8 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
       <main>
         {/* Hero */}
         <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-28 dark-premium text-white overflow-hidden">
-          <div className="absolute inset-0 opacity-25">
-            <Image src={project.img} alt="" fill priority sizes="100vw" className="object-cover" />
+          <div className="absolute inset-0 opacity-25" data-cms-asset={`projects.${project.slug}.hero`}>
+            <Image src={heroImage} alt="" fill priority sizes="100vw" className="object-cover" />
             <div className="absolute inset-0 bg-gradient-to-b from-navy-deep/70 via-navy-deep/90 to-navy-deep" />
           </div>
           <div className="container-wide relative">
@@ -102,8 +104,8 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
         {/* Cover image */}
         <section className="relative bg-white">
           <div className="container-wide px-4 sm:px-6 lg:px-8 -mt-12 lg:-mt-20 relative z-10">
-            <div className="relative rounded-3xl overflow-hidden shadow-elegant aspect-[16/9] lg:aspect-[21/9]">
-              <Image src={project.img} alt={project.title} fill sizes="(max-width: 1024px) 100vw, 1200px" className="object-cover" />
+            <div className="relative rounded-3xl overflow-hidden shadow-elegant aspect-[16/9] lg:aspect-[21/9]" data-cms-asset={`projects.${project.slug}.hero`}>
+              <Image src={heroImage} alt={project.title} fill sizes="(max-width: 1024px) 100vw, 1200px" className="object-cover" />
             </div>
           </div>
         </section>

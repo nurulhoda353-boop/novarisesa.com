@@ -19,6 +19,7 @@ import { Footer } from "@/components/site/Footer";
 import { CTA } from "@/components/site/CTA";
 import { servicePages, type ServicePage } from "@/lib/services-data";
 import { useTranslatedService, useServiceTitle } from "@/i18n/use-translated-service";
+import { useCmsAsset } from "@/lib/cms-content";
 
 type Props = { service: ServicePage };
 
@@ -50,11 +51,12 @@ export function ServiceDetailPage({ service }: Props) {
 function Hero({ service }: Props) {
   const Icon = service.icon;
   const { t } = useTranslation();
+  const heroImage = useCmsAsset(`services.${service.slug}.hero`, service.heroImage);
   return (
     <section className="relative min-h-[80vh] lg:min-h-[88vh] flex items-end overflow-hidden dark-premium text-white">
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" data-cms-asset={`services.${service.slug}.hero`}>
         <Image
-          src={service.heroImage}
+          src={heroImage}
           alt={`${service.title} — NOVARISE`}
           fill
           priority
@@ -147,6 +149,7 @@ function Overview({ service }: Props) {
   const Icon = service.icon;
   const { t } = useTranslation();
   const checklist = t("servicesPage.detail.checklist", { returnObjects: true }) as string[];
+  const heroImage = useCmsAsset(`services.${service.slug}.hero`, service.heroImage);
   return (
     <section className="relative py-20 lg:py-28 bg-white overflow-hidden">
       <div className="pointer-events-none absolute -top-32 -right-32 h-[420px] w-[420px] rounded-full bg-gold/8 blur-[140px]" />
@@ -158,9 +161,9 @@ function Overview({ service }: Props) {
               <div className="absolute top-0 left-0 h-full w-full rounded-2xl border border-gold/30" />
               <div className="absolute bottom-0 right-0 h-24 w-24 rounded-2xl bg-gold/15 blur-xl" />
 
-              <div className="relative h-[440px] lg:h-[520px] rounded-2xl overflow-hidden border border-border shadow-elegant group">
+              <div className="relative h-[440px] lg:h-[520px] rounded-2xl overflow-hidden border border-border shadow-elegant group" data-cms-asset={`services.${service.slug}.hero`}>
                 <Image
-                  src={service.heroImage}
+                  src={heroImage}
                   alt={`${service.title} — Overview`}
                   fill
                   sizes="(max-width: 1024px) 100vw, 42vw"

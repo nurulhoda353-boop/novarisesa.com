@@ -141,6 +141,24 @@ const assetSlots = [
   ["blog.hero", "Insights hero", "/assets/vision-team.jpg"],
   ["brand.logoColor", "Header logo (colour)", "/assets/logo-navy-full.png"],
   ["brand.logoWhite", "Header/footer logo (white)", "/assets/logo-white-full.png"],
+  ["services.civil.hero", "Civil Construction — hero", "/assets/project-civil.jpg"],
+  ["services.power.hero", "Power Plants — hero", "/assets/project-power.jpg"],
+  ["services.rental.hero", "Heavy Equipment Rental — hero", "/assets/project-equipment.jpg"],
+  ["services.manpower.hero", "Manpower Supply — hero", "/assets/manpower.jpg"],
+  ["services.it.hero", "IT Solutions — hero", "/assets/vision-team.jpg"],
+  ["services.trading.hero", "Materials Trading — hero", "/assets/industry-oilgas.jpg"],
+  ["projects.neom.hero", "NEOM — hero", "/assets/projects/neom.jpg"],
+  ["projects.red-sea-global.hero", "Red Sea Global — hero", "/assets/projects/red-sea-global.jpg"],
+  ["projects.amaala.hero", "AMAALA — hero", "/assets/projects/amaala.jpg"],
+  ["projects.jafurah.hero", "Jafurah — hero", "/assets/projects/jafurah.jpg"],
+  ["projects.afif.hero", "Afif Solar PV — hero", "/assets/projects/afif.jpg"],
+  ["projects.red-sea-aluminium.hero", "Red Sea Aluminium — hero", "/assets/projects/red-sea-aluminium.jpg"],
+  ["projects.durma-pp12.hero", "Durma PP12 — hero", "/assets/projects/durma-pp12.jpg"],
+  ["projects.taiba-1.hero", "Taiba 1 IPP — hero", "/assets/projects/taiba-1.jpg"],
+  ["projects.rumah-1.hero", "Rumah 1 IPP — hero", "/assets/projects/rumah-1.jpg"],
+  ["projects.qassim-1.hero", "Qassim 1 IPP — hero", "/assets/projects/qassim-1.jpg"],
+  ["projects.nairiyah-1.hero", "Nairiyah 1 IPP — hero", "/assets/projects/nairiyah-1.jpg"],
+  ["projects.yanbu-3.hero", "Yanbu-3 — hero", "/assets/projects/yanbu-3.jpg"],
 ] as const;
 
 // Keep in sync with src/lib/service-icons.ts on the public site.
@@ -1244,6 +1262,8 @@ function ContentModal({
       ? ["draft", "published", "archived"]
       : ["draft", "archived"];
   const selectedMedia = mediaItems.find((media) => media.id === mediaId);
+  const heroFallback = assetSlots.find(([key]) => key === `${resource}.${slug}.hero`)?.[2] ?? "";
+  const previewSrc = selectedMedia?.public_url || heroFallback;
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -1269,6 +1289,24 @@ function ContentModal({
               <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
             </div>
           </div>
+          {supportsMedia && <>
+            <div className="full form-divider"><ImageIcon size={13} /><span>Primary image</span></div>
+            <label className="full">
+              <AssetPreview src={previewSrc} label="Primary image" />
+              <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
+                <option value="">{heroFallback ? "Current live image (unchanged)" : "No managed image"}</option>
+                {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
+                  <option value={media.id} key={media.id}>{media.file_name}</option>
+                ))}
+              </select>
+              {!mediaId && heroFallback && (
+                <small className="field-hint">
+                  This is the image live on the site now. To replace it, use the pen icon on the Site content page and click the image directly — that also works for brand-new items after their first save.
+                </small>
+              )}
+            </label>
+          </>}
+          <div className="full form-divider"><Settings size={13} /><span>Publishing</span></div>
           <label>Status
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               {statusOptions.map((value) => <option key={value}>{value}</option>)}
@@ -1276,15 +1314,6 @@ function ContentModal({
           </label>
           {!isRequirement && <label>Sort order
             <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
-          </label>}
-          {supportsMedia && <label className="full">Primary image
-            <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
-              <option value="">No managed image</option>
-              {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
-                <option value={media.id} key={media.id}>{media.file_name}</option>
-              ))}
-            </select>
-            <AssetPreview src={selectedMedia?.public_url ?? ""} label="Primary image" />
           </label>}
           {!isRequirement && <label className="check-row">
             <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
@@ -1294,6 +1323,7 @@ function ContentModal({
             <label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
           )}
           {isRequirement && <>
+            <div className="full form-divider"><BriefcaseBusiness size={13} /><span>Requirement details</span></div>
             <label>Headcount<input type="number" min="1" value={headcount} onChange={(event) => setHeadcount(Number(event.target.value))} /></label>
             <label className="full">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} /></label>
             <label>Approval<input value={approval} onChange={(event) => setApproval(event.target.value)} /></label>
@@ -1315,6 +1345,7 @@ function ContentModal({
             />
           </>}
           {isService && <>
+            <div className="full form-divider"><FilePenLine size={13} /><span>Service details</span></div>
             <label>Eyebrow<input value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} /></label>
             <label>Lead<input value={lead} onChange={(event) => setLead(event.target.value)} /></label>
             <label className="full">Intro<textarea rows={4} value={intro} onChange={(event) => setIntro(event.target.value)} /></label>
@@ -1324,6 +1355,7 @@ function ContentModal({
                 {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
               </select>
             </label>
+            <div className="full form-divider"><FolderKanban size={13} /><span>Structured sections</span></div>
             <ListEditor
               label="Stats"
               items={statsList}
@@ -1385,6 +1417,7 @@ function ContentModal({
             />
           </>}
           {isProject && <>
+            <div className="full form-divider"><FolderKanban size={13} /><span>Project details</span></div>
             <label>Client<input value={projectClient} onChange={(event) => setProjectClient(event.target.value)} /></label>
             <label>Sector<input placeholder="e.g. Giga-project" value={projectSector} onChange={(event) => setProjectSector(event.target.value)} /></label>
             <label>Value<input placeholder="e.g. USD 500B+" value={projectValue} onChange={(event) => setProjectValue(event.target.value)} /></label>
@@ -1405,6 +1438,7 @@ function ContentModal({
             />
           </>}
           {isEvent && <>
+            <div className="full form-divider"><CalendarDays size={13} /><span>Event details</span></div>
             <label>Type
               <select value={eventType} onChange={(event) => setEventType(event.target.value)}>
                 {["Conference", "Exhibition", "Site Visit", "Webinar"].map((value) => (
@@ -1417,6 +1451,7 @@ function ContentModal({
             <label>Ends on<input type="date" value={eventEndsOn} onChange={(event) => setEventEndsOn(event.target.value)} /></label>
           </>}
           {isPost && <>
+            <div className="full form-divider"><Newspaper size={13} /><span>Article details</span></div>
             <label>Card badge
               <select value={postCategory} onChange={(event) => setPostCategory(event.target.value)}>
                 {["Insights", "Case Study", "Safety", "Vision 2030", "Industry"].map((value) => (
@@ -1436,6 +1471,7 @@ function ContentModal({
               renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
             />
           </>}
+          <div className="full form-divider"><FileText size={13} /><span>Summary &amp; SEO</span></div>
           <label className="full">Summary<textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
           {bodyError && <p className="form-error full">{bodyError}</p>}
           <label>Meta title<input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} /></label>

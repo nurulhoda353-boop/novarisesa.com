@@ -95,4 +95,10 @@
 .reorder-buttons{display:flex;gap:4px;margin-right:2px}
 .reorder-buttons button{display:grid;place-items:center;padding:6px!important}
 .reorder-buttons button:disabled{opacity:.3}
+.field-hint{display:block;margin-top:8px;color:var(--muted);font-size:9px;text-transform:none;letter-spacing:normal;line-height:1.6;font-weight:400}
+.form-divider{display:flex;align-items:center;gap:8px;margin:24px 0 10px;padding-top:18px;border-top:1px solid var(--line);color:var(--navy)}
+.form-divider:first-child{margin-top:0;padding-top:0;border-top:0}
+.form-divider svg{color:#b87922;flex-shrink:0}
+.form-divider span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.13em}
+.form-grid label:has(> .asset-preview){margin-top:0}
 @media(max-width:560px){.login-page{padding:28px 16px}.login-logo{margin:0 4px 20px}.login-logo img{width:155px}.login-logo span{font-size:7px;padding-left:11px}.login-card{padding:28px 22px 24px;border-radius:17px}.login-card h1{font-size:29px}.password-toggle span{display:none}.login-card .login-field input{padding-right:48px}}
