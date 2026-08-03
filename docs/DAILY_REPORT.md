@@ -139,18 +139,23 @@
 - একটা bug ফিক্স করা হয়েছে: Hero সেকশনে `data-cms-field` framer-motion এনিমেটেড এলিমেন্টের উপর সরাসরি বসানো থাকায় pen mode চালু হলে পুরো সেকশন ফিকে/অদৃশ্য হয়ে যাচ্ছিল — plain inner span-এ সরিয়ে ও edit mode-এ entrance animation skip করে ঠিক করা হয়েছে।
 - **সচেতনভাবে বাদ রাখা হয়েছে**: Services/Projects/Requirements/Insights-এর প্রতিটা কালেকশন-আইটেম (individual service card, project card, job posting, blog post) — এগুলো আলাদা ডাটাবেস টেবিল থেকে আসে, pen-mode দিয়ে এডিটেবল না করে আগের dedicated collection editor-এই রাখা হয়েছে যাতে ভুলভাবে ডেটা নষ্ট না হয়।
 - পুরনো side-panel/page-rail editor **মুছে ফেলা হয়নি** — pen mode বন্ধ থাকলে এখনো কাজ করে, fallback হিসেবে থাকছে।
+- **Site content পেজ মিনিমাল রিডিজাইন** (ইউজারের রেফারেন্স স্ক্রিনশট অনুযায়ী): পুরনো ৩-কলাম লে-আউট (page rail + section dropdown panel) সম্পূর্ণ সরিয়ে শুধু ফুল-উইথ লাইভ প্রিভিউ রাখা হয়েছে; পেন আইকন + Save & publish এখন ড্যাশবোর্ডের persistent টপবারে (নতুন `topbarActions` স্লট প্যাটার্নে), আলাদা পেজ-লেভেল টুলবার বাদ। ভাষা টগলও বাদ — এডিটর লোকেল এখন সাইটের নিজস্ব EN/AR সুইচ থেকে postMessage দিয়ে auto-sync হয়।
+- কয়েকটা বাস্তব বাগ ফিক্স হয়েছে রিয়েল-ব্রাউজার টেস্টিং দিয়ে: framer-motion + contentEditable কনফ্লিক্ট (Reveal/SectionReveal/StaggerGroup/Header/EventsSection জুড়ে), CSS specificity override দিয়ে Hero background ভাঙা, stale DB schema দিয়ে raw translation key দেখানো, নতুন topbar-actions effect-এ unstabilized callback দিয়ে infinite re-render loop, এবং পুরনো `PreviewBridge` (section-click-to-panel ফ্লো) সাইটের নেভিগেশন ক্লিক silently ব্লক করছিল — সেটা সম্পূর্ণ মুছে ফেলা হয়েছে।
+- **প্রোডাকশনে লাইভ ডিপ্লয় সম্পন্ন**: Coolify API দিয়ে যাচাই করা হয়েছে যে `novarisesa` প্রজেক্টে তিনটা অ্যাপই (public site, `novarise-api`, `novarise-control-center`) আগে থেকেই লাইভ ছিল এবং একটা প্রাইভেট Postgres (`novarise-postgres`, daily backup সহ) কানেক্টেড। আজকের সব কাজ (commit `11aec18`) GitHub `main`-এ push করে Coolify দিয়ে তিনটা অ্যাপ redeploy করা হয়েছে — সব `finished` + `healthy`।
+- Production env vars যাচাই: `NEXT_PUBLIC_API_URL` (site + dashboard) সঠিকভাবে সেট করা আছে; `NEXT_PUBLIC_DASHBOARD_ORIGIN` (site) ও `NEXT_PUBLIC_SITE_URL` (dashboard) কোথাও এক্সপ্লিসিটলি সেট নেই কিন্তু কোডে যে fallback ডিফল্ট আছে (`https://my.novarisesa.com` / `https://novarisesa.com`) সেটাই প্রোডাকশনের আসল ভ্যালুর সাথে মিলে যায়, তাই কাজ করছে — যাচাই করা হয়েছে `novarisesa.com`-এর response header-এ সঠিক `Content-Security-Policy: frame-ancestors 'self' https://my.novarisesa.com` এসেছে।
+- Production `site_settings` টেবিল সম্পূর্ণ খালি পাওয়া গেছে (`/public/site-content` দিয়ে চেক করা) — মানে CMS দিয়ে এখনো কিছু সেভ করা হয়নি, তাই লোকালে যে stale-schema বাগ পাওয়া গিয়েছিল (পুরনো flat-string ডেটা নতুন nested schema-কে override করা) সেটার ঝুঁকি প্রোডাকশনে নেই।
+- Backend deploy কমান্ড (`alembic upgrade head && python -m app.bootstrap && uvicorn ...`) নিশ্চিত করে migration + bootstrap প্রতি ডিপ্লয়ে চলে; `bootstrap()` idempotent (admin already থাকলে password ওভাররাইট করে না), তাই বারবার redeploy করা নিরাপদ।
+- Production health check তিনটাই পাস: `novarisesa.com/api/health`, `api.novarisesa.com/api/v1/health`, `my.novarisesa.com/api/health` — সব `{"status":"ok"}`।
 
 ### Tomorrow / Next — planned
-1. **প্রোডাকশনে লাইভ চেক**: Coolify-র প্রোডাকশন Postgres-এ migration/bootstrap স্ট্যাটাস যাচাই করা।
-2. প্রোডাকশন env vars সঠিকভাবে সেট করা (Coolify): `NEXT_PUBLIC_DASHBOARD_ORIGIN` (public site), `NEXT_PUBLIC_SITE_URL` (dashboard), `NEXT_PUBLIC_API_URL` (উভয়ে) — যাতে CSP + postMessage bridge লাইভেও কাজ করে।
-3. `my.novarisesa.com` থেকে `novarisesa.com` iframe embed + pen-mode editor লাইভে end-to-end যাচাই করা।
-4. সবকিছু ঠিক থাকলে প্রোডাকশন ডাটাবেসে সব লাইভ করে সাইট **প্রোডাকশন-রেডি** ঘোষণা করা।
-5. Phase 2 (ভবিষ্যতের কাজ): পুরনো side-panel/rail UI সরানো যাবে একবার নিশ্চিত হলে যে সব পেজে pen-mode coverage স্থিতিশীল।
+1. ব্রাউজারে সরাসরি লগইন করে `my.novarisesa.com/site-content`-এ পেন মোড + Save & publish শেষবারের মতো ক্লিক-থ্রু যাচাই করা (curl দিয়ে client-side JS/postMessage behavior verify করা যায় না — এটা রিয়েল ব্রাউজার টেস্টেই ধরা পড়ে, লোকাল সেশনে যেমন হয়েছিল)।
+2. Phase 2 (ভবিষ্যতের কাজ): পুরনো side-panel/rail UI ইতিমধ্যে সরানো হয়েছে (আজকের মিনিমাল রিডিজাইনে), তাই এই আইটেমটা সম্পন্ন।
+3. `INITIAL_ADMIN_PASSWORD`/Coolify-স্টোরড টোকেনগুলো (Coolify, Cloudflare, GitHub) নিরাপদ জায়গায় সংরক্ষণ ও প্রয়োজনে rotate করার কথা বিবেচনা করা যেতে পারে (লোকাল প্লেইনটেক্সট ফাইলে আছে, gitignored — repo-তে leak হয়নি, যাচাই করা হয়েছে)।
 
 ### Notes
 - আজকের কাজ শুধু UI/UX না — dashboard আর পাবলিক সাইটের মধ্যে real-time editing architecture (postMessage bridge) সম্পূর্ণ তৈরি হয়েছে, backend contract অপরিবর্তিত (শুধু existing `/cms/settings`, `/cms/media` reuse করা হয়েছে)।
-- লোকাল টেস্ট লগইন: `admin@novarisesa.com` / `ChangeMeNow!123` (`backend/.env`-এ সেট) — প্রোডাকশনে আলাদা/rotate করা credential ব্যবহার করতে হবে।
-- পরবর্তী বড় মাইলফলক: local-এ যা কাজ করছে সেটাই এখন প্রোডাকশন ডাটাবেস/ডোমেইনে verify করে লাইভ করা।
+- লোকাল টেস্ট লগইন: `admin@novarisesa.com` / `ChangeMeNow!123` (`backend/.env`-এ সেট)। প্রোডাকশন admin আলাদা (`nurulhoda353@gmail.com`, Coolify env-এ সেট)।
+- সাইট, API, ড্যাশবোর্ড, ডাটাবেস — সবকিছু এখন প্রোডাকশনে লাইভ এবং আজকের সব কাজসহ আপডেটেড।
 
 ---
 
