@@ -13,6 +13,7 @@ import {
   Globe2,
   ImageIcon,
   Inbox,
+  Link2,
   LogOut,
   Menu,
   MessageSquareText,
@@ -23,6 +24,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Tags,
   Users,
   X,
 } from "lucide-react";
@@ -107,7 +109,6 @@ const contentNav = [
   ["posts", "Insights", Newspaper],
   ["requirements", "Requirements", Users],
 ] as const;
-const hiddenRoutes = new Set(["media", "navigation", "taxonomy"]);
 const hiddenContentResources = new Set(["pages"]);
 const inboxNav = [
   ["contact", "Contact", MessageSquareText],
@@ -182,10 +183,7 @@ export default function Dashboard({ route }: { route: string[] }) {
   }, []);
 
   useEffect(() => {
-    if (
-      hiddenRoutes.has(route[0] ?? "") ||
-      (route[0] === "content" && hiddenContentResources.has(route[1] ?? ""))
-    ) {
+    if (route[0] === "content" && hiddenContentResources.has(route[1] ?? "")) {
       router.replace("/site-content");
     }
   }, [route, router]);
@@ -216,6 +214,9 @@ export default function Dashboard({ route }: { route: string[] }) {
         {contentNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/content/${key}`} icon={Icon} label={label} active={active === `content/${key}`} />
         ))}
+        <Nav href="/taxonomy" icon={Tags} label="Categories & tags" active={active === "taxonomy"} />
+        <Nav href="/media" icon={ImageIcon} label="Media library" active={active === "media"} />
+        <Nav href="/navigation" icon={Link2} label="Navigation" active={active === "navigation"} />
         <p className="nav-label">Inbox</p>
         {inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
@@ -250,6 +251,9 @@ export default function Dashboard({ route }: { route: string[] }) {
             <ContentPage resource={route[1] ?? "services"} user={user} />
           )}
           {route[0] === "inbox" && <InboxPage inbox={route[1] ?? "contact"} />}
+          {route[0] === "media" && <MediaPage user={user} />}
+          {route[0] === "navigation" && <NavigationPage user={user} />}
+          {route[0] === "taxonomy" && <TaxonomyPage user={user} />}
           {route[0] === "settings" && <SettingsPage />}
           {route[0] === "users" && <UsersPage user={user} />}
         </main>
@@ -1082,7 +1086,6 @@ function ContentModal({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function MediaPage({ user }: { user: User }) {
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(true);
@@ -1181,7 +1184,6 @@ function MediaPage({ user }: { user: User }) {
   </>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NavigationPage({ user }: { user: User }) {
   const [items, setItems] = useState<NavItem[]>([]);
   const [form, setForm] = useState({
@@ -1277,7 +1279,6 @@ function NavigationPage({ user }: { user: User }) {
   </>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function TaxonomyPage({ user }: { user: User }) {
   const [kind, setKind] = useState<"categories" | "tags">("categories");
   const [items, setItems] = useState<TaxonomyItem[]>([]);
