@@ -760,6 +760,16 @@ function AssetPreview({ src, label, compact }: { src: string; label: string; com
   );
 }
 
+function publicPageHref(resource: string, slug: string): string | null {
+  if (!slug) return null;
+  if (resource === "services") return `${SITE_ORIGIN}/services/${slug}`;
+  if (resource === "projects") return `${SITE_ORIGIN}/projects/${slug}`;
+  if (resource === "posts") return `${SITE_ORIGIN}/blog/${slug}`;
+  if (resource === "events") return `${SITE_ORIGIN}/careers`;
+  if (resource === "requirements") return `${SITE_ORIGIN}/requirements`;
+  return null;
+}
+
 function contentDetailToUpsertPayload(
   resource: string,
   detail: ContentDetail,
@@ -1290,6 +1300,11 @@ function ContentModal({
           <div>
             <p className="eyebrow">{item ? "Edit content" : "New content"}</p>
             <h2>{item ? item.title : `Create ${humanize(resource.replace(/s$/, ""))}`}</h2>
+            {item && publicPageHref(resource, slug) && (
+              <a className="modal-live-link" href={publicPageHref(resource, slug) as string} target="_blank" rel="noreferrer">
+                <Globe2 size={12} /> View live page
+              </a>
+            )}
           </div>
           <button type="button" onClick={onClose}><X /></button>
         </div>
