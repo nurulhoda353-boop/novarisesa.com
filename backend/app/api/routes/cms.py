@@ -152,7 +152,10 @@ def translation_for(item: Any, locale: str) -> Any | None:
     )
 
 
-def serialize_content(resource: str, item: Any, locale: str) -> ContentItem:
+def serialize_content(
+    resource: str, item: Any, locale: str, media_urls: dict[str, str] | None = None
+) -> ContentItem:
+    media_urls = media_urls or {}
     translation = translation_for(item, locale)
     title_key = RESOURCE_CONFIG[resource]["title_key"]
     title = getattr(translation, title_key, None) or getattr(item, "slug", None) or item.code
@@ -163,6 +166,9 @@ def serialize_content(resource: str, item: Any, locale: str) -> ContentItem:
             summary = value
             break
     identifier = getattr(item, "slug", None) or item.code
+    hero_media_id = getattr(item, "hero_media_id", None)
+    featured_media_id = getattr(item, "featured_media_id", None)
+    thumbnail_media_id = hero_media_id or featured_media_id
     extra: dict[str, Any] = {
         "location": getattr(item, "location", None),
         "headcount": getattr(item, "headcount", None),
@@ -171,14 +177,9 @@ def serialize_content(resource: str, item: Any, locale: str) -> ContentItem:
         "sort_order": getattr(item, "sort_order", 0),
         "number": getattr(item, "number", None),
         "icon": getattr(item, "icon", None),
-        "hero_media_id": (
-            str(item.hero_media_id) if getattr(item, "hero_media_id", None) else None
-        ),
-        "featured_media_id": (
-            str(item.featured_media_id)
-            if getattr(item, "featured_media_id", None)
-            else None
-        ),
+        "hero_media_id": str(hero_media_id) if hero_media_id else None,
+        "featured_media_id": str(featured_media_id) if featured_media_id else None,
+        "thumbnail_url": media_urls.get(str(thumbnail_media_id)) if thumbnail_media_id else None,
     }
     if resource == "posts":
         extra["category_id"] = str(item.category_id) if item.category_id else None
@@ -634,7 +635,19 @@ def list_content(
         options.append(selectinload(Requirement.contacts))
     statement = select(model).options(*options).order_by(model.updated_at.desc()).limit(limit)
     items = list(db.scalars(statement))
-    serialized = [serialize_content(resource, item, locale) for item in items]
+    media_ids = {
+        str(media_id)
+        for item in items
+        for media_id in (getattr(item, "hero_media_id", None), getattr(item, "featured_media_id", None))
+        if media_id
+    }
+    media_urls: dict[str, str] = {}
+    if media_ids:
+        rows = db.execute(
+            select(MediaAsset.id, MediaAsset.public_url).where(MediaAsset.id.in_(media_ids))
+        ).all()
+        media_urls = {str(media_id): url for media_id, url in rows}
+    serialized = [serialize_content(resource, item, locale, media_urls) for item in items]
     if search:
         needle = search.casefold()
         serialized = [

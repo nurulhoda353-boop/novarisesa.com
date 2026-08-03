@@ -733,9 +733,10 @@ function SiteContentPage({ user, onTopbarActions }: { user: User; onTopbarAction
   );
 }
 
-function AssetPreview({ src, label }: { src: string; label: string }) {
+function AssetPreview({ src, label, compact }: { src: string; label: string; compact?: boolean }) {
   const [failed, setFailed] = useState(false);
   const previewSrc = src.startsWith("/") ? `https://novarisesa.com${src}` : src;
+  const cls = compact ? "asset-preview compact" : "asset-preview";
 
   useEffect(() => {
     setFailed(false);
@@ -743,16 +744,16 @@ function AssetPreview({ src, label }: { src: string; label: string }) {
 
   if (!previewSrc || failed) {
     return (
-      <div className="asset-preview empty-preview">
-        <ImageIcon size={22} />
-        <strong>{failed ? "Preview unavailable" : "No image selected"}</strong>
-        <small>{failed ? previewSrc : "Choose a media file or paste an image URL."}</small>
+      <div className={`${cls} empty-preview`}>
+        <ImageIcon size={compact ? 18 : 22} />
+        {!compact && <strong>{failed ? "Preview unavailable" : "No image selected"}</strong>}
+        {!compact && <small>{failed ? previewSrc : "Choose a media file or paste an image URL."}</small>}
       </div>
     );
   }
 
   return (
-    <div className="asset-preview">
+    <div className={cls}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={previewSrc} alt={`${label} preview`} onError={() => setFailed(true)} />
     </div>
@@ -896,33 +897,50 @@ function ContentPage({ resource, user }: { resource: string; user: User }) {
         <span>{visible.length} items</span>
       </div>
       {busy ? <Skeleton /> : visible.length ? (
-        <div className="data-table">
-          <div className="table-row table-head"><span>Title</span><span>Status</span><span>Updated</span><span /></div>
-          {visible.map((item, index) => (
-            <div className="table-row" key={item.id}>
-              <span><b>{item.title}</b><small>/{item.slug}</small></span>
-              <span><Badge value={item.status} /></span>
-              <span>{new Date(item.updated_at).toLocaleDateString()}</span>
-              <span className="row-actions">
-                {can(user, "cms.manage_content") && (
-                  <span className="reorder-buttons">
-                    <button
-                      onClick={() => move(item, -1)}
-                      disabled={index === 0 || reordering === item.id}
-                      title="Move up"
-                    ><ChevronUp size={14} /></button>
-                    <button
-                      onClick={() => move(item, 1)}
-                      disabled={index === visible.length - 1 || reordering === item.id}
-                      title="Move down"
-                    ><ChevronDown size={14} /></button>
+        <div className="content-grid">
+          {visible.map((item, index) => {
+            const thumb = (item.extra.thumbnail_url as string | undefined)
+              || assetSlots.find(([key]) => key === `${resource}.${item.slug}.hero`)?.[2]
+              || "";
+            return (
+              <article className="content-card" key={item.id}>
+                <div className="content-card-media">
+                  <AssetPreview src={thumb} label={item.title} compact />
+                  <div className="content-card-badges">
+                    <Badge value={item.status} />
+                    {item.is_featured && <span className="badge badge-featured">Featured</span>}
+                  </div>
+                </div>
+                <div className="content-card-body">
+                  <strong title={item.title}>{item.title}</strong>
+                  <small>/{item.slug}</small>
+                </div>
+                <div className="content-card-foot">
+                  <span>Updated {new Date(item.updated_at).toLocaleDateString()}</span>
+                  <span className="content-card-actions">
+                    {can(user, "cms.manage_content") && (
+                      <span className="reorder-buttons">
+                        <button
+                          onClick={() => move(item, -1)}
+                          disabled={index === 0 || reordering === item.id}
+                          title="Move up"
+                        ><ChevronUp size={14} /></button>
+                        <button
+                          onClick={() => move(item, 1)}
+                          disabled={index === visible.length - 1 || reordering === item.id}
+                          title="Move down"
+                        ><ChevronDown size={14} /></button>
+                      </span>
+                    )}
+                    <button onClick={() => setModal(item)} title="Edit"><Pencil size={14} /></button>
+                    {can(user, "cms.manage_content") && (
+                      <button onClick={() => archive(item)} title="Remove"><Trash2 size={14} /></button>
+                    )}
                   </span>
-                )}
-                <button onClick={() => setModal(item)}>Edit</button>
-                {can(user, "cms.manage_content") && <button onClick={() => archive(item)}>Remove</button>}
-              </span>
-            </div>
-          ))}
+                </div>
+              </article>
+            );
+          })}
         </div>
       ) : <Empty copy={`No ${title.toLowerCase()} yet. Create the first one to get started.`} />}
     </div>

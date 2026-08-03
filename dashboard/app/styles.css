@@ -101,4 +101,22 @@
 .form-divider svg{color:#b87922;flex-shrink:0}
 .form-divider span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.13em}
 .form-grid label:has(> .asset-preview){margin-top:0}
+.asset-preview.compact{min-height:140px;border-radius:0;border-width:0 0 1px}
+.asset-preview.compact img{height:140px}
+.content-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding:16px}
+.content-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;display:flex;flex-direction:column;transition:.2s ease}
+.content-card:hover{border-color:#dfa24770;box-shadow:0 10px 26px #1c335c10;transform:translateY(-2px)}
+.content-card-media{position:relative}
+.content-card-badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;z-index:1}
+.badge-featured{background:#fff2dc;color:#ba7620}
+.content-card-body{padding:14px 14px 4px;flex:1}
+.content-card-body strong{display:block;color:var(--navy);font-size:13px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.content-card-body small{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.content-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-top:1px solid #f1f0ec;margin-top:10px}
+.content-card-foot>span:first-child{font-size:9px;color:var(--muted)}
+.content-card-actions{display:flex;align-items:center;gap:6px}
+.content-card-actions>button{width:28px;height:28px;border:1px solid var(--line);background:#fff;border-radius:7px;display:grid;place-items:center;color:var(--navy)}
+.content-card-actions>button:hover{border-color:#dfa24770;color:#b87922}
+.content-card-actions>button:disabled{opacity:.3}
+@media(max-width:640px){.content-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));padding:12px;gap:10px}.content-card-foot{flex-direction:column;align-items:flex-start;gap:8px}}
 @media(max-width:560px){.login-page{padding:28px 16px}.login-logo{margin:0 4px 20px}.login-logo img{width:155px}.login-logo span{font-size:7px;padding-left:11px}.login-card{padding:28px 22px 24px;border-radius:17px}.login-card h1{font-size:29px}.password-toggle span{display:none}.login-card .login-field input{padding-right:48px}}
