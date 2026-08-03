@@ -16,7 +16,6 @@ import {
   Globe2,
   ImageIcon,
   Inbox,
-  Link2,
   LogOut,
   Menu,
   MessageSquareText,
@@ -27,7 +26,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Tags,
   Trash2,
   Users,
   X,
@@ -228,9 +226,7 @@ export default function Dashboard({ route }: { route: string[] }) {
         {contentNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/content/${key}`} icon={Icon} label={label} active={active === `content/${key}`} />
         ))}
-        <Nav href="/taxonomy" icon={Tags} label="Categories & tags" active={active === "taxonomy"} />
         <Nav href="/media" icon={ImageIcon} label="Media library" active={active === "media"} />
-        <Nav href="/navigation" icon={Link2} label="Navigation" active={active === "navigation"} />
         <p className="nav-label">Inbox</p>
         {inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
@@ -1014,10 +1010,6 @@ function ContentModal({
   const [accommodation, setAccommodation] = useState("");
   const [documents, setDocuments] = useState("");
   const [bodyJson, setBodyJson] = useState("{}");
-  const [categories, setCategories] = useState<TaxonomyItem[]>([]);
-  const [tags, setTags] = useState<TaxonomyItem[]>([]);
-  const [categoryId, setCategoryId] = useState("");
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [bodyError, setBodyError] = useState("");
   const [saving, setSaving] = useState(false);
   const isProject = resource === "projects";
@@ -1047,12 +1039,6 @@ function ContentModal({
   const [eventDateDisplay, setEventDateDisplay] = useState("");
   const [eventStartsOn, setEventStartsOn] = useState("");
   const [eventEndsOn, setEventEndsOn] = useState("");
-
-  useEffect(() => {
-    if (!isPost) return;
-    api<{ items: TaxonomyItem[] }>("/cms/taxonomy/categories").then((r) => setCategories(r.items));
-    api<{ items: TaxonomyItem[] }>("/cms/taxonomy/tags").then((r) => setTags(r.items));
-  }, [isPost]);
 
   useEffect(() => {
     if (!supportsMedia) return;
@@ -1123,8 +1109,6 @@ function ContentModal({
       setEventDateDisplay(String(detail.body.date_display ?? ""));
       setEventStartsOn(String(detail.body.starts_on ?? "").slice(0, 10));
       setEventEndsOn(String(detail.body.ends_on ?? "").slice(0, 10));
-      setCategoryId(String(detail.extra.category_id ?? ""));
-      setTagIds(Array.isArray(detail.extra.tag_ids) ? detail.extra.tag_ids.map(String) : []);
       setProjectName(String(detail.extra.project_name ?? ""));
       setLocation(String(detail.extra.location ?? ""));
       setHeadcount(Number(detail.extra.headcount ?? 1));
@@ -1245,8 +1229,6 @@ function ContentModal({
       locale,
       meta_title: metaTitle || undefined,
       meta_description: metaDescription || undefined,
-      category_id: isPost && categoryId ? categoryId : null,
-      tag_ids: isPost ? tagIds : [],
     };
     await api(`/cms/content/${resource}${item ? `/${item.id}` : ""}`, {
       method: item ? "PATCH" : "POST",
@@ -1453,26 +1435,6 @@ function ContentModal({
               empty=""
               renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
             />
-            <label>Taxonomy category
-              <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-                <option value="">No category</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name.en || category.slug}</option>
-                ))}
-              </select>
-            </label>
-            <label className="full">Tags
-              <select
-                multiple
-                value={tagIds}
-                onChange={(event) => setTagIds(Array.from(event.target.selectedOptions).map((option) => option.value))}
-                className="multi-select"
-              >
-                {tags.map((tag) => (
-                  <option key={tag.id} value={tag.id}>{tag.name.en || tag.slug}</option>
-                ))}
-              </select>
-            </label>
           </>}
           <label className="full">Summary<textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
           {bodyError && <p className="form-error full">{bodyError}</p>}
