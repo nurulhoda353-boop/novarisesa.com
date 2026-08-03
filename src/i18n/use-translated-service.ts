@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { getServiceBySlug, type ServicePage } from "@/lib/services-data";
-import { Building2 } from "lucide-react";
+import { resolveServiceIcon } from "@/lib/service-icons";
 import { useCmsContent } from "@/lib/cms-content";
 
 /**
@@ -23,13 +23,13 @@ export function useTranslatedService(slug: string): ServicePage | undefined {
     tagline: managed.summary ?? "",
     lead: String(managed.data.lead ?? managed.summary ?? ""),
     intro: String(managed.data.intro ?? ""),
-    icon: Building2,
+    icon: resolveServiceIcon(managed.data.icon),
     heroImage: String(managed.data.hero_media_url ?? "/assets/capabilities-hero.jpg"),
     metaTitle: managed.title,
     metaDescription: managed.summary ?? "",
     stats: Array.isArray(managed.data.stats) ? managed.data.stats as ServicePage["stats"] : [],
     subServices: (Array.isArray(managed.data.sub_services) ? managed.data.sub_services : []).map(
-      (item) => ({ ...(item as { title: string; desc: string }), icon: Building2 }),
+      (item) => ({ ...(item as { title: string; desc: string }), icon: resolveServiceIcon((item as { icon?: string }).icon) }),
     ),
     capabilities: { heading: managed.title, rows: managedCapabilities },
     projects: [],

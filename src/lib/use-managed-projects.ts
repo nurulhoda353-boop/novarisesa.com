@@ -12,7 +12,7 @@ export function useManagedProjects(): Project[] {
     return managed.map((item, index) => {
       const fallback = allProjects.find((project) => project.slug === item.slug);
       return {
-        key: item.slug,
+        key: fallback?.key ?? item.slug,
         slug: item.slug,
         img:
           (typeof item.data.featured_media_url === "string" && item.data.featured_media_url) ||

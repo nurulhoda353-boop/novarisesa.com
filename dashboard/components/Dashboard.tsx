@@ -5,7 +5,9 @@ import {
   Bell,
   BookOpen,
   BriefcaseBusiness,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   CircleGauge,
   FileText,
   FilePenLine,
@@ -25,6 +27,7 @@ import {
   Settings,
   ShieldCheck,
   Tags,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -139,6 +142,15 @@ const assetSlots = [
   ["brand.logoColor", "Header logo (colour)", "/assets/logo-navy-full.png"],
   ["brand.logoWhite", "Header/footer logo (white)", "/assets/logo-white-full.png"],
 ] as const;
+
+// Keep in sync with src/lib/service-icons.ts on the public site.
+const SERVICE_ICON_NAMES = [
+  "Activity", "Anvil", "Boxes", "Building2", "Cable", "Cloud", "Construction", "Cpu",
+  "Drill", "Droplets", "Flame", "Forklift", "Fuel", "Gauge", "Hammer", "HardHat",
+  "Layers", "Lock", "MonitorCog", "Network", "Package", "Pipette", "PlugZap", "Radio",
+  "Ruler", "ScrollText", "Server", "ShieldAlert", "ShieldCheck", "Truck", "Users",
+  "Waypoints", "Wind", "Wrench", "Zap",
+];
 
 function can(user: User, code: string) {
   return (user.permissions ?? []).includes(code) || user.roles.includes("owner");
@@ -731,11 +743,72 @@ function AssetPreview({ src, label }: { src: string; label: string }) {
   );
 }
 
+function contentDetailToUpsertPayload(
+  resource: string,
+  detail: ContentDetail,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  const b = detail.body;
+  const base: Record<string, unknown> = {
+    title: detail.title,
+    slug: detail.slug,
+    locale: "en",
+    summary: detail.summary ?? undefined,
+    status: detail.status,
+    is_featured: detail.is_featured,
+    sort_order: Number(detail.extra.sort_order ?? 0),
+    meta_title: detail.meta_title ?? undefined,
+    meta_description: detail.meta_description ?? undefined,
+    body: b,
+  };
+  if (resource === "services") {
+    Object.assign(base, {
+      number: b.number,
+      icon: b.icon,
+      hero_media_id: b.hero_media_id ?? null,
+      stats: Array.isArray(b.stats) ? b.stats : [],
+      capabilities: Array.isArray(b.capabilities) ? b.capabilities : [],
+      process: Array.isArray(b.process) ? b.process : [],
+      certifications: Array.isArray(b.certifications) ? b.certifications : [],
+    });
+  } else if (resource === "projects") {
+    Object.assign(base, {
+      client_name: b.client_name,
+      location: b.location,
+      started_on: b.started_on,
+      completed_on: b.completed_on,
+      featured_media_id: b.featured_media_id ?? null,
+      facts: b.facts && typeof b.facts === "object" ? b.facts : {},
+    });
+  } else if (resource === "requirements") {
+    Object.assign(base, {
+      code: detail.slug,
+      headcount: detail.extra.headcount,
+      location: detail.extra.location,
+      project_name: detail.extra.project_name,
+      rate_amount: b.rate_amount || null,
+      rate_currency: b.rate_currency || "SAR",
+      rate_unit: b.rate_unit || null,
+      opens_at: b.opens_at || null,
+      closes_at: b.closes_at || null,
+      contacts: Array.isArray(b.contacts) ? b.contacts : [],
+    });
+  } else if (resource === "posts") {
+    Object.assign(base, {
+      featured_media_id: b.featured_media_id ?? null,
+      category_id: detail.extra.category_id || null,
+      tag_ids: Array.isArray(detail.extra.tag_ids) ? detail.extra.tag_ids : [],
+    });
+  }
+  return { ...base, ...overrides };
+}
+
 function ContentPage({ resource, user }: { resource: string; user: User }) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [busy, setBusy] = useState(true);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState<ContentItem | "new" | null>(null);
+  const [reordering, setReordering] = useState("");
   const title = contentNav.find(([key]) => key === resource)?.[1] ?? humanize(resource);
   const load = useCallback(() => {
     setBusy(true);
@@ -745,13 +818,40 @@ function ContentPage({ resource, user }: { resource: string; user: User }) {
   }, [resource]);
   useEffect(load, [load]);
   const visible = useMemo(
-    () => items.filter((item) => `${item.title} ${item.slug}`.toLowerCase().includes(query.toLowerCase())),
+    () => items
+      .filter((item) => `${item.title} ${item.slug}`.toLowerCase().includes(query.toLowerCase()))
+      .sort((a, b) => Number(a.extra.sort_order ?? 0) - Number(b.extra.sort_order ?? 0)),
     [items, query],
   );
   async function archive(item: ContentItem) {
-    if (!window.confirm(`Archive “${item.title}”?`)) return;
+    if (!window.confirm(`Remove “${item.title}” from the live site?`)) return;
     await api(`/cms/content/${resource}/${item.id}`, { method: "DELETE" });
     load();
+  }
+  async function move(item: ContentItem, direction: -1 | 1) {
+    const index = visible.findIndex((i) => i.id === item.id);
+    const neighbor = visible[index + direction];
+    if (!neighbor) return;
+    setReordering(item.id);
+    try {
+      const [a, b] = await Promise.all([
+        api<ContentDetail>(`/cms/content/${resource}/${item.id}`),
+        api<ContentDetail>(`/cms/content/${resource}/${neighbor.id}`),
+      ]);
+      await Promise.all([
+        api(`/cms/content/${resource}/${item.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(contentDetailToUpsertPayload(resource, a, { sort_order: Number(b.extra.sort_order ?? 0) })),
+        }),
+        api(`/cms/content/${resource}/${neighbor.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(contentDetailToUpsertPayload(resource, b, { sort_order: Number(a.extra.sort_order ?? 0) })),
+        }),
+      ]);
+      load();
+    } finally {
+      setReordering("");
+    }
   }
   return <>
     <PageHead
@@ -775,14 +875,28 @@ function ContentPage({ resource, user }: { resource: string; user: User }) {
       {busy ? <Skeleton /> : visible.length ? (
         <div className="data-table">
           <div className="table-row table-head"><span>Title</span><span>Status</span><span>Updated</span><span /></div>
-          {visible.map((item) => (
+          {visible.map((item, index) => (
             <div className="table-row" key={item.id}>
               <span><b>{item.title}</b><small>/{item.slug}</small></span>
               <span><Badge value={item.status} /></span>
               <span>{new Date(item.updated_at).toLocaleDateString()}</span>
               <span className="row-actions">
+                {can(user, "cms.manage_content") && (
+                  <span className="reorder-buttons">
+                    <button
+                      onClick={() => move(item, -1)}
+                      disabled={index === 0 || reordering === item.id}
+                      title="Move up"
+                    ><ChevronUp size={14} /></button>
+                    <button
+                      onClick={() => move(item, 1)}
+                      disabled={index === visible.length - 1 || reordering === item.id}
+                      title="Move down"
+                    ><ChevronDown size={14} /></button>
+                  </span>
+                )}
                 <button onClick={() => setModal(item)}>Edit</button>
-                {can(user, "cms.manage_content") && <button onClick={() => archive(item)}>Archive</button>}
+                {can(user, "cms.manage_content") && <button onClick={() => archive(item)}>Remove</button>}
               </span>
             </div>
           ))}
@@ -799,6 +913,55 @@ function ContentPage({ resource, user }: { resource: string; user: User }) {
       />
     )}
   </>;
+}
+
+function ListEditor<T>({
+  label,
+  items,
+  onChange,
+  empty,
+  renderItem,
+}: {
+  label: string;
+  items: T[];
+  onChange: (items: T[]) => void;
+  empty: T;
+  renderItem: (item: T, setItem: (value: T) => void) => ReactNode;
+}) {
+  function add() {
+    onChange([...items, empty]);
+  }
+  function remove(index: number) {
+    onChange(items.filter((_, i) => i !== index));
+  }
+  function move(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[index], next[target]] = [next[target], next[index]];
+    onChange(next);
+  }
+  return (
+    <div className="list-editor full">
+      <div className="list-editor-head">
+        <span>{label}</span>
+        <button type="button" className="secondary-button mini" onClick={add}>+ Add</button>
+      </div>
+      {items.map((item, index) => (
+        <div className="list-editor-row" key={index}>
+          <div className="list-editor-fields">
+            {renderItem(item, (value) => onChange(items.map((it, i) => (i === index ? value : it))))}
+          </div>
+          <div className="list-editor-row-actions">
+            <button type="button" onClick={() => move(index, -1)} disabled={index === 0} title="Move up"><ChevronUp size={14} /></button>
+            <button type="button" onClick={() => move(index, 1)} disabled={index === items.length - 1} title="Move down"><ChevronDown size={14} /></button>
+            <button type="button" onClick={() => remove(index)} title="Remove"><Trash2 size={14} /></button>
+          </div>
+        </div>
+      ))}
+      {!items.length && <p className="list-editor-empty">Nothing yet — click + Add.</p>}
+    </div>
+  );
 }
 
 function ContentModal({
@@ -848,6 +1011,22 @@ function ContentModal({
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [bodyError, setBodyError] = useState("");
   const [saving, setSaving] = useState(false);
+  const isProject = resource === "projects";
+  const [serviceIcon, setServiceIcon] = useState("Building2");
+  const [serviceNum, setServiceNum] = useState("");
+  const [statsList, setStatsList] = useState<{ value: string; suffix: string; label: string }[]>([]);
+  const [subServicesList, setSubServicesList] = useState<{ title: string; desc: string }[]>([]);
+  const [capabilitiesRows, setCapabilitiesRows] = useState<{ label: string; value: string }[]>([]);
+  const [processList, setProcessList] = useState<{ num: string; title: string; desc: string }[]>([]);
+  const [certificationsList, setCertificationsList] = useState<string[]>([]);
+  const [faqsList, setFaqsList] = useState<{ q: string; a: string }[]>([]);
+  const [projectClient, setProjectClient] = useState("");
+  const [projectSector, setProjectSector] = useState("");
+  const [projectValue, setProjectValue] = useState("");
+  const [projectDuration, setProjectDuration] = useState("");
+  const [projectLong, setProjectLong] = useState<string[]>([]);
+  const [projectHighlights, setProjectHighlights] = useState<string[]>([]);
+  const [contactsList, setContactsList] = useState<{ display: string; raw: string; whatsapp: boolean }[]>([]);
 
   useEffect(() => {
     if (!isPost) return;
@@ -881,6 +1060,39 @@ function ContentModal({
       setFood(String(detail.body.food ?? ""));
       setAccommodation(String(detail.body.accommodation ?? ""));
       setDocuments(Array.isArray(detail.body.documents) ? detail.body.documents.join("\n") : "");
+      setServiceIcon(String(detail.body.icon ?? "Building2"));
+      setServiceNum(String(detail.body.number ?? ""));
+      setStatsList(Array.isArray(detail.body.stats) ? detail.body.stats.map((s) => {
+        const row = s as { value?: unknown; suffix?: unknown; label?: unknown };
+        return { value: String(row.value ?? ""), suffix: String(row.suffix ?? ""), label: String(row.label ?? "") };
+      }) : []);
+      setSubServicesList(Array.isArray(detail.body.sub_services) ? detail.body.sub_services.map((s) => {
+        const row = s as { title?: unknown; desc?: unknown };
+        return { title: String(row.title ?? ""), desc: String(row.desc ?? "") };
+      }) : []);
+      setCapabilitiesRows(Array.isArray(detail.body.capabilities) ? detail.body.capabilities.map((r) => {
+        const row = r as { label?: unknown; value?: unknown };
+        return { label: String(row.label ?? ""), value: String(row.value ?? "") };
+      }) : []);
+      setProcessList(Array.isArray(detail.body.process) ? detail.body.process.map((p) => {
+        const row = p as { num?: unknown; title?: unknown; desc?: unknown };
+        return { num: String(row.num ?? ""), title: String(row.title ?? ""), desc: String(row.desc ?? "") };
+      }) : []);
+      setCertificationsList(Array.isArray(detail.body.certifications) ? detail.body.certifications.map(String) : []);
+      setFaqsList(Array.isArray(detail.body.faqs) ? detail.body.faqs.map((f) => {
+        const row = f as { q?: unknown; a?: unknown };
+        return { q: String(row.q ?? ""), a: String(row.a ?? "") };
+      }) : []);
+      setProjectClient(String(detail.body.client_name ?? ""));
+      setProjectSector(String(detail.body.sector ?? ""));
+      setProjectValue(String(detail.body.value ?? ""));
+      setProjectDuration(String(detail.body.duration ?? ""));
+      setProjectLong(Array.isArray(detail.body.long) ? detail.body.long.map(String) : []);
+      setProjectHighlights(Array.isArray(detail.body.highlights) ? detail.body.highlights.map(String) : []);
+      setContactsList(Array.isArray(detail.body.contacts) ? detail.body.contacts.map((c) => {
+        const row = c as { display?: unknown; raw?: unknown; whatsapp?: unknown };
+        return { display: String(row.display ?? ""), raw: String(row.raw ?? ""), whatsapp: Boolean(row.whatsapp) };
+      }) : []);
       setCategoryId(String(detail.extra.category_id ?? ""));
       setTagIds(Array.isArray(detail.extra.tag_ids) ? detail.extra.tag_ids.map(String) : []);
       setProjectName(String(detail.extra.project_name ?? ""));
@@ -906,11 +1118,28 @@ function ContentModal({
     let parsedBody: Record<string, unknown> = {};
     try {
       if (isService) {
-        parsedBody = { eyebrow, lead, intro, sub_services: [], faqs: [] };
-        try {
-          const existing = bodyJson.trim() ? JSON.parse(bodyJson) : {};
-          parsedBody = { ...existing, eyebrow, lead, intro };
-        } catch { /* keep defaults */ }
+        parsedBody = {
+          eyebrow,
+          lead,
+          intro,
+          number: serviceNum || undefined,
+          icon: serviceIcon,
+          stats: statsList,
+          sub_services: subServicesList,
+          capabilities: capabilitiesRows,
+          process: processList,
+          certifications: certificationsList,
+          faqs: faqsList,
+        };
+      } else if (isProject) {
+        parsedBody = {
+          client_name: projectClient || undefined,
+          sector: projectSector,
+          value: projectValue,
+          duration: projectDuration,
+          long: projectLong.filter(Boolean),
+          highlights: projectHighlights.filter(Boolean),
+        };
       } else if (isRequirement) {
         let existing: Record<string, unknown> = {};
         try {
@@ -924,6 +1153,7 @@ function ContentModal({
           food: food || null,
           accommodation: accommodation || null,
           documents: documents.split("\n").map((line) => line.trim()).filter(Boolean),
+          contacts: contactsList.filter((c) => c.raw.trim()),
         };
       } else {
         parsedBody = bodyJson.trim() ? JSON.parse(bodyJson) : {};
@@ -1032,9 +1262,11 @@ function ContentModal({
             <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
             Feature this item
           </label>}
+          {(isRequirement || isProject) && (
+            <label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
+          )}
           {isRequirement && <>
             <label>Headcount<input type="number" min="1" value={headcount} onChange={(event) => setHeadcount(Number(event.target.value))} /></label>
-            <label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
             <label className="full">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} /></label>
             <label>Approval<input value={approval} onChange={(event) => setApproval(event.target.value)} /></label>
             <label>Duration<input value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
@@ -1042,11 +1274,107 @@ function ContentModal({
             <label>Food<input value={food} onChange={(event) => setFood(event.target.value)} /></label>
             <label className="full">Accommodation<input value={accommodation} onChange={(event) => setAccommodation(event.target.value)} /></label>
             <label className="full">Documents (one per line)<textarea rows={4} value={documents} onChange={(event) => setDocuments(event.target.value)} /></label>
+            <ListEditor
+              label="Contact numbers"
+              items={contactsList}
+              onChange={setContactsList}
+              empty={{ display: "", raw: "", whatsapp: true }}
+              renderItem={(c, set) => <>
+                <input placeholder="Display, e.g. +966 57 875 3016" value={c.display} onChange={(event) => set({ ...c, display: event.target.value })} />
+                <input placeholder="Digits only, e.g. 966578753016" value={c.raw} onChange={(event) => set({ ...c, raw: event.target.value })} />
+                <label className="check-row mini"><input type="checkbox" checked={c.whatsapp} onChange={(event) => set({ ...c, whatsapp: event.target.checked })} /> WhatsApp</label>
+              </>}
+            />
           </>}
           {isService && <>
             <label>Eyebrow<input value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} /></label>
             <label>Lead<input value={lead} onChange={(event) => setLead(event.target.value)} /></label>
             <label className="full">Intro<textarea rows={4} value={intro} onChange={(event) => setIntro(event.target.value)} /></label>
+            <label>Display number<input placeholder="e.g. 07" value={serviceNum} onChange={(event) => setServiceNum(event.target.value)} /></label>
+            <label>Icon
+              <select value={serviceIcon} onChange={(event) => setServiceIcon(event.target.value)}>
+                {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
+              </select>
+            </label>
+            <ListEditor
+              label="Stats"
+              items={statsList}
+              onChange={setStatsList}
+              empty={{ value: "", suffix: "", label: "" }}
+              renderItem={(s, set) => <>
+                <input placeholder="Value, e.g. 12" value={s.value} onChange={(event) => set({ ...s, value: event.target.value })} />
+                <input placeholder="Suffix, e.g. M+" value={s.suffix} onChange={(event) => set({ ...s, suffix: event.target.value })} />
+                <input placeholder="Label, e.g. Safe Man-hours" value={s.label} onChange={(event) => set({ ...s, label: event.target.value })} />
+              </>}
+            />
+            <ListEditor
+              label="Sub-services"
+              items={subServicesList}
+              onChange={setSubServicesList}
+              empty={{ title: "", desc: "" }}
+              renderItem={(s, set) => <>
+                <input placeholder="Title" value={s.title} onChange={(event) => set({ ...s, title: event.target.value })} />
+                <input placeholder="Description" value={s.desc} onChange={(event) => set({ ...s, desc: event.target.value })} />
+              </>}
+            />
+            <ListEditor
+              label="Capabilities table"
+              items={capabilitiesRows}
+              onChange={setCapabilitiesRows}
+              empty={{ label: "", value: "" }}
+              renderItem={(r, set) => <>
+                <input placeholder="Label, e.g. Concrete capacity / day" value={r.label} onChange={(event) => set({ ...r, label: event.target.value })} />
+                <input placeholder="Value, e.g. Up to 1,200 m³" value={r.value} onChange={(event) => set({ ...r, value: event.target.value })} />
+              </>}
+            />
+            <ListEditor
+              label="Process steps"
+              items={processList}
+              onChange={setProcessList}
+              empty={{ num: String(processList.length + 1).padStart(2, "0"), title: "", desc: "" }}
+              renderItem={(p, set) => <>
+                <input placeholder="Step no., e.g. 01" value={p.num} onChange={(event) => set({ ...p, num: event.target.value })} />
+                <input placeholder="Title" value={p.title} onChange={(event) => set({ ...p, title: event.target.value })} />
+                <input placeholder="Description" value={p.desc} onChange={(event) => set({ ...p, desc: event.target.value })} />
+              </>}
+            />
+            <ListEditor
+              label="Certifications"
+              items={certificationsList}
+              onChange={setCertificationsList}
+              empty=""
+              renderItem={(c, set) => <input placeholder="e.g. ISO 9001:2015" value={c} onChange={(event) => set(event.target.value)} />}
+            />
+            <ListEditor
+              label="FAQs"
+              items={faqsList}
+              onChange={setFaqsList}
+              empty={{ q: "", a: "" }}
+              renderItem={(f, set) => <>
+                <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
+                <input placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
+              </>}
+            />
+          </>}
+          {isProject && <>
+            <label>Client<input value={projectClient} onChange={(event) => setProjectClient(event.target.value)} /></label>
+            <label>Sector<input placeholder="e.g. Giga-project" value={projectSector} onChange={(event) => setProjectSector(event.target.value)} /></label>
+            <label>Value<input placeholder="e.g. USD 500B+" value={projectValue} onChange={(event) => setProjectValue(event.target.value)} /></label>
+            <label>Duration<input placeholder="e.g. 2024 – Ongoing" value={projectDuration} onChange={(event) => setProjectDuration(event.target.value)} /></label>
+            <ListEditor
+              label="Long description (paragraphs)"
+              items={projectLong}
+              onChange={setProjectLong}
+              empty=""
+              renderItem={(p, set) => <textarea rows={3} value={p} onChange={(event) => set(event.target.value)} />}
+            />
+            <ListEditor
+              label="Highlights"
+              items={projectHighlights}
+              onChange={setProjectHighlights}
+              empty=""
+              renderItem={(h, set) => <input value={h} onChange={(event) => set(event.target.value)} />}
+            />
           </>}
           {isPost && <>
             <label>Category

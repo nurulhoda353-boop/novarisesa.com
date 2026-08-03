@@ -21,16 +21,27 @@ import { Reveal } from "@/components/site/Reveal";
 import { ContactForm } from "@/components/contact/ContactForm";
 import { type Project } from "@/lib/projects-data";
 import { useManagedProjects } from "@/lib/use-managed-projects";
+import { useTranslatedProject } from "@/i18n/use-translated-project";
 
-export function ProjectDetailView({ project }: { project: Project }) {
+export function ProjectDetailView({ project: initialProject }: { project: Project }) {
   const allProjects = useManagedProjects();
-  const managedProject = allProjects.find((item) => item.slug === project.slug) ?? project;
-  project = managedProject;
+  const project = useTranslatedProject(initialProject.slug) ?? {
+    ...initialProject,
+    sector: "",
+    title: "",
+    client: "",
+    location: "",
+    value: "",
+    duration: "",
+    scope: "",
+    long: [] as string[],
+    highlights: [] as string[],
+  };
   const { t } = useTranslation();
   const k = project.key;
 
-  const longParagraphs = t(`projects.content.${k}.long`, { returnObjects: true, defaultValue: [] }) as string[];
-  const highlights = t(`projects.content.${k}.highlights`, { returnObjects: true, defaultValue: [] }) as string[];
+  const longParagraphs = project.long;
+  const highlights = project.highlights;
   const faqs = t("projects.faqs", { returnObjects: true, defaultValue: [] }) as { q: string; a: string }[];
 
   const currentIdx = allProjects.findIndex((p) => p.slug === project.slug);
@@ -38,10 +49,10 @@ export function ProjectDetailView({ project }: { project: Project }) {
   const prevProject = allProjects[(currentIdx - 1 + allProjects.length) % allProjects.length];
 
   const stats = [
-    { icon: Briefcase, label: t("projects.details.client"), value: t(`projects.items.${k}.client`), field: `projects.items.${k}.client` },
-    { icon: MapPin, label: t("projects.details.location"), value: t(`projects.items.${k}.location`), field: `projects.items.${k}.location` },
-    { icon: Coins, label: t("projects.details.value"), value: t(`projects.items.${k}.value`), field: `projects.items.${k}.value` },
-    { icon: Calendar, label: t("projects.details.duration"), value: t(`projects.items.${k}.duration`), field: `projects.items.${k}.duration` },
+    { icon: Briefcase, label: t("projects.details.client"), value: project.client, field: `projects.items.${k}.client` },
+    { icon: MapPin, label: t("projects.details.location"), value: project.location, field: `projects.items.${k}.location` },
+    { icon: Coins, label: t("projects.details.value"), value: project.value, field: `projects.items.${k}.value` },
+    { icon: Calendar, label: t("projects.details.duration"), value: project.duration, field: `projects.items.${k}.duration` },
   ];
 
   return (
@@ -66,7 +77,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
             <div className="max-w-4xl">
               <div className="flex flex-wrap items-center gap-3 mb-6">
                 <span className="rounded-full bg-gold px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-navy" data-cms-field={`projects.items.${k}.sector`}>
-                  {t(`projects.items.${k}.sector`)}
+                  {project.sector}
                 </span>
                 {project.featured && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white">
@@ -78,10 +89,10 @@ export function ProjectDetailView({ project }: { project: Project }) {
                 </span>
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-8" data-cms-field={`projects.items.${k}.title`}>
-                {t(`projects.items.${k}.title`)}
+                {project.title}
               </h1>
               <p className="text-lg md:text-xl text-white/70 leading-relaxed max-w-3xl" data-cms-field={`projects.items.${k}.scope`}>
-                {t(`projects.items.${k}.scope`)}
+                {project.scope}
               </p>
             </div>
           </div>
@@ -92,7 +103,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
         <section className="relative bg-white">
           <div className="container-wide px-4 sm:px-6 lg:px-8 -mt-12 lg:-mt-20 relative z-10">
             <div className="relative rounded-3xl overflow-hidden shadow-elegant aspect-[16/9] lg:aspect-[21/9]">
-              <Image src={project.img} alt={t(`projects.items.${k}.title`)} fill sizes="(max-width: 1024px) 100vw, 1200px" className="object-cover" />
+              <Image src={project.img} alt={project.title} fill sizes="(max-width: 1024px) 100vw, 1200px" className="object-cover" />
             </div>
           </div>
         </section>
@@ -127,13 +138,13 @@ export function ProjectDetailView({ project }: { project: Project }) {
                   </span>
                 </div>
                 <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight mb-6" data-cms-field={`projects.items.${k}.title`}>
-                  {t(`projects.items.${k}.title`)}
+                  {project.title}
                 </h2>
                 <div className="space-y-5 text-base md:text-lg text-muted-foreground leading-relaxed">
                   {longParagraphs.length ? longParagraphs.map((p, i) => (
                     <p key={i} data-cms-field={`projects.content.${k}.long.${i}`}>{p}</p>
                   )) : (
-                    <p data-cms-field={`projects.items.${k}.scope`}>{t(`projects.items.${k}.scope`)}</p>
+                    <p data-cms-field={`projects.items.${k}.scope`}>{project.scope}</p>
                   )}
                 </div>
               </Reveal>
@@ -229,7 +240,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
                     {t("common.previous", "Previous")}
                   </span>
                   <span className="block truncate text-base font-display font-bold text-navy group-hover:text-gold transition-colors">
-                    {t(`projects.items.${prevProject.key}.title`)}
+                    {t(`projects.items.${prevProject.key}.title`, { defaultValue: prevProject.key })}
                   </span>
                 </span>
               </Link>
@@ -244,7 +255,7 @@ export function ProjectDetailView({ project }: { project: Project }) {
                     {t("common.next", "Next")}
                   </span>
                   <span className="block truncate text-base font-display font-bold text-navy group-hover:text-gold transition-colors">
-                    {t(`projects.items.${nextProject.key}.title`)}
+                    {t(`projects.items.${nextProject.key}.title`, { defaultValue: nextProject.key })}
                   </span>
                 </span>
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted text-navy group-hover:bg-gold group-hover:text-navy transition-colors">

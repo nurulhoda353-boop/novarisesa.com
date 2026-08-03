@@ -76,4 +76,22 @@
 .topbar-kebab-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:30;background:white;border:1px solid var(--line);border-radius:11px;box-shadow:0 16px 40px #1c335c1f;padding:6px;display:grid;min-width:180px}
 .topbar-kebab-menu a,.topbar-kebab-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:9px 10px;font-size:11px;color:var(--navy)}
 .topbar-kebab-menu a:hover,.topbar-kebab-menu button:hover{background:#faf9f6}
+
+/* Repeatable list fields (stats, sub-services, capabilities, process, FAQs...) */
+.list-editor{margin:13px 0}
+.list-editor-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.list-editor-head>span{font-size:9px;text-transform:uppercase;letter-spacing:.11em;color:#647086;font-weight:600}
+.list-editor-head .secondary-button{height:30px;font-size:9px;padding:0 10px}
+.list-editor-row{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;background:#fffdfb}
+.list-editor-fields{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-width:0}
+.list-editor-fields input,.list-editor-fields textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:11px;color:var(--navy);text-transform:none;letter-spacing:normal;background:#fff}
+.list-editor-fields .check-row.mini{grid-column:1/-1;font-size:10px}
+.list-editor-row-actions{display:flex;flex-direction:column;gap:4px}
+.list-editor-row-actions button{width:26px;height:26px;border:1px solid var(--line);background:#fff;border-radius:7px;display:grid;place-items:center;color:var(--navy)}
+.list-editor-row-actions button:disabled{opacity:.35}
+.list-editor-empty{font-size:10px;color:var(--muted);margin:0}
+@media(max-width:760px){.list-editor-fields{grid-template-columns:1fr}}
+.reorder-buttons{display:flex;gap:4px;margin-right:2px}
+.reorder-buttons button{display:grid;place-items:center;padding:6px!important}
+.reorder-buttons button:disabled{opacity:.3}
 @media(max-width:560px){.login-page{padding:28px 16px}.login-logo{margin:0 4px 20px}.login-logo img{width:155px}.login-logo span{font-size:7px;padding-left:11px}.login-card{padding:28px 22px 24px;border-radius:17px}.login-card h1{font-size:29px}.password-toggle span{display:none}.login-card .login-field input{padding-right:48px}}
