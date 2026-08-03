@@ -26,13 +26,13 @@ export function Projects() {
       <div className="relative container-wide">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="max-w-2xl">
-            <SectionNumber num="04" label={t("projects.eyebrow")} tone="dark" className="mb-5" />
+            <SectionNumber num="04" label={t("projects.eyebrow")} labelField="projects.eyebrow" tone="dark" className="mb-5" />
             <AnimatedHeading
               as="h2"
               className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.05]"
               lines={[
-                t("projects.title.l1"),
-                { text: t("projects.title.l2"), className: "text-white/50" },
+                { text: t("projects.title.l1"), field: "projects.title.l1" },
+                { text: t("projects.title.l2"), className: "text-white/50", field: "projects.title.l2" },
               ]}
             />
           </div>
@@ -77,7 +77,7 @@ export function Projects() {
                 {t(`projects.items.${p.key}.sector`)}
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white">
-                <Sparkles className="h-3 w-3 text-gold" /> {t("projects.featured")}
+                <Sparkles className="h-3 w-3 text-gold" /> <span data-cms-field="projects.featured" suppressContentEditableWarning>{t("projects.featured")}</span>
               </span>
             </div>
             <div className="absolute bottom-6 right-6 text-white text-sm font-mono" dir="ltr">
@@ -106,10 +106,10 @@ export function Projects() {
             <p className="text-white/70 leading-relaxed mb-8">{t(`projects.items.${p.key}.scope`)}</p>
 
             <div className="grid grid-cols-2 gap-6 pt-8 border-t border-white/10">
-              <Detail label={t("projects.details.client")} value={t(`projects.items.${p.key}.client`)} />
-              <Detail label={t("projects.details.location")} value={t(`projects.items.${p.key}.location`)} />
-              <Detail label={t("projects.details.value")} value={t(`projects.items.${p.key}.value`)} />
-              <Detail label={t("projects.details.duration")} value={t(`projects.items.${p.key}.duration`)} />
+              <Detail label={t("projects.details.client")} labelField="projects.details.client" value={t(`projects.items.${p.key}.client`)} />
+              <Detail label={t("projects.details.location")} labelField="projects.details.location" value={t(`projects.items.${p.key}.location`)} />
+              <Detail label={t("projects.details.value")} labelField="projects.details.value" value={t(`projects.items.${p.key}.value`)} />
+              <Detail label={t("projects.details.duration")} labelField="projects.details.duration" value={t(`projects.items.${p.key}.duration`)} />
             </div>
 
             <Link
@@ -117,7 +117,7 @@ export function Projects() {
               params={{ slug: p.slug }}
               className="mt-8 group inline-flex items-center justify-center gap-2 rounded-full bg-gold px-6 py-3.5 text-sm font-bold text-navy hover:bg-white transition-all"
             >
-              {t("projects.viewDetails")}
+              <span data-cms-field="projects.viewDetails" suppressContentEditableWarning>{t("projects.viewDetails")}</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
@@ -128,7 +128,7 @@ export function Projects() {
             to="/projects"
             className="group inline-flex items-center gap-2 rounded-full border border-gold/40 bg-white/[0.04] backdrop-blur-md px-7 py-3.5 text-sm font-semibold text-white hover:bg-gold hover:text-navy hover:border-gold transition-all"
           >
-            {t("projects.viewAll")}
+            <span data-cms-field="projects.viewAll" suppressContentEditableWarning>{t("projects.viewAll")}</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
@@ -137,10 +137,10 @@ export function Projects() {
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
+function Detail({ label, labelField, value }: { label: string; labelField: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-[0.2em] text-gold mb-1.5">{label}</div>
+      <div className="text-[10px] uppercase tracking-[0.2em] text-gold mb-1.5" data-cms-field={labelField}>{label}</div>
       <div className="text-base font-semibold text-white">{value}</div>
     </div>
   );

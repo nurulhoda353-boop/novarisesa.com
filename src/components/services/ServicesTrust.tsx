@@ -5,14 +5,19 @@ import { useTranslation } from "react-i18next";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
 import { AnimatedNumber } from "@/components/site/AnimatedNumber";
 
-const items = [
-  { icon: ShieldCheck, value: 12, suffix: "M+", key: "hours" },
-  { icon: Award, value: 6, suffix: "+", key: "approvals" },
-  { icon: Clock, value: 96, suffix: " hrs", key: "emergency" },
-] as const;
+const itemKeys = ["hours", "approvals", "emergency"] as const;
+const itemIcons: Record<(typeof itemKeys)[number], typeof ShieldCheck> = {
+  hours: ShieldCheck, approvals: Award, emergency: Clock,
+};
 
 export function ServicesTrust() {
   const { t } = useTranslation();
+  const items = itemKeys.map((key) => ({
+    key,
+    icon: itemIcons[key],
+    value: Number(t(`servicesPage.trust.items.${key}.value`)) || 0,
+    suffix: t(`servicesPage.trust.items.${key}.suffix`),
+  }));
   return (
     <section className="relative py-16 lg:py-24 dark-premium overflow-hidden">
       <div className="pointer-events-none absolute -top-32 right-1/4 h-[420px] w-[420px] rounded-full bg-gold/12 blur-[140px] anim-drift" />
@@ -20,12 +25,12 @@ export function ServicesTrust() {
         <Reveal className="text-center max-w-2xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.trust.eyebrow")}
+            <span data-cms-field="servicesPage.trust.eyebrow" suppressContentEditableWarning>{t("servicesPage.trust.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.1]">
-            {t("servicesPage.trust.titleA")}<br />
-            <span className="text-white/55">{t("servicesPage.trust.titleB")}</span>
+            <span data-cms-field="servicesPage.trust.titleA" suppressContentEditableWarning>{t("servicesPage.trust.titleA")}</span><br />
+            <span className="text-white/55" data-cms-field="servicesPage.trust.titleB" suppressContentEditableWarning>{t("servicesPage.trust.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -40,12 +45,12 @@ export function ServicesTrust() {
                     <s.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.7} />
                   </span>
                   <div className="text-3xl lg:text-4xl font-display font-extrabold text-white tabular-nums">
-                    <AnimatedNumber value={s.value} suffix={s.suffix} />
+                    <AnimatedNumber value={s.value} suffix={s.suffix} field={`servicesPage.trust.items.${s.key}.value`} />
                   </div>
                 </div>
 
-                <div className="relative text-sm font-display font-semibold text-white/90 mb-2">{t(`servicesPage.trust.items.${s.key}.label`)}</div>
-                <p className="relative text-[13px] text-white/60 leading-relaxed">{t(`servicesPage.trust.items.${s.key}.desc`)}</p>
+                <div className="relative text-sm font-display font-semibold text-white/90 mb-2" data-cms-field={`servicesPage.trust.items.${s.key}.label`}>{t(`servicesPage.trust.items.${s.key}.label`)}</div>
+                <p className="relative text-[13px] text-white/60 leading-relaxed" data-cms-field={`servicesPage.trust.items.${s.key}.desc`}>{t(`servicesPage.trust.items.${s.key}.desc`)}</p>
               </div>
             </StaggerItem>
           ))}

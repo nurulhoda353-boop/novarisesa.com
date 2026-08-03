@@ -6,6 +6,7 @@ type Props = {
   num: string;          // e.g. "02"
   arabic?: string;      // e.g. "٠٢"
   label?: string;       // e.g. "Capabilities"
+  labelField?: string;  // translation path for pen-mode inline edit
   className?: string;
   tone?: "light" | "dark";
 };
@@ -19,7 +20,7 @@ function toArabicNumerals(s: string) {
   return s.split("").map((c) => arabicMap[c] ?? c).join("");
 }
 
-export function SectionNumber({ num, arabic, label, className = "", tone = "light" }: Props) {
+export function SectionNumber({ num, arabic, label, labelField, className = "", tone = "light" }: Props) {
   const { i18n } = useTranslation();
   const isRtl = i18n.dir() === "rtl";
   const ar = arabic ?? toArabicNumerals(num);
@@ -38,7 +39,7 @@ export function SectionNumber({ num, arabic, label, className = "", tone = "ligh
       )}
       <span className={`h-px w-8 ${dividerColor}`} />
       {label && (
-        <span className={`text-[11px] uppercase tracking-[0.3em] font-semibold ${labelColor}`}>
+        <span className={`text-[11px] uppercase tracking-[0.3em] font-semibold ${labelColor}`} data-cms-field={labelField} suppressContentEditableWarning>
           {label}
         </span>
       )}

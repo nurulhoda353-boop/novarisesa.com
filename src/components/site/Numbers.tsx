@@ -2,6 +2,7 @@
 
 import { useTranslation } from "react-i18next";
 import { useCmsAsset } from "@/lib/cms-content";
+import { useEditMode } from "@/components/cms/EditModeContext";
 import { useInView, useCountUp } from "@/hooks/use-count-up";
 import Image from "next/image";
 import { Calendar, Users, TrendingUp, Building2, type LucideIcon } from "lucide-react";
@@ -12,12 +13,16 @@ export function Numbers() {
   const { t } = useTranslation();
   const { ref, visible } = useInView<HTMLElement>(0.25);
 
-  const stats = [
-    { value: 10, suffix: "+", key: "years", Icon: Calendar },
-    { value: 2500, suffix: "+", key: "workforce", Icon: Users },
-    { value: 25, suffix: "M", key: "turnover", Icon: TrendingUp },
-    { value: 50, suffix: "+", key: "projects", Icon: Building2 },
-  ];
+  const statKeys = ["years", "workforce", "turnover", "projects"] as const;
+  const statIcons: Record<(typeof statKeys)[number], LucideIcon> = {
+    years: Calendar, workforce: Users, turnover: TrendingUp, projects: Building2,
+  };
+  const stats = statKeys.map((key) => ({
+    key,
+    value: Number(t(`numbers.stats.${key}.value`)) || 0,
+    suffix: t(`numbers.stats.${key}.suffix`),
+    Icon: statIcons[key],
+  }));
 
   return (
     <section ref={ref} className="relative py-16 lg:py-20 bg-sand-soft overflow-hidden">
@@ -27,13 +32,13 @@ export function Numbers() {
             <div>
               <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-gold mb-4">
                 <span className="h-px w-8 bg-gold" />
-                {t("numbers.eyebrow")}
+                <span data-cms-field="numbers.eyebrow" suppressContentEditableWarning>{t("numbers.eyebrow")}</span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-[2.75rem] font-bold tracking-tight text-navy leading-[1.05]">
-                {t("numbers.titleA")}{" "}
-                <span className="text-gradient-gold">{t("numbers.titleB")}</span>
+                <span data-cms-field="numbers.titleA" suppressContentEditableWarning>{t("numbers.titleA")}</span>{" "}
+                <span className="text-gradient-gold" data-cms-field="numbers.titleB" suppressContentEditableWarning>{t("numbers.titleB")}</span>
               </h2>
-              <p className="mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed">
+              <p className="mt-4 max-w-lg text-sm text-muted-foreground leading-relaxed" data-cms-field="numbers.desc">
                 {t("numbers.desc")}
               </p>
             </div>
@@ -46,6 +51,9 @@ export function Numbers() {
                   suffix={s.suffix}
                   label={t(`numbers.stats.${s.key}.label`)}
                   desc={t(`numbers.stats.${s.key}.desc`)}
+                  labelField={`numbers.stats.${s.key}.label`}
+                  descField={`numbers.stats.${s.key}.desc`}
+                  valueField={`numbers.stats.${s.key}.value`}
                   Icon={s.Icon}
                   trigger={visible}
                   delay={i * 120}
@@ -55,7 +63,7 @@ export function Numbers() {
           </div>
 
           <div className="lg:col-span-5">
-            <div className="relative h-full min-h-[380px] rounded-2xl overflow-hidden border border-border shadow-elegant group">
+            <div className="relative h-full min-h-[380px] rounded-2xl overflow-hidden border border-border shadow-elegant group" data-cms-asset="home.workforce">
               <Image
                 src={managedWorkforceImg}
                 alt="NOVARISE workforce on site"
@@ -67,14 +75,14 @@ export function Numbers() {
 
               <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] uppercase tracking-[0.25em] text-white">
                 <span className="h-1.5 w-1.5 rounded-full bg-gold anim-breathe" />
-                {t("numbers.liveBadge")}
+                <span data-cms-field="numbers.liveBadge" suppressContentEditableWarning>{t("numbers.liveBadge")}</span>
               </div>
 
               <div className="absolute bottom-0 inset-x-0 p-5 lg:p-6">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-1">
+                <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-1" data-cms-field="numbers.onGround">
                   {t("numbers.onGround")}
                 </div>
-                <div className="text-white font-display font-bold text-xl leading-tight whitespace-pre-line">
+                <div className="text-white font-display font-bold text-xl leading-tight whitespace-pre-line" data-cms-field="numbers.personnelLine">
                   {t("numbers.personnelLine")}
                 </div>
               </div>
@@ -87,11 +95,13 @@ export function Numbers() {
 }
 
 function Stat({
-  value, suffix, label, desc, trigger, delay, Icon,
+  value, suffix, label, desc, labelField, descField, valueField, trigger, delay, Icon,
 }: {
   value: number; suffix: string; label: string; desc: string;
+  labelField: string; descField: string; valueField: string;
   trigger: boolean; delay: number; Icon: LucideIcon;
 }) {
+  const { editing } = useEditMode();
   const v = useCountUp(value, trigger, 1600 + delay);
   return (
     <div className="relative bg-white p-5 lg:p-6 hover:bg-sand transition-colors group overflow-hidden">
@@ -99,17 +109,21 @@ function Stat({
       <div className="pointer-events-none absolute -bottom-16 -right-16 h-40 w-40 rounded-full bg-gold/0 blur-3xl transition-all duration-700 group-hover:bg-gold/15" />
       <div className="flex items-start justify-between mb-3 relative">
         <div className="text-[2rem] lg:text-[2.25rem] leading-none font-display font-extrabold text-navy tracking-tight tabular-nums">
-          <span className="text-gradient-gold">
-            {Math.floor(v).toLocaleString()}
-          </span>
+          {editing ? (
+            <span className="text-gradient-gold" data-cms-field={valueField} suppressContentEditableWarning>{value}</span>
+          ) : (
+            <span className="text-gradient-gold">
+              {Math.floor(v).toLocaleString()}
+            </span>
+          )}
           <span className="text-gold/70 text-[1.5rem] lg:text-[1.75rem] ml-0.5">{suffix}</span>
         </div>
         <div className="h-9 w-9 rounded-lg border border-border flex items-center justify-center text-gold/80 group-hover:text-navy group-hover:bg-gold group-hover:border-gold transition-all duration-500 group-hover:rotate-[-6deg]">
           <Icon className="h-4 w-4" />
         </div>
       </div>
-      <div className="text-sm font-semibold text-navy leading-tight relative">{label}</div>
-      <div className="text-[11px] text-muted-foreground mt-0.5 relative">{desc}</div>
+      <div className="text-sm font-semibold text-navy leading-tight relative" data-cms-field={labelField}>{label}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5 relative" data-cms-field={descField}>{desc}</div>
     </div>
   );
 }

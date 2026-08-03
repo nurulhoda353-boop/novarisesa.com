@@ -8,6 +8,7 @@ export function MissionVision() {
   const { t } = useTranslation();
   const cards = [
     {
+      key: "mission",
       tag: t("aboutPage.mv.missionTag"),
       icon: Target,
       title: t("aboutPage.mv.missionTitle"),
@@ -16,6 +17,7 @@ export function MissionVision() {
       footer: t("aboutPage.mv.missionFooter"),
     },
     {
+      key: "vision",
       tag: t("aboutPage.mv.visionTag"),
       icon: Eye,
       title: t("aboutPage.mv.visionTitle"),
@@ -35,12 +37,12 @@ export function MissionVision() {
         <Reveal className="text-center max-w-2xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("aboutPage.mv.eyebrow")}
+            <span data-cms-field="aboutPage.mv.eyebrow" suppressContentEditableWarning>{t("aboutPage.mv.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.1]">
-            {t("aboutPage.mv.headingA")}<br />
-            <span className="text-white/55">{t("aboutPage.mv.headingB")}</span>
+            <span data-cms-field="aboutPage.mv.headingA" suppressContentEditableWarning>{t("aboutPage.mv.headingA")}</span><br />
+            <span className="text-white/55" data-cms-field="aboutPage.mv.headingB" suppressContentEditableWarning>{t("aboutPage.mv.headingB")}</span>
           </h2>
         </Reveal>
 
@@ -56,26 +58,26 @@ export function MissionVision() {
                   <span className="h-12 w-12 rounded-xl bg-gold/15 border border-gold/25 flex items-center justify-center group-hover:bg-gold group-hover:rotate-[-6deg] transition-all duration-500">
                     <c.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.7} />
                   </span>
-                  <span className="text-[10px] uppercase tracking-[0.32em] text-gold">{c.tag}</span>
+                  <span className="text-[10px] uppercase tracking-[0.32em] text-gold" data-cms-field={`aboutPage.mv.${c.key}Tag`} suppressContentEditableWarning>{c.tag}</span>
                 </div>
 
-                <h3 className="relative text-2xl lg:text-[28px] font-display font-bold text-white leading-[1.2]">
+                <h3 className="relative text-2xl lg:text-[28px] font-display font-bold text-white leading-[1.2]" data-cms-field={`aboutPage.mv.${c.key}Title`}>
                   {c.title}
                 </h3>
-                <p className="relative mt-5 text-[15px] text-white/70 leading-relaxed">{c.body}</p>
+                <p className="relative mt-5 text-[15px] text-white/70 leading-relaxed" data-cms-field={`aboutPage.mv.${c.key}Body`}>{c.body}</p>
 
                 <ul className="relative mt-7 space-y-3">
-                  {c.points.map((p) => (
+                  {c.points.map((p, pi) => (
                     <li key={p} className="flex items-start gap-3 text-sm text-white/80">
                       <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-gold shrink-0" />
-                      <span>{p}</span>
+                      <span data-cms-field={`aboutPage.mv.${c.key}Points.${pi}`} suppressContentEditableWarning>{p}</span>
                     </li>
                   ))}
                 </ul>
 
                 <div className="relative mt-8 flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/40 group-hover:text-gold transition-colors">
                   <span className="h-px w-8 bg-current" />
-                  <span>{c.footer}</span>
+                  <span data-cms-field={`aboutPage.mv.${c.key}Footer`} suppressContentEditableWarning>{c.footer}</span>
                   <ArrowUpRight className="h-3.5 w-3.5 ml-auto opacity-0 group-hover:opacity-100 group-hover:rotate-45 transition-all duration-500" />
                 </div>
               </article>

@@ -13,10 +13,14 @@ export function AboutHero() {
     <PageHero
       num={t("aboutPage.hero.num")}
       eyebrow={t("aboutPage.hero.eyebrow")}
+      eyebrowField="aboutPage.hero.eyebrow"
       icon={Info}
       heroImage={managedHeroImg}
+      assetKey="about.hero"
       title={t("aboutPage.hero.title")}
+      titleField="aboutPage.hero.title"
       description={t("aboutPage.hero.description")}
+      descriptionField="aboutPage.hero.description"
       crumbs={[{ label: t("aboutPage.hero.crumb") }]}
       ctas={[
         { label: t("aboutPage.hero.ctaProfile"), href: "/company-profile.pdf", variant: "primary", icon: ArrowUpRight },

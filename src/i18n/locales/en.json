@@ -59,12 +59,12 @@
     "glance": "At a Glance",
     "scroll": "Scroll",
     "stats": {
-      "workforce": "Skilled Workforce",
-      "turnover": "SAR Annual Turnover",
-      "years": "Years Excellence",
-      "verticals": "Industry Verticals",
-      "specialists": "Specialists",
-      "hours": "Man-hours Logged"
+      "workforce": { "value": "2500", "suffix": "+", "label": "Skilled Workforce", "pct": "92" },
+      "turnover": { "value": "25", "suffix": "M", "label": "SAR Annual Turnover", "pct": "78" },
+      "years": { "value": "10", "suffix": "+", "label": "Years Excellence", "pct": "65" },
+      "verticals": { "value": "5", "suffix": "", "label": "Industry Verticals", "pct": "55" },
+      "specialists": { "value": "50", "suffix": "+", "label": "Specialists", "pct": "70" },
+      "hours": { "value": "12", "suffix": "M+", "label": "Man-hours Logged", "pct": "82" }
     }
 
 
@@ -85,9 +85,9 @@
     "p2Brands": "Saudi Aramco, SABIC, Samsung Engineering, Hyundai E&C and Doosan",
     "p2Suffix": " reflect a singular commitment: delivering qualified manpower, certified equipment and end-to-end contracting services that meet the most rigorous industrial standards.",
     "stats": {
-      "established": "Established",
+      "established": { "value": "2019", "suffix": "", "label": "Established" },
       "headquartered": "Headquartered",
-      "verticals": "Industry Verticals",
+      "verticals": { "value": "5", "suffix": "+", "label": "Industry Verticals" },
       "riyadh": "Riyadh"
     }
   },
@@ -157,18 +157,26 @@
     "personnelLine": "2,500+ certified personnel\ndeployed Kingdom-wide.",
     "stats": {
       "years": {
+        "value": "10",
+        "suffix": "+",
         "label": "Years of Excellence",
         "desc": "Building since 2019"
       },
       "workforce": {
+        "value": "2500",
+        "suffix": "+",
         "label": "Skilled Workforce",
         "desc": "Engineers & operators"
       },
       "turnover": {
+        "value": "25",
+        "suffix": "M",
         "label": "SAR Annual Turnover",
         "desc": "Sustained growth"
       },
       "projects": {
+        "value": "50",
+        "suffix": "+",
         "label": "Major Projects",
         "desc": "Construction · power · oil"
       }
@@ -216,9 +224,9 @@
     },
     "desc": "NOVARISE is engineered to support the Kingdom's transformation — through localized expertise, sustainable practices, and deep alignment with the national agenda for industrial sovereignty.",
     "kpis": {
-      "saudization": "Saudization Rate",
-      "local": "Local Content",
-      "hse": "Certified HSE"
+      "saudization": { "value": "65", "suffix": "%", "label": "Saudization Rate" },
+      "local": { "value": "85", "suffix": "%", "label": "Local Content" },
+      "hse": { "value": "100", "suffix": "%", "label": "Certified HSE" }
     },
     "pillars": {
       "expertise": {
@@ -411,10 +419,10 @@
     "titleB": "Every shift.",
     "desc": "Safety isn't a department at NOVARISE — it's the operating system. Every worker completes mandatory HSE induction, every site runs on documented method statements, and every incident gets root-cause reviewed.",
     "stats": {
-      "manHours": "Safe Man-Hours",
-      "lti": "LTI This Year",
-      "training": "HSE Training Hours",
-      "ppe": "PPE Compliance"
+      "manHours": { "value": "2.1", "suffix": "M+", "label": "Safe Man-Hours" },
+      "lti": { "value": "0", "suffix": "", "label": "LTI This Year" },
+      "training": { "value": "12000", "suffix": "+", "label": "HSE Training Hours" },
+      "ppe": { "value": "100", "suffix": "%", "label": "PPE Compliance" }
     }
   },
   "certifications": {
@@ -727,10 +735,10 @@
       "bodyClients": " Saudi Aramco, SABIC, Ma'aden, Samsung Engineering, Hyundai E&C and Doosan",
       "bodyEnd": ", enabling rapid mobilization to greenfield, brownfield and turnaround scopes.",
       "stats": {
-        "workforce": "Skilled Workforce",
-        "hours": "Safe Man-hours",
-        "turnover": "SAR Turnover",
-        "verticals": "Industry Verticals"
+        "workforce": { "value": "2500", "suffix": "+", "label": "Skilled Workforce" },
+        "hours": { "value": "12", "suffix": "M+", "label": "Safe Man-hours" },
+        "turnover": { "value": "25", "suffix": "M", "label": "SAR Turnover" },
+        "verticals": { "value": "6", "suffix": "+", "label": "Industry Verticals" }
       },
       "pillars": {
         "civil": "Civil & Industrial Contracting",
@@ -854,14 +862,20 @@
       "titleB": "the promises.",
       "items": {
         "hours": {
+          "value": "12",
+          "suffix": "M+",
           "label": "Safe man-hours",
           "desc": "ISO 45001 certified — LTIFR consistently below the regional benchmark."
         },
         "approvals": {
+          "value": "6",
+          "suffix": "+",
           "label": "Major operator approvals",
           "desc": "Aramco · SABIC · Ma'aden · Samsung E&C · Hyundai E&C · Doosan."
         },
         "emergency": {
+          "value": "96",
+          "suffix": " hrs",
           "label": "Emergency mobilization",
           "desc": "Stand-by manpower & equipment bench for turnarounds & shutdowns."
         }

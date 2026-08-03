@@ -12,29 +12,41 @@ export function ContactInfo() {
     {
       icon: Phone,
       label: t("contactPage.info.channels.call.label"),
+      labelField: "contactPage.info.channels.call.label",
       value: "+966 55 442 9574",
+      valueField: undefined as string | undefined,
       sub: t("contactPage.info.channels.call.sub"),
+      subField: "contactPage.info.channels.call.sub",
       href: "tel:+966554429574",
     },
     {
       icon: Mail,
       label: t("contactPage.info.channels.email.label"),
+      labelField: "contactPage.info.channels.email.label",
       value: "info@novarisesa.com",
+      valueField: undefined as string | undefined,
       sub: t("contactPage.info.channels.email.sub"),
+      subField: "contactPage.info.channels.email.sub",
       href: "mailto:info@novarisesa.com",
     },
     {
       icon: MessageSquare,
       label: t("contactPage.info.channels.whatsapp.label"),
+      labelField: "contactPage.info.channels.whatsapp.label",
       value: "+966 55 442 9574",
+      valueField: undefined as string | undefined,
       sub: t("contactPage.info.channels.whatsapp.sub"),
+      subField: "contactPage.info.channels.whatsapp.sub",
       href: "https://wa.me/966554429574",
     },
     {
       icon: MapPin,
       label: t("contactPage.info.channels.office.label"),
+      labelField: "contactPage.info.channels.office.label",
       value: t("contactPage.info.channels.office.value"),
+      valueField: "contactPage.info.channels.office.value" as string | undefined,
       sub: t("contactPage.info.channels.office.sub"),
+      subField: "contactPage.info.channels.office.sub",
       arabic: "كفتيريا طاهي القمة، 2124 طريق الملك فيصل، حي البطحاء، أملج 48313، المملكة العربية السعودية",
       href: "#map",
     },
@@ -48,17 +60,17 @@ export function ContactInfo() {
           <div className="relative">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-gold">
               <span className="h-1.5 w-1.5 rounded-full bg-gold anim-breathe" />
-              {t("contactPage.info.liveNow")}
+              <span data-cms-field="contactPage.info.liveNow" suppressContentEditableWarning>{t("contactPage.info.liveNow")}</span>
             </div>
-            <h3 className="mt-4 text-xl font-display font-semibold leading-snug whitespace-pre-line">
+            <h3 className="mt-4 text-xl font-display font-semibold leading-snug whitespace-pre-line" data-cms-field="contactPage.info.headline">
               {t("contactPage.info.headline")}
             </h3>
-            <p className="mt-2 text-sm text-white/65 leading-relaxed">
+            <p className="mt-2 text-sm text-white/65 leading-relaxed" data-cms-field="contactPage.info.sub">
               {t("contactPage.info.sub")}
             </p>
             <div className="mt-5 flex items-center gap-3 text-sm text-white/85">
               <Clock className="h-4 w-4 text-gold" strokeWidth={1.8} />
-              {t("contactPage.info.responseTime")}
+              <span data-cms-field="contactPage.info.responseTime" suppressContentEditableWarning>{t("contactPage.info.responseTime")}</span>
             </div>
           </div>
         </div>
@@ -79,9 +91,9 @@ export function ContactInfo() {
                 <c.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.7} />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] uppercase tracking-[0.22em] font-semibold text-muted-foreground">{c.label}</div>
-                <div className="text-[15px] font-display font-bold text-navy mt-0.5 break-words leading-snug" dir="ltr">{c.value}</div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{c.sub}</div>
+                <div className="text-[10px] uppercase tracking-[0.22em] font-semibold text-muted-foreground" data-cms-field={c.labelField} suppressContentEditableWarning>{c.label}</div>
+                <div className="text-[15px] font-display font-bold text-navy mt-0.5 break-words leading-snug" dir="ltr" data-cms-field={c.valueField}>{c.value}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5" data-cms-field={c.subField} suppressContentEditableWarning>{c.sub}</div>
                 {c.arabic && isRtl && (
                   <div dir="rtl" lang="ar" className="text-[12px] text-navy/80 mt-2 pt-2 border-t border-border/60 font-medium leading-relaxed text-right">
                     {c.arabic}

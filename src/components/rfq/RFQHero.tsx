@@ -13,10 +13,14 @@ export function RFQHero() {
     <PageHero
       num="06"
       eyebrow={t("rfqPage.hero.eyebrow")}
+      eyebrowField="rfqPage.hero.eyebrow"
       icon={FileText}
       heroImage={managedHeroImg}
+      assetKey="rfq.hero"
       title={t("rfqPage.hero.title")}
+      titleField="rfqPage.hero.title"
       description={t("rfqPage.hero.description")}
+      descriptionField="rfqPage.hero.description"
       crumbs={[{ label: t("rfqPage.hero.crumb") }]}
       ctas={[
         { label: t("rfqPage.hero.ctaPrimary"), href: "#rfq-form", variant: "primary", icon: ArrowUpRight },

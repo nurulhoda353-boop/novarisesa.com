@@ -16,20 +16,23 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  MoreHorizontal,
   Newspaper,
+  Pencil,
   Plus,
   Search,
   Settings,
   ShieldCheck,
-  Upload,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { api, SITE_URL } from "@/lib/api";
+
+const SITE_ORIGIN = new URL(SITE_URL).origin;
 
 type User = {
   full_name: string;
@@ -147,6 +150,7 @@ export default function Dashboard({ route }: { route: string[] }) {
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [inboxNew, setInboxNew] = useState(0);
+  const [topbarActions, setTopbarActions] = useState<ReactNode>(null);
 
   useEffect(() => {
     api<User>("/auth/me")
@@ -185,6 +189,10 @@ export default function Dashboard({ route }: { route: string[] }) {
       router.replace("/site-content");
     }
   }, [route, router]);
+
+  useEffect(() => {
+    if (route[0] !== "site-content") setTopbarActions(null);
+  }, [route]);
 
   async function logout() {
     await api("/auth/logout", { method: "POST" });
@@ -228,6 +236,7 @@ export default function Dashboard({ route }: { route: string[] }) {
           <button className="global-search" onClick={() => setSearchOpen(true)}>
             <Search size={17} /><span>Search workspace</span><kbd>⌘ K</kbd>
           </button>
+          {topbarActions && <div className="topbar-page-actions">{topbarActions}</div>}
           <a className="site-link" href="https://novarisesa.com" target="_blank"><Globe2 size={16} /> View website</a>
           <Link className="icon-button" href="/inbox/contact" title={`${inboxNew} new inbox items`}>
             <Bell size={18} />
@@ -236,7 +245,7 @@ export default function Dashboard({ route }: { route: string[] }) {
         </header>
         <main className="content">
           {route[0] === "overview" && <OverviewPage user={user} />}
-          {route[0] === "site-content" && <SiteContentPage user={user} />}
+          {route[0] === "site-content" && <SiteContentPage user={user} onTopbarActions={setTopbarActions} />}
           {route[0] === "content" && !hiddenContentResources.has(route[1] ?? "") && (
             <ContentPage resource={route[1] ?? "services"} user={user} />
           )}
@@ -426,75 +435,14 @@ type ManagedSetting = {
   is_public: boolean;
 };
 
-type ContentLeaf = {
-  path: Array<string | number>;
-  page: string;
-  section: string;
-  label: string;
-  context: string;
-  value: string | number | boolean | null;
-};
-
-type ContentPageGroup = {
-  id: string;
-  title: string;
-  detail: string;
-  roots: string[];
-};
-
-const contentPageGroups: ContentPageGroup[] = [
-  { id: "home", title: "Home page", detail: "Hero, trust, services, projects and homepage blocks", roots: ["hero", "trustBar", "about", "capabilities", "industries", "numbers", "process", "vision", "projects", "hse", "certifications", "testimonials", "leadership", "whyUs", "faq", "urgentStrip"] },
-  { id: "about", title: "About page", detail: "Company profile, CEO message and about page hero", roots: ["aboutPage"] },
-  { id: "services", title: "Services", detail: "Service cards, details and services page sections", roots: ["services", "servicesPage", "serviceDetails"] },
-  { id: "projects", title: "Projects", detail: "Project listings, detail labels and featured project copy", roots: ["projectsPage"] },
-  { id: "capabilities", title: "Capabilities", detail: "Capabilities page copy and calls to action", roots: ["capabilitiesPage"] },
-  { id: "careers", title: "Careers", detail: "Careers page labels and recruitment copy", roots: ["careersPage"] },
-  { id: "requirements", title: "Requirements", detail: "Urgent requirements page and application labels", roots: ["requirementsPage"] },
-  { id: "contact", title: "Contact", detail: "Contact page, office details and contact form labels", roots: ["contactPage"] },
-  { id: "rfq", title: "RFQ", detail: "RFQ page, quote form and sidebar copy", roots: ["rfqPage"] },
-  { id: "blog", title: "Insights", detail: "Blog, events, newsletter and article labels", roots: ["blogPage"] },
-  { id: "navigation", title: "Menus & language", detail: "Header menu, language switcher and global labels", roots: ["nav", "language"] },
-  { id: "global", title: "Global sections", detail: "Shared footer, call to action and reusable labels", roots: ["footer", "cta"] },
-];
-
-const rootToPage = new Map(contentPageGroups.flatMap((page) => page.roots.map((root) => [root, page.id])));
-
-function pageForRoot(root: string) {
-  return rootToPage.get(root) ?? root;
-}
-
-function pageTitle(pageId: string) {
-  return contentPageGroups.find((page) => page.id === pageId)?.title ?? humanize(pageId);
-}
-
 function cloneDocument(value: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
-}
-
-function contentLeaves(value: unknown, path: Array<string | number> = []): ContentLeaf[] {
-  if (Array.isArray(value)) {
-    return value.flatMap((entry, index) => contentLeaves(entry, [...path, index]));
-  }
-  if (value && typeof value === "object") {
-    return Object.entries(value).flatMap(([key, entry]) => contentLeaves(entry, [...path, key]));
-  }
-  const labels = path.map((part) => typeof part === "number" ? `Item ${part + 1}` : humanize(part));
-  const root = String(path[0] ?? "general");
-  const sectionSource = typeof path[1] === "string" ? path[1] : root;
-  return [{
-    path,
-    page: pageForRoot(root),
-    section: sectionSource,
-    label: labels.at(-1) ?? "Value",
-    context: labels.slice(0, -1).join(" / "),
-    value: value as ContentLeaf["value"],
-  }];
 }
 
 function replaceAtPath(
   document: Record<string, unknown>,
   path: Array<string | number>,
-  value: ContentLeaf["value"],
+  value: string | number | boolean | null,
 ) {
   const next = cloneDocument(document);
   let cursor: Record<string | number, unknown> | unknown[] = next;
@@ -505,52 +453,24 @@ function replaceAtPath(
   return next;
 }
 
-function leafText(leaf?: ContentLeaf) {
-  if (!leaf || leaf.value === null || typeof leaf.value === "boolean") return "";
-  return String(leaf.value).trim();
-}
-
-function findCopy(leaves: ContentLeaf[], names: string[]) {
-  const lowered = names.map((name) => name.toLowerCase());
-  return leaves.find((leaf) => {
-    const label = leaf.label.toLowerCase();
-    const context = leaf.context.toLowerCase();
-    return lowered.some((name) => label.includes(name) || context.includes(name)) && leafText(leaf);
-  });
-}
-
-function sectionPreviewCopy(leaves: ContentLeaf[]) {
-  const title = leafText(findCopy(leaves, ["title", "headline", "heading", "name"])) ||
-    leafText(leaves.find((leaf) => leafText(leaf).length > 3)) ||
-    "Untitled section";
-  const body = leafText(findCopy(leaves, ["subtitle", "summary", "lead", "description", "copy", "body"])) ||
-    leafText(leaves.find((leaf) => leafText(leaf).length > 40 && leafText(leaf) !== title)) ||
-    "Open this section to edit the website text and image.";
-  return { title, body };
-}
-
-function SiteContentPage({ user }: { user: User }) {
+function SiteContentPage({ user, onTopbarActions }: { user: User; onTopbarActions: (node: ReactNode) => void }) {
   const [locale, setLocale] = useState<"en" | "ar">("en");
   const [document, setDocument] = useState<Record<string, unknown>>({});
   const [defaults, setDefaults] = useState<Record<string, unknown>>({});
   const [assets, setAssets] = useState<Record<string, string>>({});
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const [activePage, setActivePage] = useState("home");
-  const [activeSection, setActiveSection] = useState("all");
-  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploadingSlot, setUploadingSlot] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const load = useCallback(async () => {
-    setBusy(true);
     setError("");
     try {
-      const [settingsResponse, mediaResponse, defaultsResponse] = await Promise.all([
+      const [settingsResponse, defaultsResponse] = await Promise.all([
         api<{ items: ManagedSetting[] }>("/cms/settings"),
-        api<{ items: MediaItem[] }>("/cms/media?limit=100"),
         fetch(`/api/site-defaults?locale=${locale}`).then((response) => response.json()),
       ]);
       const stored = settingsResponse.items.find(
@@ -571,110 +491,28 @@ function SiteContentPage({ user }: { user: User }) {
           .filter((item) => item.group_name === "assets" && typeof item.value === "string")
           .map((item) => [item.key, item.value as string]),
       ));
-      setMedia(mediaResponse.items);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load site content");
     } finally {
-      setBusy(false);
+      setLoaded(true);
     }
   }, [locale]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const leaves = useMemo(() => contentLeaves(document), [document]);
-  const assetPageSlots = useMemo(
-    () => assetSlots.map(([key, label, fallback]) => ({ key, label, fallback, page: pageForRoot(key.split(".")[0]) })),
-    [],
-  );
-  const pages = useMemo(() => {
-    const discovered = Array.from(new Set([
-      ...leaves.map((leaf) => leaf.page),
-      ...assetPageSlots.map((slot) => slot.page),
-    ]));
-    const ordered = contentPageGroups
-      .filter((page) => discovered.includes(page.id))
-      .map((page) => ({
-        ...page,
-        fields: leaves.filter((leaf) => leaf.page === page.id).length,
-        images: assetPageSlots.filter((slot) => slot.page === page.id).length,
-      }));
-    const known = new Set(ordered.map((page) => page.id));
-    const custom = discovered
-      .filter((page) => !known.has(page))
-      .sort()
-      .map((page) => ({
-        id: page,
-        title: pageTitle(page),
-        detail: "Additional website copy",
-        roots: [page],
-        fields: leaves.filter((leaf) => leaf.page === page).length,
-        images: assetPageSlots.filter((slot) => slot.page === page).length,
-      }));
-    return [...ordered, ...custom].filter((page) => page.fields || page.images);
-  }, [assetPageSlots, leaves]);
-  const pageLeaves = useMemo(
-    () => leaves.filter((leaf) => leaf.page === activePage),
-    [activePage, leaves],
-  );
-  const sections = useMemo(
-    () => Array.from(new Set(pageLeaves.map((leaf) => leaf.section))).sort(),
-    [pageLeaves],
-  );
-  const activeAssets = useMemo(
-    () => assetPageSlots.filter((slot) => slot.page === activePage),
-    [activePage, assetPageSlots],
-  );
-  const visibleAssets = useMemo(
-    () => activeAssets.filter((slot) => activeSection === "all" || slot.key.split(".")[1] === activeSection),
-    [activeAssets, activeSection],
-  );
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return pageLeaves.filter((leaf) => {
-      if (activeSection !== "all" && leaf.section !== activeSection) return false;
-      if (!needle) return true;
-      return `${leaf.label} ${leaf.context} ${String(leaf.value ?? "")}`.toLowerCase().includes(needle);
-    });
-  }, [activeSection, pageLeaves, query]);
-  const sectionCards = useMemo(() => {
-    const names = Array.from(new Set([
-      ...pageLeaves.map((leaf) => leaf.section),
-      ...activeAssets.map((slot) => slot.key.split(".")[1]).filter(Boolean),
-    ])).sort();
-    return names.map((section) => {
-      const fields = pageLeaves.filter((leaf) => leaf.section === section);
-      const images = activeAssets.filter((slot) => slot.key.split(".")[1] === section);
-      const preview = sectionPreviewCopy(fields);
-      const image = images.map((slot) => assets[slot.key] || slot.fallback).find(Boolean) ?? "";
-      return { section, fields, images, preview, image };
-    });
-  }, [activeAssets, assets, pageLeaves]);
-  const activePageInfo = pages.find((page) => page.id === activePage);
-  const selectedSection = activeSection === "all"
-    ? null
-    : sectionCards.find((section) => section.section === activeSection) ?? null;
+  const postToIframe = useCallback((message: Record<string, unknown>) => {
+    iframeRef.current?.contentWindow?.postMessage(message, SITE_ORIGIN);
+  }, []);
 
-  useEffect(() => {
-    if (pages.length && !pages.some((page) => page.id === activePage)) {
-      setActivePage(pages[0].id);
-    }
-  }, [activePage, pages]);
-
-  useEffect(() => {
-    setActiveSection("all");
-  }, [activePage]);
-
-  function updateLeaf(leaf: ContentLeaf, rawValue: string | boolean) {
-    let value: ContentLeaf["value"] = rawValue;
-    if (typeof leaf.value === "number") value = Number(rawValue);
-    if (leaf.value === null && rawValue === "") value = null;
-    const next = replaceAtPath(document, leaf.path, value);
-    setDocument(next);
-    setNotice("");
+  function assetLabel(slotKey: string) {
+    return assetSlots.find(([key]) => key === slotKey)?.[1] ?? slotKey;
+  }
+  function assetFallback(slotKey: string) {
+    return assetSlots.find(([key]) => key === slotKey)?.[2] ?? "";
   }
 
-  async function save() {
-    if (!can(user, "cms.manage_settings")) return;
+  const save = useCallback(async () => {
+    if (!can(user, "cms.manage_settings")) return false;
     setSaving(true);
     setError("");
     setNotice("");
@@ -700,16 +538,18 @@ function SiteContentPage({ user }: { user: User }) {
         }),
       ));
       setNotice(`${locale.toUpperCase()} content and website images are live.`);
+      iframeRef.current?.contentWindow?.postMessage({ type: "novarise:reload" }, SITE_ORIGIN);
+      return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save site content");
+      return false;
     } finally {
       setSaving(false);
     }
-  }
+  }, [user, locale, document, assets]);
 
-  async function uploadAsset(slotKey: string, label: string, file?: File) {
-    if (!file || !can(user, "cms.manage_media")) return;
-    setUploadingSlot(slotKey);
+  const uploadAsset = useCallback(async (slotKey: string, label: string, file?: File) => {
+    if (!file || !can(user, "cms.manage_media")) return undefined;
     setError("");
     setNotice("");
     try {
@@ -718,388 +558,147 @@ function SiteContentPage({ user }: { user: User }) {
       body.append("folder", "site-content");
       body.append("alt_en", label);
       const uploaded = await api<MediaItem>("/cms/media", { method: "POST", body });
-      setMedia((items) => [uploaded, ...items.filter((item) => item.id !== uploaded.id)]);
       setAssets((current) => ({ ...current, [slotKey]: uploaded.public_url }));
       setNotice(`${label} image uploaded and selected. Save & publish to update the public site.`);
+      return uploaded.public_url;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not upload image");
-    } finally {
-      setUploadingSlot("");
+      return undefined;
     }
-  }
+  }, [user]);
 
-  function restoreDefaults() {
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== SITE_ORIGIN) return;
+      const data = event.data as
+        | { type?: string; path?: string; value?: string; slotKey?: string; url?: string; file?: File; locale?: string }
+        | undefined;
+      if (!data?.type) return;
+
+      if (data.type === "novarise:ready") {
+        if (editing) postToIframe({ type: "novarise:edit-mode", editing: true });
+        return;
+      }
+
+      if (data.type === "novarise:locale-changed") {
+        if (data.locale === "en" || data.locale === "ar") setLocale(data.locale);
+        return;
+      }
+
+      if (data.type === "novarise:field-change" && data.path) {
+        const path = data.path.split(".").map((segment) => (/^\d+$/.test(segment) ? Number(segment) : segment));
+        setDocument((current) => replaceAtPath(current, path, data.value ?? ""));
+        return;
+      }
+
+      if (data.type === "novarise:asset-change" && data.slotKey && data.url) {
+        const slotKey = data.slotKey;
+        const url = data.url;
+        setAssets((current) => ({ ...current, [slotKey]: url }));
+        postToIframe({ type: "novarise:asset-updated", slotKey, url });
+        return;
+      }
+
+      if (data.type === "novarise:asset-upload" && data.slotKey && data.file) {
+        const slotKey = data.slotKey;
+        void uploadAsset(slotKey, assetLabel(slotKey), data.file).then((url) => {
+          if (url) postToIframe({ type: "novarise:asset-updated", slotKey, url });
+        });
+        return;
+      }
+
+      if (data.type === "novarise:asset-remove" && data.slotKey) {
+        const slotKey = data.slotKey;
+        const fallback = assetFallback(slotKey);
+        setAssets((current) => ({ ...current, [slotKey]: fallback }));
+        postToIframe({ type: "novarise:asset-updated", slotKey, url: fallback });
+        return;
+      }
+
+      if (data.type === "novarise:publish") {
+        void save().then((ok) => postToIframe({ type: "novarise:published", ok }));
+        return;
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [editing, postToIframe, save, uploadAsset]);
+
+  const togglePenMode = useCallback(() => {
+    setEditing((current) => {
+      const next = !current;
+      postToIframe({ type: "novarise:edit-mode", editing: next });
+      return next;
+    });
+  }, [postToIframe]);
+
+  const restoreDefaults = useCallback(() => {
     if (!window.confirm(`Restore the bundled ${locale.toUpperCase()} copy in this editor?`)) return;
     const next = cloneDocument(defaults);
     setDocument(next);
     setNotice("Defaults restored in the editor. Save to publish them.");
-  }
+  }, [locale, defaults]);
 
-  const editorExperience = "mini-site";
-  if (editorExperience === "mini-site") {
-    return <>
-      <PageHead
-        eyebrow="Mini website editor"
-        title="Site content"
-        copy="Edit each website page like a familiar social post: open a page, choose a section, change the image and text, then publish."
-        action={can(user, "cms.manage_settings") ? (
-          <button className="primary-button compact" onClick={save} disabled={saving}>
-            {saving ? "Publishing..." : "Save & publish"}
+  useEffect(() => {
+    const canManage = can(user, "cms.manage_settings");
+    onTopbarActions(
+      <div className="topbar-site-actions">
+        {(error || notice) && (
+          <span className={`topbar-flash ${error ? "is-error" : "is-success"}`}>{error || notice}</span>
+        )}
+        <div className="topbar-kebab">
+          <button type="button" className="icon-button" onClick={() => setMenuOpen((open) => !open)} title="More actions">
+            <MoreHorizontal size={16} />
           </button>
-        ) : undefined}
-      />
-      <div className="content-editor-toolbar panel mini-toolbar">
-        <div>
-          <strong>Editing language</strong>
-          <div className="segmented language-tabs" aria-label="Content language">
-            <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
-            <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
-          </div>
-        </div>
-        <div className="toolbar-actions">
-          <div className="search-input">
-            <Search size={17} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search this mini site..." />
-          </div>
-          <button className="secondary-button" onClick={restoreDefaults}>Restore defaults</button>
-        </div>
-      </div>
-      {error && <p className="form-error notice-bar">{error}</p>}
-      {notice && <p className="success-note notice-bar">{notice}</p>}
-      {busy ? <Skeleton /> : (
-        <section className="site-content-shell mini-site-editor">
-          <aside className="panel content-page-list website-map">
-            <PanelTitle title="Website map" detail="Pick a page to open its mini version" />
-            <div>
-              {pages.map((page) => (
-                <button
-                  key={page.id}
-                  className={activePage === page.id ? "active" : ""}
-                  onClick={() => {
-                    setActivePage(page.id);
-                    setActiveSection("all");
-                  }}
-                >
-                  <span>
-                    <strong>{page.title}</strong>
-                    <small>{page.detail}</small>
-                  </span>
-                  <b>{page.fields}{page.images ? ` + ${page.images} img` : ""}</b>
-                </button>
-              ))}
-            </div>
-          </aside>
-
-          <div className="mini-site-stage">
-            <div className="panel mini-browser">
-              <div className="mini-browser-bar">
-                <span><i /> <i /> <i /></span>
-                <strong>novarisesa.com / {activePage}</strong>
-                <a href={`https://novarisesa.com/${activePage === "home" ? "" : activePage}`} target="_blank" rel="noreferrer">
-                  <Globe2 size={14} /> Open live
-                </a>
+          {menuOpen && (
+            <>
+              <button type="button" className="dropdown-backdrop" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
+              <div className="topbar-kebab-menu">
+                <Link href="/navigation" onClick={() => setMenuOpen(false)}>Manage menu links</Link>
+                <button type="button" onClick={() => { setMenuOpen(false); restoreDefaults(); }}>Restore defaults</button>
               </div>
-              <header className="mini-page-cover">
-                <div>
-                  <p className="eyebrow">{locale.toUpperCase()} page preview</p>
-                  <h2>{activePageInfo?.title ?? pageTitle(activePage)}</h2>
-                  <p>{activePageInfo?.detail ?? "Website copy and images"}</p>
-                </div>
-                <div className="mini-page-stats">
-                  <span>{pageLeaves.length} text fields</span>
-                  <span>{activeAssets.length} images</span>
-                </div>
-              </header>
-              <div className="section-feed">
-                <button
-                  type="button"
-                  className={`section-post all-post ${activeSection === "all" ? "active" : ""}`}
-                  onClick={() => setActiveSection("all")}
-                >
-                  <div className="post-avatar"><FilePenLine size={18} /></div>
-                  <div>
-                    <strong>Full page</strong>
-                    <p>Show every editable text and image from this page in the editor.</p>
-                    <small>{pageLeaves.length} fields and {activeAssets.length} images</small>
-                  </div>
-                </button>
-                {sectionCards.map(({ section, fields, images, preview, image }) => (
-                  <button
-                    type="button"
-                    key={section}
-                    className={`section-post ${activeSection === section ? "active" : ""}`}
-                    onClick={() => setActiveSection(section)}
-                  >
-                    <div className="post-avatar">{humanize(section).slice(0, 1)}</div>
-                    <div className="post-body">
-                      <span className="post-kicker">{humanize(section)}</span>
-                      <strong>{preview.title}</strong>
-                      <p>{preview.body}</p>
-                      {image ? <AssetPreview src={image} label={preview.title} /> : (
-                        <div className="mini-empty-image"><ImageIcon size={18} /> Text-only section</div>
-                      )}
-                      <small>{fields.length} editable fields{images.length ? ` / ${images.length} image slots` : ""}</small>
-                    </div>
-                    <ChevronRight size={17} />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <aside className="panel post-composer">
-            <div className="composer-head">
-              <div className="post-avatar brand">N</div>
-              <div>
-                <p className="eyebrow">Editing now</p>
-                <h2>{activeSection === "all" ? `${pageTitle(activePage)} page` : humanize(activeSection)}</h2>
-                <span>{visible.length} visible fields</span>
-              </div>
-            </div>
-            {selectedSection?.image && <AssetPreview src={selectedSection.image} label={selectedSection.preview.title} />}
-            <div className="composer-tools">
-              <label className="section-select-field">Section
-                <select value={activeSection} onChange={(event) => setActiveSection(event.target.value)}>
-                  <option value="all">Full page</option>
-                  {sections.map((value) => <option value={value} key={value}>{humanize(value)}</option>)}
-                </select>
-              </label>
-              <div className="search-input">
-                <Search size={17} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a field..." />
-              </div>
-            </div>
-            <div className="composer-fields" dir={locale === "ar" ? "rtl" : "ltr"}>
-              {visible.map((leaf) => (
-                <label key={leaf.path.join(".")}>
-                  <span>{leaf.label}{leaf.context && <small>{leaf.context}</small>}</span>
-                  {typeof leaf.value === "boolean" ? (
-                    <input
-                      type="checkbox"
-                      checked={leaf.value}
-                      onChange={(event) => updateLeaf(leaf, event.target.checked)}
-                    />
-                  ) : String(leaf.value ?? "").length > 90 ? (
-                    <textarea
-                      rows={4}
-                      value={String(leaf.value ?? "")}
-                      onChange={(event) => updateLeaf(leaf, event.target.value)}
-                    />
-                  ) : (
-                    <input
-                      type={typeof leaf.value === "number" ? "number" : "text"}
-                      value={String(leaf.value ?? "")}
-                      onChange={(event) => updateLeaf(leaf, event.target.value)}
-                    />
-                  )}
-                </label>
-              ))}
-              {!visible.length && <Empty copy="No content matches this page or filter." />}
-            </div>
-            {visibleAssets.length > 0 && (
-              <div className="composer-assets">
-                <PanelTitle title="Images" detail="Replace the visual used by this page or section" />
-                {visibleAssets.map(({ key, label, fallback }) => {
-                  const value = assets[key] || fallback;
-                  return <article className="asset-slot" key={key}>
-                    <span>{label}</span>
-                    <AssetPreview src={value} label={label} />
-                    <div className="asset-actions">
-                      <label className={`upload-inline ${uploadingSlot === key ? "loading" : ""}`}>
-                        <Upload size={15} />
-                        <span>{uploadingSlot === key ? "Uploading..." : "Replace"}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={uploadingSlot === key || !can(user, "cms.manage_media")}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            event.target.value = "";
-                            void uploadAsset(key, label, file);
-                          }}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="secondary-button mini"
-                        onClick={() => setAssets({ ...assets, [key]: fallback })}
-                      >
-                        Default
-                      </button>
-                    </div>
-                    <select
-                      value={media.some((item) => item.public_url === value) ? value : ""}
-                      onChange={(event) => setAssets({ ...assets, [key]: event.target.value || fallback })}
-                    >
-                      <option value="">Bundled default</option>
-                      {media.filter((item) => item.mime_type.startsWith("image/")).map((item) => (
-                        <option value={item.public_url} key={item.id}>{item.file_name}</option>
-                      ))}
-                    </select>
-                  </article>;
-                })}
-              </div>
-            )}
-          </aside>
-        </section>
-      )}
-    </>;
-  }
-
-  return <>
-    <PageHead
-      eyebrow="Visual content editor"
-      title="Site content"
-      copy="Choose a page, edit its text, replace its images, then publish the update to the website."
-      action={can(user, "cms.manage_settings") ? (
-        <button className="primary-button compact" onClick={save} disabled={saving}>
-          {saving ? "Publishing…" : "Save & publish"}
-        </button>
-      ) : undefined}
-    />
-    <div className="content-editor-toolbar panel">
-      <div className="segmented language-tabs" aria-label="Content language">
-        <button className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
-        <button className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
-      </div>
-      <div className="search-input">
-        <Search size={17} />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search website copy…" />
-      </div>
-      <button className="secondary-button" onClick={restoreDefaults}>Restore defaults</button>
-    </div>
-    {error && <p className="form-error notice-bar">{error}</p>}
-    {notice && <p className="success-note notice-bar">{notice}</p>}
-    {busy ? <Skeleton /> : (
-      <section className="site-content-shell">
-        <aside className="panel content-page-list">
-          <PanelTitle title="Website areas" detail="Choose one area to edit" />
-          <div className="content-guide">
-            <span>1. Pick website area</span>
-            <span>2. Choose section</span>
-            <span>3. Edit text or replace image</span>
-            <span>4. Save & publish</span>
-          </div>
-          <div>
-            {pages.map((page) => (
-              <button
-                key={page.id}
-                className={activePage === page.id ? "active" : ""}
-                onClick={() => {
-                  setActivePage(page.id);
-                  setActiveSection("all");
-                }}
-              >
-                <span>
-                  <strong>{page.title}</strong>
-                  <small>{page.detail}</small>
-                </span>
-                <b>{page.fields}{page.images ? ` + ${page.images} img` : ""}</b>
-              </button>
-            ))}
-          </div>
-        </aside>
-        <div className="site-content-layout">
-        <div className="panel copy-editor">
-          <div className="section-editor-head">
-            <div className="section-title-row">
-              <PanelTitle title={`${pageTitle(activePage)} content`} detail={`${visible.length} of ${pageLeaves.length} editable fields shown`} />
-            </div>
-          </div>
-          <div className="copy-fields" dir={locale === "ar" ? "rtl" : "ltr"}>
-            {visible.map((leaf) => (
-              <label key={leaf.path.join(".")}>
-                <span>{leaf.label}{leaf.context && <small>{leaf.context}</small>}</span>
-                {typeof leaf.value === "boolean" ? (
-                  <input
-                    type="checkbox"
-                    checked={leaf.value}
-                    onChange={(event) => updateLeaf(leaf, event.target.checked)}
-                  />
-                ) : String(leaf.value ?? "").length > 90 ? (
-                  <textarea
-                    rows={4}
-                    value={String(leaf.value ?? "")}
-                    onChange={(event) => updateLeaf(leaf, event.target.value)}
-                  />
-                ) : (
-                  <input
-                    type={typeof leaf.value === "number" ? "number" : "text"}
-                    value={String(leaf.value ?? "")}
-                    onChange={(event) => updateLeaf(leaf, event.target.value)}
-                  />
-                )}
-              </label>
-            ))}
-            {!visible.length && <Empty copy="No content matches this page or filter." />}
-          </div>
-          {visibleAssets.length > 0 && (
-            <div className="inline-asset-block">
-              <PanelTitle title={`${activeSection === "all" ? pageTitle(activePage) : humanize(activeSection)} images`} detail="Replace the matching website images beside the content they belong to" />
-              <div className="asset-fields inline-assets">
-                {visibleAssets.map(({ key, label, fallback }) => {
-                  const value = assets[key] || fallback;
-                  return <article className="asset-slot" key={key}>
-                    <span>{label}</span>
-                    <AssetPreview src={value} label={label} />
-                    <div className="asset-actions">
-                      <label className={`upload-inline ${uploadingSlot === key ? "loading" : ""}`}>
-                        <Upload size={15} />
-                        <span>{uploadingSlot === key ? "Uploading..." : "Browse & replace"}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={uploadingSlot === key || !can(user, "cms.manage_media")}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            event.target.value = "";
-                            void uploadAsset(key, label, file);
-                          }}
-                        />
-                      </label>
-                      <button
-                        type="button"
-                        className="secondary-button mini"
-                        onClick={() => setAssets({ ...assets, [key]: fallback })}
-                      >
-                        Default
-                      </button>
-                    </div>
-                    <select
-                      value={media.some((item) => item.public_url === value) ? value : ""}
-                      onChange={(event) => setAssets({ ...assets, [key]: event.target.value || fallback })}
-                    >
-                      <option value="">Bundled default</option>
-                      {media.filter((item) => item.mime_type.startsWith("image/")).map((item) => (
-                        <option value={item.public_url} key={item.id}>{item.file_name}</option>
-                      ))}
-                    </select>
-                  </article>;
-                })}
-              </div>
-            </div>
+            </>
           )}
         </div>
-        <aside className="panel section-control-panel">
-          <PanelTitle title="Section" detail="Select one section, or keep the full page editable" />
-          <label className="section-select-field">Editing scope
-            <select value={activeSection} onChange={(event) => setActiveSection(event.target.value)}>
-              <option value="all">Full page</option>
-              {sections.map((value) => <option value={value} key={value}>{humanize(value)}</option>)}
-            </select>
-          </label>
-          <div className="search-input">
-            <Search size={17} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search content..." />
-          </div>
-          <p className="section-help">
-            Click a page on the left. Until you choose a section here, the full page stays editable.
-          </p>
-        </aside>
+        {canManage && (
+          <>
+            <button
+              type="button"
+              className={`secondary-button icon-only ${editing ? "active" : ""}`}
+              onClick={togglePenMode}
+              title={editing ? "Turn off pen mode" : "Turn on pen mode"}
+            >
+              <Pencil size={15} />
+            </button>
+            <button className="primary-button compact" onClick={save} disabled={saving}>
+              {saving ? "Publishing..." : "Save & publish"}
+            </button>
+          </>
+        )}
+      </div>,
+    );
+    return () => onTopbarActions(null);
+  }, [editing, saving, error, notice, menuOpen, user, save, togglePenMode, restoreDefaults, onTopbarActions]);
+
+  return !loaded ? <Skeleton /> : (
+    <section className="site-content-shell preview-shell">
+      <div className="panel preview-frame-host">
+        <div className="mini-browser-bar">
+          <span><i /> <i /> <i /></span>
+          <strong>{SITE_URL.replace(/^https?:\/\//, "")}</strong>
+          <a href={SITE_URL} target="_blank" rel="noreferrer">
+            <Globe2 size={14} /> Open live
+          </a>
         </div>
-      </section>
-    )}
-  </>;
+        <iframe
+          ref={iframeRef}
+          src={`${SITE_URL}/?novarise_preview=1`}
+          className="preview-frame"
+          title="Website preview"
+        />
+      </div>
+    </section>
+  );
 }
 
 function AssetPreview({ src, label }: { src: string; label: string }) {

@@ -20,10 +20,11 @@ type FormValues = {
 };
 
 function FloatField({
-  id, label, error, valid, children,
+  id, label, labelField, error, valid, children,
 }: {
   id: string;
   label: string;
+  labelField?: string;
   error?: string;
   valid?: boolean;
   children: React.ReactNode;
@@ -34,6 +35,8 @@ function FloatField({
         {children}
         <label
           htmlFor={id}
+          data-cms-field={labelField}
+          suppressContentEditableWarning
           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground transition-all duration-200
             peer-placeholder-shown:text-sm peer-placeholder-shown:top-1/2 peer-placeholder-shown:-translate-y-1/2
             peer-focus:top-0 peer-focus:text-[10px] peer-focus:uppercase peer-focus:tracking-[0.22em] peer-focus:text-gold peer-focus:px-1.5 peer-focus:bg-card
@@ -106,34 +109,34 @@ export function ContactForm() {
 
         <div className="relative">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-3">
-            <span className="h-px w-8 bg-gold" /> {t("contactPage.form.eyebrow")}
+            <span className="h-px w-8 bg-gold" /> <span data-cms-field="contactPage.form.eyebrow" suppressContentEditableWarning>{t("contactPage.form.eyebrow")}</span>
           </div>
-          <h2 className="text-2xl lg:text-3xl font-display font-bold text-navy leading-tight">
+          <h2 className="text-2xl lg:text-3xl font-display font-bold text-navy leading-tight" data-cms-field="contactPage.form.title">
             {t("contactPage.form.title")}
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground" data-cms-field="contactPage.form.sub">
             {t("contactPage.form.sub")}
           </p>
 
           <div className="mt-8 grid sm:grid-cols-2 gap-5">
-            <FloatField id="name" label={t("contactPage.form.fields.name")} error={errors.name?.message} valid={isValid("name", 2)}>
+            <FloatField id="name" label={t("contactPage.form.fields.name")} labelField="contactPage.form.fields.name" error={errors.name?.message} valid={isValid("name", 2)}>
               <input id="name" placeholder={t("contactPage.form.fields.name")} {...register("name")} className={inputBase} />
             </FloatField>
 
-            <FloatField id="email" label={t("contactPage.form.fields.email")} error={errors.email?.message} valid={isValid("email", 5) && /@/.test(values.email)}>
+            <FloatField id="email" label={t("contactPage.form.fields.email")} labelField="contactPage.form.fields.email" error={errors.email?.message} valid={isValid("email", 5) && /@/.test(values.email)}>
               <input id="email" type="email" placeholder={t("contactPage.form.fields.email")} {...register("email")} className={inputBase} />
             </FloatField>
 
-            <FloatField id="company" label={t("contactPage.form.fields.company")} valid={isValid("company", 2)}>
+            <FloatField id="company" label={t("contactPage.form.fields.company")} labelField="contactPage.form.fields.company" valid={isValid("company", 2)}>
               <input id="company" placeholder={t("contactPage.form.fields.company")} {...register("company")} className={inputBase} />
             </FloatField>
 
-            <FloatField id="phone" label={t("contactPage.form.fields.phone")} valid={isValid("phone", 5)}>
+            <FloatField id="phone" label={t("contactPage.form.fields.phone")} labelField="contactPage.form.fields.phone" valid={isValid("phone", 5)}>
               <input id="phone" placeholder={t("contactPage.form.fields.phone")} {...register("phone")} className={inputBase} />
             </FloatField>
 
             <div className="sm:col-span-2">
-              <FloatField id="subject" label={t("contactPage.form.fields.subject")} error={errors.subject?.message} valid={isValid("subject")}>
+              <FloatField id="subject" label={t("contactPage.form.fields.subject")} labelField="contactPage.form.fields.subject" error={errors.subject?.message} valid={isValid("subject")}>
                 <select
                   id="subject"
                   {...register("subject")}
@@ -157,6 +160,8 @@ export function ContactForm() {
                 />
                 <label
                   htmlFor="message"
+                  data-cms-field="contactPage.form.fields.message"
+                  suppressContentEditableWarning
                   className="pointer-events-none absolute left-4 top-4 text-sm text-muted-foreground transition-all duration-200
                     peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm
                     peer-focus:top-1 peer-focus:text-[10px] peer-focus:uppercase peer-focus:tracking-[0.22em] peer-focus:text-gold peer-focus:px-1.5 peer-focus:bg-card
@@ -170,7 +175,7 @@ export function ContactForm() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-border">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground" data-cms-field="contactPage.form.privacy">
               {t("contactPage.form.privacy")}
             </p>
             <button
@@ -181,7 +186,9 @@ export function ContactForm() {
             >
               <span className="relative z-10 inline-flex items-center gap-2">
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {isSubmitting ? t("contactPage.form.submitting") : t("contactPage.form.submit")}
+                <span data-cms-field={isSubmitting ? undefined : "contactPage.form.submit"} suppressContentEditableWarning>
+                  {isSubmitting ? t("contactPage.form.submitting") : t("contactPage.form.submit")}
+                </span>
               </span>
               <ArrowUpRight className="relative z-10 h-4 w-4 transition-transform group-hover:rotate-45" />
               <span className="absolute inset-0 -translate-x-full bg-white/25 skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />

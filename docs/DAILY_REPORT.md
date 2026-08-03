@@ -119,6 +119,41 @@
 
 ---
 
+## 2026-08-03 (সোমবার)
+
+### Done
+- CMS dashboard-এর **Site content** পেজের UI/UX first pass সম্পন্ন।
+- Site content editor-কে **Mini website editor** experience-এ রিডিজাইন:
+  - বামে Website map / page-by-page navigation।
+  - মাঝখানে public site-এর mini preview/feed feel।
+  - প্রতিটি section card-কে পুরনো Facebook post edit করার মতো সহজ mental model।
+  - ডানে composer-style edit panel, যেখানে selected section-এর text ও image change করা যায়।
+  - Image replace/default/media select workflow আগের API রেখেই friendly করা হয়েছে।
+- Dashboard lint এবং production build pass।
+- GitHub `main` branch-এ push করা হয়েছে: `90deea8 feat: redesign site content editor experience`।
+- **Live-iframe preview editor** বানানো হয়েছে: dashboard-এর `/site-content`-এ পাবলিক সাইট সরাসরি iframe-এ embed (CSP `frame-ancestors`, `PreviewBridge`, postMessage bridge), সেকশনে ক্লিক করলে পাশে real fields-সহ edit panel খোলে — আগের JSON-flatten heuristic কার্ড বাদ দিয়ে।
+- লোকাল ডেভ এনভায়রনমেন্ট পুরোপুরি সেটআপ: লোকাল Postgres (`novarise` role/db), backend migration + bootstrap, admin user তৈরি (`admin@novarisesa.com`), backend (`:8000`) + public site (`:3000`) + dashboard (`:3001`) — তিনটাই একসাথে চালিয়ে যাচাই করা হয়েছে।
+- ইউজারের অনুরোধে **পুরো ইনলাইন "Pen mode" WYSIWYG এডিটর** বানানো হয়েছে (Illustrator/Webflow-স্টাইল): পেন আইকনে ক্লিক করলে সাইটের যেকোনো টেক্সটে সরাসরি ক্লিক করে টাইপ করা যায়, ইমেজে ক্লিক করলে popover-এ upload/paste URL/remove অপশন আসে — সাইড প্যানেল/ড্রপডাউন ছাড়াই।
+- **সব ১০টা পাবলিক পেজ** (Home, About, Services, Capabilities, Careers, Requirements, Contact, RFQ, Insights/Blog, Projects) pen-mode এ instrument করা হয়েছে — হেডার/ফুটার/CTA সহ প্রতিটা হেডিং, প্যারাগ্রাফ, বাটন, ফর্ম লেবেল এখন সরাসরি ক্লিক-করে-এডিট।
+- Hero, Numbers, HSE, Vision2030, About stats, CompanyProfile, Services Trust — এই ৭ জায়গার আগে হার্ডকোড করা সংখ্যাগুলো (workforce count, turnover, KPI % ইত্যাদি) translation JSON-এ এনে pen-mode এ editable করা হয়েছে।
+- একটা bug ফিক্স করা হয়েছে: Hero সেকশনে `data-cms-field` framer-motion এনিমেটেড এলিমেন্টের উপর সরাসরি বসানো থাকায় pen mode চালু হলে পুরো সেকশন ফিকে/অদৃশ্য হয়ে যাচ্ছিল — plain inner span-এ সরিয়ে ও edit mode-এ entrance animation skip করে ঠিক করা হয়েছে।
+- **সচেতনভাবে বাদ রাখা হয়েছে**: Services/Projects/Requirements/Insights-এর প্রতিটা কালেকশন-আইটেম (individual service card, project card, job posting, blog post) — এগুলো আলাদা ডাটাবেস টেবিল থেকে আসে, pen-mode দিয়ে এডিটেবল না করে আগের dedicated collection editor-এই রাখা হয়েছে যাতে ভুলভাবে ডেটা নষ্ট না হয়।
+- পুরনো side-panel/page-rail editor **মুছে ফেলা হয়নি** — pen mode বন্ধ থাকলে এখনো কাজ করে, fallback হিসেবে থাকছে।
+
+### Tomorrow / Next — planned
+1. **প্রোডাকশনে লাইভ চেক**: Coolify-র প্রোডাকশন Postgres-এ migration/bootstrap স্ট্যাটাস যাচাই করা।
+2. প্রোডাকশন env vars সঠিকভাবে সেট করা (Coolify): `NEXT_PUBLIC_DASHBOARD_ORIGIN` (public site), `NEXT_PUBLIC_SITE_URL` (dashboard), `NEXT_PUBLIC_API_URL` (উভয়ে) — যাতে CSP + postMessage bridge লাইভেও কাজ করে।
+3. `my.novarisesa.com` থেকে `novarisesa.com` iframe embed + pen-mode editor লাইভে end-to-end যাচাই করা।
+4. সবকিছু ঠিক থাকলে প্রোডাকশন ডাটাবেসে সব লাইভ করে সাইট **প্রোডাকশন-রেডি** ঘোষণা করা।
+5. Phase 2 (ভবিষ্যতের কাজ): পুরনো side-panel/rail UI সরানো যাবে একবার নিশ্চিত হলে যে সব পেজে pen-mode coverage স্থিতিশীল।
+
+### Notes
+- আজকের কাজ শুধু UI/UX না — dashboard আর পাবলিক সাইটের মধ্যে real-time editing architecture (postMessage bridge) সম্পূর্ণ তৈরি হয়েছে, backend contract অপরিবর্তিত (শুধু existing `/cms/settings`, `/cms/media` reuse করা হয়েছে)।
+- লোকাল টেস্ট লগইন: `admin@novarisesa.com` / `ChangeMeNow!123` (`backend/.env`-এ সেট) — প্রোডাকশনে আলাদা/rotate করা credential ব্যবহার করতে হবে।
+- পরবর্তী বড় মাইলফলক: local-এ যা কাজ করছে সেটাই এখন প্রোডাকশন ডাটাবেস/ডোমেইনে verify করে লাইভ করা।
+
+---
+
 ## Template (পরের দিন কপি করে ব্যবহার করো)
 
 ```markdown

@@ -22,11 +22,11 @@ export function ServicesIndustries() {
         <Reveal className="max-w-2xl mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.industries.eyebrow")}
+            <span data-cms-field="servicesPage.industries.eyebrow" suppressContentEditableWarning>{t("servicesPage.industries.eyebrow")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.industries.titleA")}<br />
-            <span className="text-muted-foreground">{t("servicesPage.industries.titleB")}</span>
+            <span data-cms-field="servicesPage.industries.titleA" suppressContentEditableWarning>{t("servicesPage.industries.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="servicesPage.industries.titleB" suppressContentEditableWarning>{t("servicesPage.industries.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -37,8 +37,8 @@ export function ServicesIndustries() {
                 <div className="h-11 w-11 mx-auto mb-3 rounded-xl bg-gold/10 group-hover:bg-gold flex items-center justify-center transition-all duration-500 group-hover:rotate-[-6deg]">
                   <s.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.7} />
                 </div>
-                <div className="text-sm font-display font-bold text-navy">{t(`servicesPage.industries.items.${s.key}.label`)}</div>
-                <div className="text-[11px] text-muted-foreground mt-1 leading-snug">{t(`servicesPage.industries.items.${s.key}.desc`)}</div>
+                <div className="text-sm font-display font-bold text-navy" data-cms-field={`servicesPage.industries.items.${s.key}.label`}>{t(`servicesPage.industries.items.${s.key}.label`)}</div>
+                <div className="text-[11px] text-muted-foreground mt-1 leading-snug" data-cms-field={`servicesPage.industries.items.${s.key}.desc`}>{t(`servicesPage.industries.items.${s.key}.desc`)}</div>
               </div>
             </StaggerItem>
           ))}

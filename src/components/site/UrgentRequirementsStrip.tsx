@@ -57,7 +57,7 @@ export function UrgentRequirementsStrip() {
                   </span>
                   <span className="text-gold/70">·</span>
                   <span className="tabular-nums text-white/65">
-                    {r.count} {t("urgentStrip.nos")}
+                    {r.count} <span data-cms-field="urgentStrip.nos" suppressContentEditableWarning>{t("urgentStrip.nos")}</span>
                   </span>
                   <span className="text-gold/70">·</span>
                   <span className="text-white/65" dir="ltr">{r.rate}</span>
@@ -74,7 +74,7 @@ export function UrgentRequirementsStrip() {
             to="/requirements"
             className="group hidden sm:inline-flex items-center gap-1.5 shrink-0 rounded-full bg-gold px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-navy-deep hover:scale-[1.04] transition-transform"
           >
-            {t("urgentStrip.cta")}
+            <span data-cms-field="urgentStrip.cta" suppressContentEditableWarning>{t("urgentStrip.cta")}</span>
             <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:rotate-45" />
           </Link>
         </div>

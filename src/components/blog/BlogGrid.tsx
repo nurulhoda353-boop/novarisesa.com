@@ -25,9 +25,9 @@ export function BlogGrid() {
         <Reveal>
           <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-12">
             <div className="max-w-2xl">
-              <div className="eyebrow mb-3">{t("blogPage.grid.eyebrow")}</div>
+              <div className="eyebrow mb-3" data-cms-field="blogPage.grid.eyebrow">{t("blogPage.grid.eyebrow")}</div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]">
-                {t("blogPage.grid.titleA")} <span className="text-gradient-gold">{t("blogPage.grid.titleB")}</span>
+                <span data-cms-field="blogPage.grid.titleA" suppressContentEditableWarning>{t("blogPage.grid.titleA")}</span> <span className="text-gradient-gold" data-cms-field="blogPage.grid.titleB" suppressContentEditableWarning>{t("blogPage.grid.titleB")}</span>
               </h2>
             </div>
 
@@ -41,6 +41,7 @@ export function BlogGrid() {
                       ? "bg-navy text-white border-navy shadow-elegant"
                       : "bg-card text-navy/70 border-border hover:border-gold hover:text-navy"
                   }`}
+                  data-cms-field={`blogPage.grid.categories.${c}`}
                 >
                   {t(`blogPage.grid.categories.${c}`, { defaultValue: c })}
                 </button>
@@ -87,7 +88,7 @@ function PostCard({ post }: { post: BlogPost }) {
           className="object-cover transition-transform duration-[1100ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-[1.07]"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
-        <div className="absolute top-4 left-4 inline-flex items-center rounded-full bg-white/95 backdrop-blur px-3 py-1 text-[10px] uppercase tracking-[0.22em] font-semibold text-navy">
+        <div className="absolute top-4 left-4 inline-flex items-center rounded-full bg-white/95 backdrop-blur px-3 py-1 text-[10px] uppercase tracking-[0.22em] font-semibold text-navy" data-cms-field={`blogPage.grid.categories.${post.category}`}>
           {t(`blogPage.grid.categories.${post.category}`, { defaultValue: post.category })}
         </div>
       </div>
@@ -97,7 +98,7 @@ function PostCard({ post }: { post: BlogPost }) {
           <span className="tabular-nums">{post.date}</span>
           <span className="h-1 w-1 rounded-full bg-gold/60" />
           <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3" /> {post.readMins} {t("blogPage.grid.min")}
+            <Clock className="h-3 w-3" /> {post.readMins} <span data-cms-field="blogPage.grid.min" suppressContentEditableWarning>{t("blogPage.grid.min")}</span>
           </span>
         </div>
 

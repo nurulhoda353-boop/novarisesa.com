@@ -20,13 +20,13 @@ export function FAQ() {
             <Reveal>
               <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
                 <span className="h-px w-8 bg-gold" />
-                {t("faq.eyebrow")}
+                <span data-cms-field="faq.eyebrow" suppressContentEditableWarning>{t("faq.eyebrow")}</span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-                {t("faq.titleA")}<br />
-                <span className="text-muted-foreground">{t("faq.titleB")}</span>
+                <span data-cms-field="faq.titleA" suppressContentEditableWarning>{t("faq.titleA")}</span><br />
+                <span className="text-muted-foreground" data-cms-field="faq.titleB" suppressContentEditableWarning>{t("faq.titleB")}</span>
               </h2>
-              <p className="mt-5 text-sm text-muted-foreground leading-relaxed max-w-md">
+              <p className="mt-5 text-sm text-muted-foreground leading-relaxed max-w-md" data-cms-field="faq.desc">
                 {t("faq.desc")}
               </p>
             </Reveal>
@@ -37,12 +37,12 @@ export function FAQ() {
                 <div className="relative">
                   <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.28em] text-gold">
                     <MessageCircle className="h-3 w-3" />
-                    {t("faq.stillCurious")}
+                    <span data-cms-field="faq.stillCurious" suppressContentEditableWarning>{t("faq.stillCurious")}</span>
                   </div>
-                  <h3 className="mt-4 text-xl font-display font-semibold leading-snug whitespace-pre-line">
+                  <h3 className="mt-4 text-xl font-display font-semibold leading-snug whitespace-pre-line" data-cms-field="faq.talkTitle">
                     {t("faq.talkTitle")}
                   </h3>
-                  <p className="mt-2 text-sm text-white/65 leading-relaxed">
+                  <p className="mt-2 text-sm text-white/65 leading-relaxed" data-cms-field="faq.talkDesc">
                     {t("faq.talkDesc")}
                   </p>
 
@@ -65,7 +65,7 @@ export function FAQ() {
                     to="/rfq"
                     className="group mt-7 inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-gold-foreground shadow-gold transition-transform hover:scale-[1.03]"
                   >
-                    {t("nav.requestRfq")}
+                    <span data-cms-field="nav.requestRfq" suppressContentEditableWarning>{t("nav.requestRfq")}</span>
                     <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
                   </Link>
                 </div>
@@ -88,7 +88,7 @@ export function FAQ() {
                         <span className="text-[11px] font-mono tracking-[0.2em] text-gold mt-1.5 shrink-0">
                           {String(i + 1).padStart(2, "0")}
                         </span>
-                        <span className="text-lg lg:text-xl font-display font-medium text-navy leading-snug">
+                        <span className="text-lg lg:text-xl font-display font-medium text-navy leading-snug" data-cms-field={`faq.items.${i}.q`} suppressContentEditableWarning>
                           {f.q}
                         </span>
                       </div>
@@ -106,7 +106,7 @@ export function FAQ() {
                       }`}
                     >
                       <div className="overflow-hidden">
-                        <p className="pl-12 pr-12 text-sm lg:text-base text-muted-foreground leading-relaxed max-w-2xl">
+                        <p className="pl-12 pr-12 text-sm lg:text-base text-muted-foreground leading-relaxed max-w-2xl" data-cms-field={`faq.items.${i}.a`}>
                           {f.a}
                         </p>
                       </div>

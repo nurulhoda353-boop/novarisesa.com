@@ -18,12 +18,12 @@ export function Testimonials() {
         <Reveal className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-gold mb-5">
             <span className="h-px w-8 bg-gold" />
-            {t("testimonials.eyebrow")}
+            <span data-cms-field="testimonials.eyebrow" suppressContentEditableWarning>{t("testimonials.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]">
-            {t("testimonials.titleA")}<br />
-            <span className="text-muted-foreground">{t("testimonials.titleB")}</span>
+            <span data-cms-field="testimonials.titleA" suppressContentEditableWarning>{t("testimonials.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="testimonials.titleB" suppressContentEditableWarning>{t("testimonials.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -32,14 +32,14 @@ export function Testimonials() {
             <StaggerItem key={it.key}>
               <article className="group relative h-full bg-card border border-border rounded-3xl p-8 lg:p-9 shadow-card hover:shadow-elegant hover:-translate-y-1 transition-all duration-500 flex flex-col">
                 <Quote className="h-8 w-8 text-gold mb-6 opacity-80" strokeWidth={1.6} />
-                <p className="text-base lg:text-lg text-navy leading-relaxed flex-1">&ldquo;{t(`testimonials.items.${it.key}.q`)}&rdquo;</p>
+                <p className="text-base lg:text-lg text-navy leading-relaxed flex-1">&ldquo;<span data-cms-field={`testimonials.items.${it.key}.q`} suppressContentEditableWarning>{t(`testimonials.items.${it.key}.q`)}</span>&rdquo;</p>
                 <div className="mt-8 pt-6 border-t border-border flex items-center gap-4">
                   <div className={`h-11 w-11 rounded-full ${it.color} flex items-center justify-center text-white text-sm font-display font-bold shrink-0`}>
                     {it.initials}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-bold text-navy">{t(`testimonials.items.${it.key}.name`)}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5 truncate">{t(`testimonials.items.${it.key}.org`)}</div>
+                    <div className="text-sm font-bold text-navy" data-cms-field={`testimonials.items.${it.key}.name`}>{t(`testimonials.items.${it.key}.name`)}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate" data-cms-field={`testimonials.items.${it.key}.org`}>{t(`testimonials.items.${it.key}.org`)}</div>
                   </div>
                 </div>
               </article>
@@ -48,7 +48,7 @@ export function Testimonials() {
         </StaggerGroup>
 
         <Reveal className="mt-12 text-center">
-          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
+          <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground" data-cms-field="testimonials.disclaimer">
             {t("testimonials.disclaimer")}
           </p>
         </Reveal>

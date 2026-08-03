@@ -27,17 +27,17 @@ export function Industries() {
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           <Reveal className="lg:col-span-5">
             <div className="relative">
-              <div className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-elegant">
+              <div className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-elegant" data-cms-asset="home.industry">
                 <Image src={managedIndustryImg} alt="Saudi oil and gas refinery at golden hour" fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/90 via-navy-deep/20 to-transparent" />
               </div>
               <div className="absolute bottom-6 left-6 right-6 text-white">
-                <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-2">{t("industries.imgEyebrow")}</div>
-                <div className="text-2xl font-display font-bold leading-tight whitespace-pre-line">{t("industries.imgTitle")}</div>
+                <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-2" data-cms-field="industries.imgEyebrow">{t("industries.imgEyebrow")}</div>
+                <div className="text-2xl font-display font-bold leading-tight whitespace-pre-line" data-cms-field="industries.imgTitle">{t("industries.imgTitle")}</div>
               </div>
               <div className="hidden md:block absolute -top-5 -right-5 rounded-2xl bg-gold text-navy px-5 py-3 shadow-gold">
-                <div className="text-[10px] uppercase tracking-[0.25em] font-semibold">{t("industries.badgeBrand")}</div>
-                <div className="text-xs font-bold">{t("industries.badgeText")}</div>
+                <div className="text-[10px] uppercase tracking-[0.25em] font-semibold" data-cms-field="industries.badgeBrand">{t("industries.badgeBrand")}</div>
+                <div className="text-xs font-bold" data-cms-field="industries.badgeText">{t("industries.badgeText")}</div>
               </div>
             </div>
           </Reveal>
@@ -46,12 +46,12 @@ export function Industries() {
             <Reveal>
               <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-gold mb-5">
                 <span className="h-px w-8 bg-gold" />
-                {t("industries.eyebrow")}
+                <span data-cms-field="industries.eyebrow" suppressContentEditableWarning>{t("industries.eyebrow")}</span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.05] text-white">
-                {t("industries.title.l1")}<br />
-                <span className="text-gradient-gold">{t("industries.title.l2")}</span><br />
-                {t("industries.title.l3")}
+                <span data-cms-field="industries.title.l1" suppressContentEditableWarning>{t("industries.title.l1")}</span><br />
+                <span className="text-gradient-gold" data-cms-field="industries.title.l2" suppressContentEditableWarning>{t("industries.title.l2")}</span><br />
+                <span data-cms-field="industries.title.l3" suppressContentEditableWarning>{t("industries.title.l3")}</span>
               </h2>
             </Reveal>
 
@@ -64,8 +64,8 @@ export function Industries() {
                         <s.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.6} />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-base font-bold text-white">{t(`industries.list.${s.key}.name`)}</div>
-                        <div className="text-xs text-white/60 mt-1.5 leading-relaxed">{t(`industries.list.${s.key}.desc`)}</div>
+                        <div className="text-base font-bold text-white" data-cms-field={`industries.list.${s.key}.name`}>{t(`industries.list.${s.key}.name`)}</div>
+                        <div className="text-xs text-white/60 mt-1.5 leading-relaxed" data-cms-field={`industries.list.${s.key}.desc`}>{t(`industries.list.${s.key}.desc`)}</div>
                       </div>
                     </div>
                   </div>

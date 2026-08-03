@@ -22,11 +22,11 @@ export function CEOMessage() {
         <Reveal className="max-w-2xl mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("aboutPage.ceo.eyebrow")}
+            <span data-cms-field="aboutPage.ceo.eyebrow" suppressContentEditableWarning>{t("aboutPage.ceo.eyebrow")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("aboutPage.ceo.headingA")}<br />
-            <span className="text-muted-foreground">{t("aboutPage.ceo.headingB")}</span>
+            <span data-cms-field="aboutPage.ceo.headingA" suppressContentEditableWarning>{t("aboutPage.ceo.headingA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="aboutPage.ceo.headingB" suppressContentEditableWarning>{t("aboutPage.ceo.headingB")}</span>
           </h2>
         </Reveal>
 
@@ -38,7 +38,7 @@ export function CEOMessage() {
               <div className="absolute -top-3 -left-3 h-24 w-24 border-l-2 border-t-2 border-gold/60 rounded-tl-2xl" />
               <div className="absolute -bottom-3 -right-3 h-24 w-24 border-r-2 border-b-2 border-gold/60 rounded-br-2xl" />
 
-              <div className="relative h-[520px] rounded-2xl overflow-hidden border border-border shadow-elegant group">
+              <div className="relative h-[520px] rounded-2xl overflow-hidden border border-border shadow-elegant group" data-cms-asset="about.ceo">
                 <Image
                   src={managedCeoImg}
                   alt="Portrait of the CEO of NOVARISE"
@@ -50,9 +50,9 @@ export function CEOMessage() {
 
                 {/* Floating name plate */}
                 <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-white/15 bg-white/8 backdrop-blur-xl p-5">
-                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-1">{t("aboutPage.ceo.role")}</div>
-                  <div className="text-xl font-display font-bold text-white">{t("aboutPage.ceo.name")}</div>
-                  <div className="text-xs text-white/60 mt-1">{t("aboutPage.ceo.company")}</div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-1" data-cms-field="aboutPage.ceo.role">{t("aboutPage.ceo.role")}</div>
+                  <div className="text-xl font-display font-bold text-white" data-cms-field="aboutPage.ceo.name">{t("aboutPage.ceo.name")}</div>
+                  <div className="text-xs text-white/60 mt-1" data-cms-field="aboutPage.ceo.company">{t("aboutPage.ceo.company")}</div>
                 </div>
               </div>
             </div>
@@ -66,26 +66,26 @@ export function CEOMessage() {
               <Quote className="h-10 w-10 text-gold/70" strokeWidth={1.4} />
 
               <p className="mt-6 text-lg lg:text-xl font-display font-medium text-navy leading-snug">
-                {t("aboutPage.ceo.quoteStart")}
-                <span className="text-gold">{t("aboutPage.ceo.quoteHighlight")}</span>
+                <span data-cms-field="aboutPage.ceo.quoteStart" suppressContentEditableWarning>{t("aboutPage.ceo.quoteStart")}</span>
+                <span className="text-gold" data-cms-field="aboutPage.ceo.quoteHighlight" suppressContentEditableWarning>{t("aboutPage.ceo.quoteHighlight")}</span>
               </p>
 
               <div className="mt-6 space-y-5 text-[15px] text-muted-foreground leading-relaxed">
-                <p>{t("aboutPage.ceo.p1")}</p>
-                <p>{t("aboutPage.ceo.p2")}</p>
-                <p>{t("aboutPage.ceo.p3")}</p>
+                <p data-cms-field="aboutPage.ceo.p1">{t("aboutPage.ceo.p1")}</p>
+                <p data-cms-field="aboutPage.ceo.p2">{t("aboutPage.ceo.p2")}</p>
+                <p data-cms-field="aboutPage.ceo.p3">{t("aboutPage.ceo.p3")}</p>
               </div>
 
               <div className="mt-8 flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-border">
                 <div>
-                  <div className="font-display font-bold text-navy">{t("aboutPage.ceo.name")}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{t("aboutPage.ceo.signatureRole")}</div>
+                  <div className="font-display font-bold text-navy" data-cms-field="aboutPage.ceo.name">{t("aboutPage.ceo.name")}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5" data-cms-field="aboutPage.ceo.signatureRole">{t("aboutPage.ceo.signatureRole")}</div>
                 </div>
                 <Link
                   to="/rfq"
                   className="group inline-flex items-center gap-2 rounded-full bg-navy px-5 py-2.5 text-xs uppercase tracking-[0.2em] font-semibold text-white hover:bg-gold hover:text-gold-foreground transition-colors"
                 >
-                  {t("aboutPage.ceo.cta")}
+                  <span data-cms-field="aboutPage.ceo.cta" suppressContentEditableWarning>{t("aboutPage.ceo.cta")}</span>
                   <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
                 </Link>
               </div>

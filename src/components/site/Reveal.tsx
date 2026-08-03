@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
+import { useEditMode } from "@/components/cms/EditModeContext";
 
 const SILK = [0.22, 1, 0.36, 1] as const;
 
@@ -16,6 +17,7 @@ type Props = {
 
 export function Reveal({ children, className, delay = 0, y = 22, blur = true, as = "div" }: Props) {
   const reduce = useReducedMotion();
+  const { editing } = useEditMode();
   const variants: Variants = {
     hidden: {
       opacity: 0,
@@ -29,6 +31,13 @@ export function Reveal({ children, className, delay = 0, y = 22, blur = true, as
       transition: { duration: 1.05, delay, ease: SILK },
     },
   };
+  // Pen mode: skip the whileInView entrance animation entirely — a data-cms-field
+  // descendant being toggled contentEditable can otherwise leave a framer-motion
+  // element stuck at its hidden (invisible) state.
+  if (editing) {
+    const Plain = as;
+    return <Plain className={className}>{children}</Plain>;
+  }
   const MotionTag = motion[as] as typeof motion.div;
   return (
     <MotionTag
@@ -54,6 +63,10 @@ export function StaggerGroup({
   stagger?: number;
   delayChildren?: number;
 }) {
+  const { editing } = useEditMode();
+  if (editing) {
+    return <div className={className}>{children}</div>;
+  }
   return (
     <motion.div
       className={className}
@@ -82,6 +95,10 @@ export function StaggerItem({
   blur?: boolean;
 }) {
   const reduce = useReducedMotion();
+  const { editing } = useEditMode();
+  if (editing) {
+    return <div className={className}>{children}</div>;
+  }
   return (
     <motion.div
       className={className}

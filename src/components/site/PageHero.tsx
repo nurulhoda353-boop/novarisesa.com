@@ -14,10 +14,14 @@ type CTA = { label: string; to?: string; href?: string; variant?: "primary" | "g
 type Props = {
   num: string;            // "02"
   eyebrow: string;        // "About · Company"
+  eyebrowField?: string;  // translation path for pen-mode inline edit
   title: string;          // "About NOVARISE"
+  titleField?: string;    // translation path for pen-mode inline edit
   description: string;    // 2–3 line summary
+  descriptionField?: string; // translation path for pen-mode inline edit
   icon: LucideIcon;       // small chip icon
   heroImage: string;      // background photo
+  assetKey?: string;      // assetSlots key for pen-mode image replace
   crumbs?: Crumb[];       // breadcrumb trail (excluding Home)
   ctas?: CTA[];           // optional buttons
   imageAlt?: string;
@@ -26,10 +30,14 @@ type Props = {
 export function PageHero({
   num,
   eyebrow,
+  eyebrowField,
   title,
+  titleField,
   description,
+  descriptionField,
   icon: Icon,
   heroImage,
+  assetKey,
   crumbs = [],
   ctas = [],
   imageAlt,
@@ -37,7 +45,7 @@ export function PageHero({
   const { t } = useTranslation();
   return (
     <section className="relative min-h-[64vh] lg:min-h-[72vh] flex items-end overflow-hidden dark-premium text-white">
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" data-cms-asset={assetKey}>
         <Image
           src={heroImage}
           alt={imageAlt ?? `${title} — NOVARISE`}
@@ -71,18 +79,19 @@ export function PageHero({
               </span>
               <span className="text-[10px] font-mono text-gold tracking-[0.25em]">{num}</span>
               <span className="h-1 w-1 rounded-full bg-gold" />
-              <span className="text-[10px] uppercase tracking-[0.3em] text-white/80">{eyebrow}</span>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-white/80" data-cms-field={eyebrowField} suppressContentEditableWarning>{eyebrow}</span>
             </div>
 
             <AnimatedHeading
               as="h1"
               text={title}
+              field={titleField}
               trigger="mount"
               className="text-4xl md:text-5xl lg:text-[64px] font-bold tracking-tight leading-[1.05] text-white"
             />
 
 
-            <p className="mt-6 text-base md:text-lg text-white/75 font-light leading-relaxed max-w-2xl">
+            <p className="mt-6 text-base md:text-lg text-white/75 font-light leading-relaxed max-w-2xl" data-cms-field={descriptionField}>
               {description}
             </p>
           </Reveal>

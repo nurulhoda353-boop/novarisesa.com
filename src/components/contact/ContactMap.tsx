@@ -13,12 +13,12 @@ export function ContactMap() {
         <Reveal className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("contactPage.map.eyebrow")}
+            <span data-cms-field="contactPage.map.eyebrow" suppressContentEditableWarning>{t("contactPage.map.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("contactPage.map.titleA")}<br />
-            <span className="text-muted-foreground">{t("contactPage.map.titleB")}</span>
+            <span data-cms-field="contactPage.map.titleA" suppressContentEditableWarning>{t("contactPage.map.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="contactPage.map.titleB" suppressContentEditableWarning>{t("contactPage.map.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -42,9 +42,9 @@ export function ContactMap() {
                     <MapPin className="h-5 w-5 text-navy" strokeWidth={1.8} />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.22em] font-semibold text-gold">{t("contactPage.map.badge")}</div>
-                    <div className="text-base font-display font-bold text-navy mt-0.5">{t("contactPage.map.name")}</div>
-                    <div className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-line">
+                    <div className="text-[10px] uppercase tracking-[0.22em] font-semibold text-gold" data-cms-field="contactPage.map.badge">{t("contactPage.map.badge")}</div>
+                    <div className="text-base font-display font-bold text-navy mt-0.5" data-cms-field="contactPage.map.name">{t("contactPage.map.name")}</div>
+                    <div className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-line" data-cms-field="contactPage.map.address">
                       {t("contactPage.map.address")}
                     </div>
                     <a
@@ -54,7 +54,7 @@ export function ContactMap() {
                       className="group mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-navy hover:text-gold transition-colors"
                     >
                       <Navigation className="h-3.5 w-3.5" />
-                      {t("contactPage.map.directions")}
+                      <span data-cms-field="contactPage.map.directions" suppressContentEditableWarning>{t("contactPage.map.directions")}</span>
                     </a>
                   </div>
                 </div>

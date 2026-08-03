@@ -30,26 +30,26 @@ export function Capabilities() {
       <div className="relative container-wide">
         <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 mb-12 items-center">
           <Reveal className="lg:col-span-7">
-            <SectionNumber num="01" label={t("capabilities.eyebrow")} className="mb-6" />
+            <SectionNumber num="01" label={t("capabilities.eyebrow")} labelField="capabilities.eyebrow" className="mb-6" />
             <h2 className="text-3xl md:text-4xl lg:text-[2.75rem] font-bold tracking-tight text-navy leading-[1.1]">
-              {t("capabilities.titleA")} <span className="text-muted-foreground">{t("capabilities.titleB")}</span>
+              <span data-cms-field="capabilities.titleA" suppressContentEditableWarning>{t("capabilities.titleA")}</span> <span className="text-muted-foreground" data-cms-field="capabilities.titleB" suppressContentEditableWarning>{t("capabilities.titleB")}</span>
             </h2>
-            <p className="mt-4 text-base lg:text-lg text-muted-foreground max-w-2xl leading-relaxed">
+            <p className="mt-4 text-base lg:text-lg text-muted-foreground max-w-2xl leading-relaxed" data-cms-field="capabilities.desc">
               {t("capabilities.desc")}
             </p>
           </Reveal>
           <Reveal className="lg:col-span-5" delay={0.15}>
-            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-elegant border border-border">
+            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden shadow-elegant border border-border" data-cms-asset="home.capabilities">
               <Image src={managedCapabilitiesHero} alt="NOVARISE construction site at golden hour" fill sizes="(max-width: 1024px) 100vw, 42vw" className="object-cover" />
               <div className="absolute inset-0 bg-gradient-to-tr from-navy-deep/80 via-navy-deep/30 to-transparent" />
               <div className="absolute inset-0 p-5 flex flex-col justify-between">
                 <div className="self-end inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 text-[10px] uppercase tracking-[0.25em] text-white">
                   <span className="h-1.5 w-1.5 rounded-full bg-gold anim-breathe" />
-                  {t("capabilities.activeBadge")}
+                  <span data-cms-field="capabilities.activeBadge" suppressContentEditableWarning>{t("capabilities.activeBadge")}</span>
                 </div>
                 <div>
-                  <div className="text-white text-[10px] uppercase tracking-[0.3em] opacity-70">{t("capabilities.engineeringKsa")}</div>
-                  <div className="text-white text-2xl font-bold mt-1">{t("capabilities.since")}</div>
+                  <div className="text-white text-[10px] uppercase tracking-[0.3em] opacity-70" data-cms-field="capabilities.engineeringKsa">{t("capabilities.engineeringKsa")}</div>
+                  <div className="text-white text-2xl font-bold mt-1" data-cms-field="capabilities.since">{t("capabilities.since")}</div>
                 </div>
               </div>
             </div>
@@ -74,14 +74,14 @@ export function Capabilities() {
                   </div>
                   <span className="text-[11px] font-mono text-muted-foreground group-hover:text-gold/70 transition-colors">{p.no}</span>
                 </div>
-                <h3 className="relative text-xl font-bold mb-2 text-navy group-hover:text-white transition-colors">
+                <h3 className="relative text-xl font-bold mb-2 text-navy group-hover:text-white transition-colors" data-cms-field={`services.${p.key}.label`}>
                   {t(`services.${p.key}.label`)}
                 </h3>
-                <p className="relative text-[13px] text-muted-foreground group-hover:text-white/70 leading-relaxed transition-colors">
+                <p className="relative text-[13px] text-muted-foreground group-hover:text-white/70 leading-relaxed transition-colors" data-cms-field={`capabilities.pillars.${p.key}`}>
                   {t(`capabilities.pillars.${p.key}`)}
                 </p>
                 <div className="relative mt-5 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">
-                  {t("capabilities.explore")}
+                  <span data-cms-field="capabilities.explore" suppressContentEditableWarning>{t("capabilities.explore")}</span>
                   <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:rotate-45 group-hover:translate-x-0.5" />
                 </div>
               </a>

@@ -2,16 +2,19 @@
 
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { type ElementType, type ReactNode, useMemo } from "react";
+import { useEditMode } from "@/components/cms/EditModeContext";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 type Segment =
   | string
-  | { text: string; className?: string; underline?: boolean };
+  | { text: string; className?: string; underline?: boolean; field?: string };
 
 type Props = {
   /** Plain text (single line) OR array of lines. Each line may be a string or a styled segment. */
   text?: string;
+  /** Translation path for `text` (ignored when `lines` is used — tag each line's own `field` instead). */
+  field?: string;
   lines?: Segment[];
   as?: ElementType;
   className?: string;
@@ -34,6 +37,7 @@ type Props = {
  */
 export function AnimatedHeading({
   text,
+  field,
   lines,
   as: Tag = "h2",
   className,
@@ -45,11 +49,12 @@ export function AnimatedHeading({
   children,
 }: Props) {
   const reduce = useReducedMotion();
+  const { editing } = useEditMode();
   const segments: Segment[] = useMemo(() => {
     if (lines) return lines;
-    if (text) return [text];
+    if (text) return field ? [{ text, field }] : [text];
     return [];
-  }, [lines, text]);
+  }, [lines, text, field]);
 
   const word: Variants = {
     hidden: {
@@ -82,6 +87,33 @@ export function AnimatedHeading({
         };
 
   const MotionTag = useMemo(() => motion.create(Tag as React.ComponentType<Record<string, unknown>>), [Tag]);
+
+  // Pen mode: the word-split motion markup below can't be edited reliably in
+  // place, so swap to one plain (optionally contentEditable) element per line.
+  if (editing) {
+    const Plain = Tag as ElementType;
+    return (
+      <Plain className={className}>
+        {segments.map((seg, lineIdx) => {
+          const isObj = typeof seg !== "string";
+          const lineText = isObj ? seg.text : seg;
+          const lineClass = isObj ? seg.className : undefined;
+          const field = isObj ? seg.field : undefined;
+          return (
+            <span
+              key={lineIdx}
+              className={`block ${lineClass ?? ""}`}
+              data-cms-field={field}
+              suppressContentEditableWarning
+            >
+              {lineText}
+            </span>
+          );
+        })}
+        {children}
+      </Plain>
+    );
+  }
 
   return (
     <MotionTag className={className} variants={container} {...motionProps}>

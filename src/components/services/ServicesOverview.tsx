@@ -49,12 +49,12 @@ export function ServicesOverview() {
         <Reveal className="text-center max-w-2xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.overview.eyebrow")}
+            <span data-cms-field="servicesPage.overview.eyebrow" suppressContentEditableWarning>{t("servicesPage.overview.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.overview.titleA")}<br />
-            <span className="text-muted-foreground">{t("servicesPage.overview.titleB")}</span>
+            <span data-cms-field="servicesPage.overview.titleA" suppressContentEditableWarning>{t("servicesPage.overview.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="servicesPage.overview.titleB" suppressContentEditableWarning>{t("servicesPage.overview.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -79,7 +79,7 @@ export function ServicesOverview() {
                     <div className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-navy/70 backdrop-blur-md px-3 py-1.5 shadow-md">
                       <span className="text-[10px] font-mono text-gold tracking-[0.2em]">{s.num}</span>
                       <span className="h-1 w-1 rounded-full bg-gold" />
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-white">{t("servicesPage.overview.serviceLabel")}</span>
+                      <span className="text-[10px] uppercase tracking-[0.25em] text-white" data-cms-field="servicesPage.overview.serviceLabel" suppressContentEditableWarning>{t("servicesPage.overview.serviceLabel")}</span>
                     </div>
 
                     <div className="absolute top-4 right-4 h-10 w-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center group-hover:bg-gold group-hover:border-gold transition-all duration-500">
@@ -101,7 +101,7 @@ export function ServicesOverview() {
                       href={`/services/${s.id}`}
                       className="group/btn mt-4 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-navy hover:text-gold transition-colors self-start"
                     >
-                      <span>{t("servicesPage.overview.learnMore")}</span>
+                      <span data-cms-field="servicesPage.overview.learnMore" suppressContentEditableWarning>{t("servicesPage.overview.learnMore")}</span>
                       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gold text-gold-foreground transition-transform duration-300 group-hover/btn:translate-x-0.5 group-hover/btn:rotate-45">
                         <ArrowUpRight className="h-3 w-3" strokeWidth={2.4} />
                       </span>

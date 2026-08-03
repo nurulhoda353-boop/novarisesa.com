@@ -55,10 +55,14 @@ export function CareersView() {
         <PageHero
           num="07"
           eyebrow={t("careersPage.hero.eyebrow")}
+          eyebrowField="careersPage.hero.eyebrow"
           title={t("careersPage.hero.title")}
+          titleField="careersPage.hero.title"
           description={t("careersPage.hero.description")}
+          descriptionField="careersPage.hero.description"
           icon={Briefcase}
           heroImage={managedHeroImage}
+          assetKey="careers.hero"
           crumbs={[{ label: t("careersPage.hero.crumb") }]}
           ctas={[
             {
@@ -80,15 +84,15 @@ export function CareersView() {
             <Reveal className="text-center max-w-2xl mx-auto mb-14">
               <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
                 <span className="h-px w-8 bg-gold" />
-                {t("careersPage.why.eyebrow")}
+                <span data-cms-field="careersPage.why.eyebrow" suppressContentEditableWarning>{t("careersPage.why.eyebrow")}</span>
                 <span className="h-px w-8 bg-gold" />
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-                {t("careersPage.why.titleA")}
+                <span data-cms-field="careersPage.why.titleA" suppressContentEditableWarning>{t("careersPage.why.titleA")}</span>
                 <br />
-                <span className="text-muted-foreground">{t("careersPage.why.titleB")}</span>
+                <span className="text-muted-foreground" data-cms-field="careersPage.why.titleB" suppressContentEditableWarning>{t("careersPage.why.titleB")}</span>
               </h2>
-              <p className="mt-6 text-base text-muted-foreground leading-relaxed">
+              <p className="mt-6 text-base text-muted-foreground leading-relaxed" data-cms-field="careersPage.why.lead">
                 {t("careersPage.why.lead")}
               </p>
             </Reveal>
@@ -110,10 +114,10 @@ export function CareersView() {
                         strokeWidth={1.6}
                       />
                     </div>
-                    <h3 className="text-base lg:text-lg font-display font-bold text-navy mb-2 leading-tight">
+                    <h3 className="text-base lg:text-lg font-display font-bold text-navy mb-2 leading-tight" data-cms-field={`careersPage.benefits.${b.key}.title`}>
                       {t(`careersPage.benefits.${b.key}.title`)}
                     </h3>
-                    <p className="text-[13px] text-muted-foreground leading-relaxed">
+                    <p className="text-[13px] text-muted-foreground leading-relaxed" data-cms-field={`careersPage.benefits.${b.key}.desc`}>
                       {t(`careersPage.benefits.${b.key}.desc`)}
                     </p>
                   </article>
@@ -133,13 +137,13 @@ export function CareersView() {
             <Reveal className="max-w-2xl mb-12">
               <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
                 <span className="h-px w-8 bg-gold" />
-                {t("careersPage.openings.eyebrow")}
+                <span data-cms-field="careersPage.openings.eyebrow" suppressContentEditableWarning>{t("careersPage.openings.eyebrow")}</span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.1] text-white">
-                {t("careersPage.openings.titleA")}{" "}
-                <span className="text-gradient-gold">{t("careersPage.openings.titleB")}</span>
+                <span data-cms-field="careersPage.openings.titleA" suppressContentEditableWarning>{t("careersPage.openings.titleA")}</span>{" "}
+                <span className="text-gradient-gold" data-cms-field="careersPage.openings.titleB" suppressContentEditableWarning>{t("careersPage.openings.titleB")}</span>
               </h2>
-              <p className="mt-5 text-white/70 leading-relaxed">
+              <p className="mt-5 text-white/70 leading-relaxed" data-cms-field="careersPage.openings.lead">
                 {t("careersPage.openings.lead")}
               </p>
             </Reveal>
@@ -160,27 +164,27 @@ export function CareersView() {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-lg lg:text-xl font-display font-bold text-white leading-tight">
+                          <h3 className="text-lg lg:text-xl font-display font-bold text-white leading-tight" data-cms-field={`careersPage.roles.${o.id}.title`}>
                             {t(`careersPage.roles.${o.id}.title`)}
                           </h3>
                           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] uppercase tracking-[0.2em] text-white/55">
                             <span className="inline-flex items-center gap-1.5">
                               <MapPin className="h-3 w-3 text-gold" />
-                              {t(`careersPage.roles.${o.id}.location`)}
+                              <span data-cms-field={`careersPage.roles.${o.id}.location`} suppressContentEditableWarning>{t(`careersPage.roles.${o.id}.location`)}</span>
                             </span>
                             <span className="inline-flex items-center gap-1.5">
                               <Clock className="h-3 w-3 text-gold" />
-                              {t(`careersPage.roles.${o.id}.type`)}
+                              <span data-cms-field={`careersPage.roles.${o.id}.type`} suppressContentEditableWarning>{t(`careersPage.roles.${o.id}.type`)}</span>
                             </span>
                           </div>
-                          <p className="mt-4 text-[13.5px] text-white/70 leading-relaxed">
+                          <p className="mt-4 text-[13.5px] text-white/70 leading-relaxed" data-cms-field={`careersPage.roles.${o.id}.desc`}>
                             {t(`careersPage.roles.${o.id}.desc`)}
                           </p>
                           <a
                             href={`mailto:${APPLY_EMAIL}?subject=${subject}`}
                             className="group/btn mt-5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-gold hover:text-white transition-colors"
                           >
-                            <span>{t("careersPage.openings.apply")}</span>
+                            <span data-cms-field="careersPage.openings.apply" suppressContentEditableWarning>{t("careersPage.openings.apply")}</span>
                             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gold text-navy transition-transform duration-300 group-hover/btn:translate-x-0.5 group-hover/btn:rotate-45">
                               <ArrowUpRight className="h-3 w-3" strokeWidth={2.4} />
                             </span>
@@ -196,13 +200,13 @@ export function CareersView() {
             <Reveal delay={0.1} className="mt-12">
               <div className="rounded-2xl border border-gold/30 bg-gold/5 p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between gap-5">
                 <div>
-                  <div className="text-[11px] uppercase tracking-[0.3em] text-gold mb-2">
+                  <div className="text-[11px] uppercase tracking-[0.3em] text-gold mb-2" data-cms-field="careersPage.spontaneous.eyebrow">
                     {t("careersPage.spontaneous.eyebrow")}
                   </div>
-                  <h3 className="text-xl lg:text-2xl font-display font-bold text-white leading-tight">
+                  <h3 className="text-xl lg:text-2xl font-display font-bold text-white leading-tight" data-cms-field="careersPage.spontaneous.title">
                     {t("careersPage.spontaneous.title")}
                   </h3>
-                  <p className="mt-2 text-sm text-white/70 max-w-xl leading-relaxed">
+                  <p className="mt-2 text-sm text-white/70 max-w-xl leading-relaxed" data-cms-field="careersPage.spontaneous.desc">
                     {t("careersPage.spontaneous.desc")}
                   </p>
                 </div>
@@ -211,7 +215,7 @@ export function CareersView() {
                   className="group inline-flex items-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-semibold text-navy shadow-gold transition-all hover:scale-[1.03] shrink-0"
                 >
                   <Mail className="h-4 w-4" />
-                  {t("careersPage.spontaneous.cta")}
+                  <span data-cms-field="careersPage.spontaneous.cta" suppressContentEditableWarning>{t("careersPage.spontaneous.cta")}</span>
                   <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
                 </a>
               </div>

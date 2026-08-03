@@ -13,10 +13,14 @@ export function BlogHero() {
     <PageHero
       num="04"
       eyebrow={t("blogPage.hero.eyebrow")}
+      eyebrowField="blogPage.hero.eyebrow"
       icon={BookOpen}
       heroImage={managedHeroImg}
+      assetKey="blog.hero"
       title={t("blogPage.hero.title")}
+      titleField="blogPage.hero.title"
       description={t("blogPage.hero.description")}
+      descriptionField="blogPage.hero.description"
       crumbs={[{ label: t("blogPage.hero.crumb") }]}
       ctas={[
         { label: t("blogPage.hero.ctaPrimary"), href: "#latest", variant: "primary", icon: BookOpen },

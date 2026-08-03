@@ -20,12 +20,12 @@ export function ServicesProcess() {
         <Reveal className="text-center max-w-2xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.process.eyebrow")}
+            <span data-cms-field="servicesPage.process.eyebrow" suppressContentEditableWarning>{t("servicesPage.process.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.process.titleA")}<br />
-            <span className="text-muted-foreground">{t("servicesPage.process.titleB")}</span>
+            <span data-cms-field="servicesPage.process.titleA" suppressContentEditableWarning>{t("servicesPage.process.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="servicesPage.process.titleB" suppressContentEditableWarning>{t("servicesPage.process.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -44,10 +44,10 @@ export function ServicesProcess() {
                   <span className="text-2xl font-display font-extrabold text-gold/30 tabular-nums">{s.num}</span>
                 </div>
 
-                <h3 className="text-base lg:text-lg font-display font-bold text-navy mb-2 leading-tight">
+                <h3 className="text-base lg:text-lg font-display font-bold text-navy mb-2 leading-tight" data-cms-field={`servicesPage.process.steps.${s.key}.title`}>
                   {t(`servicesPage.process.steps.${s.key}.title`)}
                 </h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">
+                <p className="text-[13px] text-muted-foreground leading-relaxed" data-cms-field={`servicesPage.process.steps.${s.key}.desc`}>
                   {t(`servicesPage.process.steps.${s.key}.desc`)}
                 </p>
               </div>

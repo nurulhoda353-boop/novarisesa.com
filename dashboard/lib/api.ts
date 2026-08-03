@@ -1,6 +1,10 @@
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "https://api.novarisesa.com/api/v1";
 
+/** Public site origin, used to embed the live preview iframe and validate postMessage origin. */
+export const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://novarisesa.com";
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);

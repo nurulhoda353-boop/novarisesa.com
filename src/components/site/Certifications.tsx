@@ -23,12 +23,12 @@ export function Certifications() {
         <Reveal className="text-center max-w-3xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-gold mb-5">
             <span className="h-px w-8 bg-gold" />
-            {t("certifications.eyebrow")}
+            <span data-cms-field="certifications.eyebrow" suppressContentEditableWarning>{t("certifications.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]">
-            {t("certifications.titleA")}<br />
-            <span className="text-muted-foreground">{t("certifications.titleB")}</span>
+            <span data-cms-field="certifications.titleA" suppressContentEditableWarning>{t("certifications.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="certifications.titleB" suppressContentEditableWarning>{t("certifications.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -45,7 +45,7 @@ export function Certifications() {
                   <c.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.8} />
                 </div>
                 <div className="text-lg font-bold text-navy">{c.code}</div>
-                <div className="text-xs text-muted-foreground mt-1 leading-snug">{t(`certifications.items.${c.key}`)}</div>
+                <div className="text-xs text-muted-foreground mt-1 leading-snug" data-cms-field={`certifications.items.${c.key}`}>{t(`certifications.items.${c.key}`)}</div>
 
                 {/* Verified checkmark */}
                 <div className="absolute bottom-4 right-4 h-5 w-5 rounded-full bg-gold/0 group-hover:bg-gold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 scale-75 group-hover:scale-100">

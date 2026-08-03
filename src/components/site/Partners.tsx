@@ -30,12 +30,12 @@ export function Partners() {
         <Reveal className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("partners.eyebrow")}
+            <span data-cms-field="partners.eyebrow" suppressContentEditableWarning>{t("partners.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight leading-[1.1] text-white">
-            {t("partners.titleA")}<br />
-            <span className="text-gradient-gold">{t("partners.titleAccent")}</span> {t("partners.titleB")}
+            <span data-cms-field="partners.titleA" suppressContentEditableWarning>{t("partners.titleA")}</span><br />
+            <span className="text-gradient-gold" data-cms-field="partners.titleAccent" suppressContentEditableWarning>{t("partners.titleAccent")}</span> <span data-cms-field="partners.titleB" suppressContentEditableWarning>{t("partners.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -81,7 +81,7 @@ export function Partners() {
         </div>
 
         <Reveal className="mt-10 text-center">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-white/40">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-white/40" data-cms-field="partners.disclaimer">
             {t("partners.disclaimer")}
           </p>
         </Reveal>

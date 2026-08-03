@@ -24,12 +24,12 @@ export function NewsletterCTA() {
             <div className="relative px-7 py-12 lg:px-16 lg:py-16 grid lg:grid-cols-12 gap-10 items-center">
               <div className="lg:col-span-7">
                 <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-5">
-                  <Mail className="h-3.5 w-3.5" /> {t("blogPage.newsletter.brand")}
+                  <Mail className="h-3.5 w-3.5" /> <span data-cms-field="blogPage.newsletter.brand" suppressContentEditableWarning>{t("blogPage.newsletter.brand")}</span>
                 </div>
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold tracking-tight text-white leading-[1.05]">
-                  {t("blogPage.newsletter.titleA")} <span className="text-gradient-gold">{t("blogPage.newsletter.titleB")}</span>
+                  <span data-cms-field="blogPage.newsletter.titleA" suppressContentEditableWarning>{t("blogPage.newsletter.titleA")}</span> <span className="text-gradient-gold" data-cms-field="blogPage.newsletter.titleB" suppressContentEditableWarning>{t("blogPage.newsletter.titleB")}</span>
                 </h2>
-                <p className="mt-5 text-white/70 text-base md:text-lg max-w-xl leading-relaxed">
+                <p className="mt-5 text-white/70 text-base md:text-lg max-w-xl leading-relaxed" data-cms-field="blogPage.newsletter.sub">
                   {t("blogPage.newsletter.sub")}
                 </p>
               </div>
@@ -38,8 +38,8 @@ export function NewsletterCTA() {
                 {submitted ? (
                   <div className="rounded-2xl border border-gold/40 bg-white/5 backdrop-blur-md p-6 text-white">
                     <CheckCircle2 className="h-8 w-8 text-gold mb-3" />
-                    <div className="text-lg font-semibold">{t("blogPage.newsletter.successTitle")}</div>
-                    <p className="text-sm text-white/70 mt-1">
+                    <div className="text-lg font-semibold" data-cms-field="blogPage.newsletter.successTitle">{t("blogPage.newsletter.successTitle")}</div>
+                    <p className="text-sm text-white/70 mt-1" data-cms-field="blogPage.newsletter.successSub">
                       {t("blogPage.newsletter.successSub")}
                     </p>
                   </div>
@@ -57,7 +57,7 @@ export function NewsletterCTA() {
                     }}
                     className="rounded-2xl border border-white/15 bg-white/5 backdrop-blur-md p-5"
                   >
-                    <label className="block text-[10px] uppercase tracking-[0.25em] text-white/60 mb-2">
+                    <label className="block text-[10px] uppercase tracking-[0.25em] text-white/60 mb-2" data-cms-field="blogPage.newsletter.emailLabel" suppressContentEditableWarning>
                       {t("blogPage.newsletter.emailLabel")}
                     </label>
                     <div className="flex flex-col sm:flex-row gap-3">
@@ -73,11 +73,11 @@ export function NewsletterCTA() {
                         type="submit"
                         className="group inline-flex items-center justify-center gap-2 rounded-full bg-gold px-6 py-3 text-sm font-semibold text-gold-foreground shadow-gold transition-transform hover:scale-[1.03]"
                       >
-                        {t("blogPage.newsletter.subscribe")}
+                        <span data-cms-field="blogPage.newsletter.subscribe" suppressContentEditableWarning>{t("blogPage.newsletter.subscribe")}</span>
                         <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
                       </button>
                     </div>
-                    <p className="mt-3 text-[11px] text-white/45">
+                    <p className="mt-3 text-[11px] text-white/45" data-cms-field="blogPage.newsletter.footnote">
                       {t("blogPage.newsletter.footnote")}
                     </p>
                   </form>

@@ -73,10 +73,14 @@ export function RequirementsView() {
         <PageHero
           num="08"
           eyebrow={t("requirementsPage.hero.eyebrow")}
+          eyebrowField="requirementsPage.hero.eyebrow"
           title={t("requirementsPage.hero.title")}
+          titleField="requirementsPage.hero.title"
           description={t("requirementsPage.hero.description")}
+          descriptionField="requirementsPage.hero.description"
           icon={AlertCircle}
           heroImage={managedHeroImage}
+          assetKey="requirements.hero"
           crumbs={[{ label: t("requirementsPage.hero.crumb") }]}
           ctas={[
             { label: t("requirementsPage.hero.ctaView"), href: "#openings" },
@@ -97,20 +101,20 @@ export function RequirementsView() {
           <div className="container-wide py-5">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 text-center md:text-left">
               {[
-                { icon: AlertCircle, value: urgentCount, label: t("requirementsPage.trust.urgent") },
-                { icon: ShieldCheck, value: "100%", label: t("requirementsPage.trust.verified") },
-                { icon: Wallet, value: t("requirementsPage.trust.monthlyValue"), label: t("requirementsPage.trust.salary") },
-                { icon: MessageCircle, value: "< 4 hrs", label: t("requirementsPage.trust.response") },
+                { icon: AlertCircle, value: urgentCount as string | number, valueField: undefined as string | undefined, label: t("requirementsPage.trust.urgent"), field: "requirementsPage.trust.urgent" },
+                { icon: ShieldCheck, value: "100%", valueField: undefined as string | undefined, label: t("requirementsPage.trust.verified"), field: "requirementsPage.trust.verified" },
+                { icon: Wallet, value: t("requirementsPage.trust.monthlyValue"), valueField: "requirementsPage.trust.monthlyValue" as string | undefined, label: t("requirementsPage.trust.salary"), field: "requirementsPage.trust.salary" },
+                { icon: MessageCircle, value: "< 4 hrs", valueField: undefined as string | undefined, label: t("requirementsPage.trust.response"), field: "requirementsPage.trust.response" },
               ].map((s, i) => (
                 <div key={i} className="flex items-center justify-center md:justify-start gap-3">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold/10 text-gold shrink-0">
                     <s.icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <div className="text-base font-display font-bold text-navy leading-tight tabular-nums" dir="ltr">
+                    <div className="text-base font-display font-bold text-navy leading-tight tabular-nums" dir="ltr" data-cms-field={s.valueField}>
                       {s.value}
                     </div>
-                    <div className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground leading-tight mt-0.5">
+                    <div className="text-[10.5px] uppercase tracking-[0.18em] text-muted-foreground leading-tight mt-0.5" data-cms-field={s.field}>
                       {s.label}
                     </div>
                   </div>
@@ -131,13 +135,13 @@ export function RequirementsView() {
             <Reveal className="max-w-3xl mb-10 lg:mb-12">
               <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
                 <span className="h-px w-8 bg-gold" />
-                {t("requirementsPage.list.eyebrow")}
+                <span data-cms-field="requirementsPage.list.eyebrow" suppressContentEditableWarning>{t("requirementsPage.list.eyebrow")}</span>
               </div>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]">
-                {t("requirementsPage.list.titleA")}{" "}
-                <span className="text-gradient-gold">{t("requirementsPage.list.titleB")}</span>
+                <span data-cms-field="requirementsPage.list.titleA" suppressContentEditableWarning>{t("requirementsPage.list.titleA")}</span>{" "}
+                <span className="text-gradient-gold" data-cms-field="requirementsPage.list.titleB" suppressContentEditableWarning>{t("requirementsPage.list.titleB")}</span>
               </h2>
-              <p className="mt-5 text-base lg:text-lg text-muted-foreground leading-relaxed">
+              <p className="mt-5 text-base lg:text-lg text-muted-foreground leading-relaxed" data-cms-field="requirementsPage.list.lead">
                 {t("requirementsPage.list.lead")}
               </p>
             </Reveal>
@@ -145,7 +149,7 @@ export function RequirementsView() {
             {/* Filter chips */}
             <Reveal delay={0.05}>
               <div className="flex flex-wrap items-center gap-2 mb-8 lg:mb-10">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mr-1.5">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground mr-1.5" data-cms-field="requirementsPage.list.filterBy">
                   {t("requirementsPage.list.filterBy")}
                 </span>
                 {projects.map((p) => {
@@ -184,7 +188,7 @@ export function RequirementsView() {
             </StaggerGroup>
 
             {filtered.length === 0 && (
-              <div className="mt-10 rounded-2xl border border-dashed border-border bg-white p-10 text-center text-muted-foreground">
+              <div className="mt-10 rounded-2xl border border-dashed border-border bg-white p-10 text-center text-muted-foreground" data-cms-field="requirementsPage.list.empty">
                 {t("requirementsPage.list.empty")}
               </div>
             )}
@@ -194,9 +198,9 @@ export function RequirementsView() {
               <div className="rounded-3xl border border-border bg-white p-7 lg:p-10 shadow-card">
                 <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-5">
                   <Sparkles className="h-3.5 w-3.5" />
-                  {t("requirementsPage.process.eyebrow")}
+                  <span data-cms-field="requirementsPage.process.eyebrow" suppressContentEditableWarning>{t("requirementsPage.process.eyebrow")}</span>
                 </div>
-                <h3 className="text-2xl lg:text-3xl font-display font-bold text-navy leading-tight max-w-xl">
+                <h3 className="text-2xl lg:text-3xl font-display font-bold text-navy leading-tight max-w-xl" data-cms-field="requirementsPage.process.title">
                   {t("requirementsPage.process.title")}
                 </h3>
                 <div className="mt-8 grid md:grid-cols-4 gap-5">
@@ -205,10 +209,10 @@ export function RequirementsView() {
                       <span className="absolute left-0 top-0 flex h-9 w-9 items-center justify-center rounded-full bg-gold text-navy text-sm font-display font-bold">
                         {n}
                       </span>
-                      <div className="text-sm font-display font-bold text-navy">
+                      <div className="text-sm font-display font-bold text-navy" data-cms-field={`requirementsPage.process.step${n}.title`}>
                         {t(`requirementsPage.process.step${n}.title`)}
                       </div>
-                      <p className="mt-1.5 text-[13px] text-muted-foreground leading-relaxed">
+                      <p className="mt-1.5 text-[13px] text-muted-foreground leading-relaxed" data-cms-field={`requirementsPage.process.step${n}.desc`}>
                         {t(`requirementsPage.process.step${n}.desc`)}
                       </p>
                     </div>
@@ -263,7 +267,7 @@ function RequirementCard({ item }: { item: RequirementItem }) {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-gold" />
             </span>
           )}
-          <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold" data-cms-field={`requirementsPage.status.${item.status}`}>
             {t(`requirementsPage.status.${item.status}`)}
           </span>
         </div>
@@ -295,7 +299,7 @@ function RequirementCard({ item }: { item: RequirementItem }) {
           <div className="rounded-xl bg-sand-soft border border-border p-4">
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
               <Users className="h-3 w-3 text-gold" />
-              {t("requirementsPage.card.positions")}
+              <span data-cms-field="requirementsPage.card.positions" suppressContentEditableWarning>{t("requirementsPage.card.positions")}</span>
             </div>
             <div className="mt-1.5 text-2xl font-display font-extrabold text-navy tabular-nums leading-none" dir="ltr">
               {item.count}
@@ -304,7 +308,7 @@ function RequirementCard({ item }: { item: RequirementItem }) {
           <div className="rounded-xl bg-navy text-white p-4">
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-gold/85">
               <Wallet className="h-3 w-3" />
-              {t("requirementsPage.card.rate")}
+              <span data-cms-field="requirementsPage.card.rate" suppressContentEditableWarning>{t("requirementsPage.card.rate")}</span>
             </div>
             <div className="mt-1.5 text-2xl font-display font-extrabold text-white tabular-nums leading-none whitespace-nowrap" dir="ltr">
               {item.rate}
@@ -314,17 +318,17 @@ function RequirementCard({ item }: { item: RequirementItem }) {
 
         {/* Detail rows */}
         <ul className="mt-5 space-y-2.5 text-[13px] text-foreground/85">
-          <DetailRow icon={CalendarClock} label={t("requirementsPage.card.duration")} value={tk("duration", item.duration)} />
-          <DetailRow icon={Clock} label={t("requirementsPage.card.salary")} value={tk("salaryCycle", item.salaryCycle)} />
-          <DetailRow icon={UtensilsCrossed} label={t("requirementsPage.card.food")} value={tk("food", item.food)} />
-          <DetailRow icon={BedDouble} label={t("requirementsPage.card.accommodation")} value={tk("accommodation", item.accommodation)} />
+          <DetailRow icon={CalendarClock} label={t("requirementsPage.card.duration")} labelField="requirementsPage.card.duration" value={tk("duration", item.duration)} />
+          <DetailRow icon={Clock} label={t("requirementsPage.card.salary")} labelField="requirementsPage.card.salary" value={tk("salaryCycle", item.salaryCycle)} />
+          <DetailRow icon={UtensilsCrossed} label={t("requirementsPage.card.food")} labelField="requirementsPage.card.food" value={tk("food", item.food)} />
+          <DetailRow icon={BedDouble} label={t("requirementsPage.card.accommodation")} labelField="requirementsPage.card.accommodation" value={tk("accommodation", item.accommodation)} />
         </ul>
 
         {/* Documents */}
         <div className="mt-5 pt-5 border-t border-border">
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-2.5">
             <FileBadge2 className="h-3 w-3 text-gold" />
-            {t("requirementsPage.card.requiredDocs")}
+            <span data-cms-field="requirementsPage.card.requiredDocs" suppressContentEditableWarning>{t("requirementsPage.card.requiredDocs")}</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {item.documents.map((d, i) => (
@@ -354,7 +358,7 @@ function RequirementCard({ item }: { item: RequirementItem }) {
                 className="group/apply relative w-full inline-flex items-center justify-center gap-2 rounded-full bg-gold px-5 py-3 text-sm font-semibold text-navy shadow-gold overflow-hidden transition-all hover:scale-[1.02]"
               >
                 <Send className="h-4 w-4" />
-                <span>{t("requirementsPage.card.applyNow", "Apply Now")}</span>
+                <span data-cms-field="requirementsPage.card.applyNow" suppressContentEditableWarning>{t("requirementsPage.card.applyNow", "Apply Now")}</span>
                 <ArrowUpRight className="h-4 w-4 transition-transform group-hover/apply:rotate-45" />
                 <span className="absolute inset-0 -translate-x-full bg-white/25 skew-x-12 transition-transform duration-700 group-hover/apply:translate-x-full" />
               </button>
@@ -368,7 +372,7 @@ function RequirementCard({ item }: { item: RequirementItem }) {
               className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-gold/40 bg-gold/5 px-5 py-2.5 text-[13px] font-semibold text-navy/80 hover:bg-gold/15 hover:text-navy transition-all"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              <span>{t("requirementsPage.card.applyWhatsapp")}</span>
+              <span data-cms-field="requirementsPage.card.applyWhatsapp" suppressContentEditableWarning>{t("requirementsPage.card.applyWhatsapp")}</span>
             </a>
           )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-muted-foreground">
@@ -394,16 +398,18 @@ function RequirementCard({ item }: { item: RequirementItem }) {
 function DetailRow({
   icon: Icon,
   label,
+  labelField,
   value,
 }: {
   icon: typeof Clock;
   label: string;
+  labelField: string;
   value: string;
 }) {
   return (
     <li className="flex items-start gap-2.5">
       <Icon className="h-3.5 w-3.5 text-gold shrink-0 mt-0.5" />
-      <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground min-w-[100px]">
+      <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground min-w-[100px]" data-cms-field={labelField} suppressContentEditableWarning>
         {label}
       </span>
       <span className="flex-1 text-foreground/85 font-medium">{value}</span>

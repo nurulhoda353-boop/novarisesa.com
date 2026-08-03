@@ -73,13 +73,13 @@ export function RFQForm() {
   const labelBase = "text-[11px] uppercase tracking-[0.22em] font-semibold text-navy mb-2 block";
   const iconBase = "absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gold";
 
-  const Section = ({ num, title, children }: { num: string; title: string; children: React.ReactNode }) => (
+  const Section = ({ num, title, titleField, children }: { num: string; title: string; titleField: string; children: React.ReactNode }) => (
     <div className="relative">
       <div className="flex items-center gap-3 mb-5">
         <span className="h-8 w-8 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center">
           <span className="text-[11px] font-mono text-gold tracking-wider">{num}</span>
         </span>
-        <h3 className="text-base font-display font-bold text-navy uppercase tracking-[0.18em]">{title}</h3>
+        <h3 className="text-base font-display font-bold text-navy uppercase tracking-[0.18em]" data-cms-field={titleField}>{title}</h3>
         <div className="flex-1 h-px bg-border" />
       </div>
       <div className="grid sm:grid-cols-2 gap-5">{children}</div>
@@ -97,9 +97,9 @@ export function RFQForm() {
         <div className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-navy/5 blur-3xl" />
 
         <div className="relative space-y-10">
-          <Section num="01" title={t("rfqPage.form.sections.contact")}>
+          <Section num="01" title={t("rfqPage.form.sections.contact")} titleField="rfqPage.form.sections.contact">
             <div>
-              <label className={labelBase} htmlFor="name">{t("rfqPage.form.fields.name")}</label>
+              <label className={labelBase} htmlFor="name" data-cms-field="rfqPage.form.fields.name" suppressContentEditableWarning>{t("rfqPage.form.fields.name")}</label>
               <div className="relative">
                 <User className={iconBase} strokeWidth={1.8} />
                 <input id="name" {...register("name")} placeholder={t("rfqPage.form.fields.namePh")} className={fieldBase} />
@@ -107,7 +107,7 @@ export function RFQForm() {
               {errors.name && <p className="mt-1.5 text-xs text-destructive">{errors.name.message}</p>}
             </div>
             <div>
-              <label className={labelBase} htmlFor="email">{t("rfqPage.form.fields.email")}</label>
+              <label className={labelBase} htmlFor="email" data-cms-field="rfqPage.form.fields.email" suppressContentEditableWarning>{t("rfqPage.form.fields.email")}</label>
               <div className="relative">
                 <Mail className={iconBase} strokeWidth={1.8} />
                 <input id="email" type="email" {...register("email")} placeholder={t("rfqPage.form.fields.emailPh")} className={fieldBase} />
@@ -115,7 +115,7 @@ export function RFQForm() {
               {errors.email && <p className="mt-1.5 text-xs text-destructive">{errors.email.message}</p>}
             </div>
             <div>
-              <label className={labelBase} htmlFor="company">{t("rfqPage.form.fields.company")}</label>
+              <label className={labelBase} htmlFor="company" data-cms-field="rfqPage.form.fields.company" suppressContentEditableWarning>{t("rfqPage.form.fields.company")}</label>
               <div className="relative">
                 <Building className={iconBase} strokeWidth={1.8} />
                 <input id="company" {...register("company")} placeholder={t("rfqPage.form.fields.companyPh")} className={fieldBase} />
@@ -123,7 +123,7 @@ export function RFQForm() {
               {errors.company && <p className="mt-1.5 text-xs text-destructive">{errors.company.message}</p>}
             </div>
             <div>
-              <label className={labelBase} htmlFor="phone">{t("rfqPage.form.fields.phone")}</label>
+              <label className={labelBase} htmlFor="phone" data-cms-field="rfqPage.form.fields.phone" suppressContentEditableWarning>{t("rfqPage.form.fields.phone")}</label>
               <div className="relative">
                 <Phone className={iconBase} strokeWidth={1.8} />
                 <input id="phone" {...register("phone")} placeholder={t("rfqPage.form.fields.phonePh")} className={fieldBase} />
@@ -132,9 +132,9 @@ export function RFQForm() {
             </div>
           </Section>
 
-          <Section num="02" title={t("rfqPage.form.sections.project")}>
+          <Section num="02" title={t("rfqPage.form.sections.project")} titleField="rfqPage.form.sections.project">
             <div>
-              <label className={labelBase} htmlFor="service">{t("rfqPage.form.fields.service")}</label>
+              <label className={labelBase} htmlFor="service" data-cms-field="rfqPage.form.fields.service" suppressContentEditableWarning>{t("rfqPage.form.fields.service")}</label>
               <div className="relative">
                 <Briefcase className={iconBase} strokeWidth={1.8} />
                 <select id="service" {...register("service")} className={`${fieldBase} appearance-none cursor-pointer`} defaultValue="">
@@ -145,7 +145,7 @@ export function RFQForm() {
               {errors.service && <p className="mt-1.5 text-xs text-destructive">{errors.service.message}</p>}
             </div>
             <div>
-              <label className={labelBase} htmlFor="location">{t("rfqPage.form.fields.location")}</label>
+              <label className={labelBase} htmlFor="location" data-cms-field="rfqPage.form.fields.location" suppressContentEditableWarning>{t("rfqPage.form.fields.location")}</label>
               <div className="relative">
                 <MapPin className={iconBase} strokeWidth={1.8} />
                 <input id="location" {...register("location")} placeholder={t("rfqPage.form.fields.locationPh")} className={fieldBase} />
@@ -153,7 +153,7 @@ export function RFQForm() {
               {errors.location && <p className="mt-1.5 text-xs text-destructive">{errors.location.message}</p>}
             </div>
             <div>
-              <label className={labelBase} htmlFor="timeline">{t("rfqPage.form.fields.timeline")}</label>
+              <label className={labelBase} htmlFor="timeline" data-cms-field="rfqPage.form.fields.timeline" suppressContentEditableWarning>{t("rfqPage.form.fields.timeline")}</label>
               <div className="relative">
                 <Calendar className={iconBase} strokeWidth={1.8} />
                 <select id="timeline" {...register("timeline")} className={`${fieldBase} appearance-none cursor-pointer`} defaultValue="">
@@ -164,7 +164,7 @@ export function RFQForm() {
               {errors.timeline && <p className="mt-1.5 text-xs text-destructive">{errors.timeline.message}</p>}
             </div>
             <div>
-              <label className={labelBase} htmlFor="budget">{t("rfqPage.form.fields.budget")}</label>
+              <label className={labelBase} htmlFor="budget" data-cms-field="rfqPage.form.fields.budget" suppressContentEditableWarning>{t("rfqPage.form.fields.budget")}</label>
               <div className="relative">
                 <Wallet className={iconBase} strokeWidth={1.8} />
                 <select id="budget" {...register("budget")} className={`${fieldBase} appearance-none cursor-pointer`} defaultValue="">
@@ -180,12 +180,12 @@ export function RFQForm() {
               <span className="h-8 w-8 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center">
                 <span className="text-[11px] font-mono text-gold tracking-wider">03</span>
               </span>
-              <h3 className="text-base font-display font-bold text-navy uppercase tracking-[0.18em]">{t("rfqPage.form.sections.scope")}</h3>
+              <h3 className="text-base font-display font-bold text-navy uppercase tracking-[0.18em]" data-cms-field="rfqPage.form.sections.scope">{t("rfqPage.form.sections.scope")}</h3>
               <div className="flex-1 h-px bg-border" />
             </div>
             <label className={labelBase} htmlFor="scope">
               <span className="inline-flex items-center gap-2">
-                <ClipboardList className="h-3.5 w-3.5 text-gold" /> {t("rfqPage.form.fields.scope")}
+                <ClipboardList className="h-3.5 w-3.5 text-gold" /> <span data-cms-field="rfqPage.form.fields.scope" suppressContentEditableWarning>{t("rfqPage.form.fields.scope")}</span>
               </span>
             </label>
             <textarea
@@ -199,7 +199,7 @@ export function RFQForm() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-border">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground max-w-md">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground max-w-md" data-cms-field="rfqPage.form.privacy">
               {t("rfqPage.form.privacy")}
             </p>
             <button
@@ -209,7 +209,9 @@ export function RFQForm() {
             >
               <span className="relative z-10 inline-flex items-center gap-2">
                 {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {isSubmitting ? t("rfqPage.form.submitting") : t("rfqPage.form.submit")}
+                <span data-cms-field={isSubmitting ? undefined : "rfqPage.form.submit"} suppressContentEditableWarning>
+                  {isSubmitting ? t("rfqPage.form.submitting") : t("rfqPage.form.submit")}
+                </span>
               </span>
               <ArrowUpRight className="relative z-10 h-4 w-4 transition-transform group-hover:rotate-45" />
               <span className="absolute inset-0 -translate-x-full bg-white/25 skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />

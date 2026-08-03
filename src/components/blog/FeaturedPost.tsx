@@ -20,15 +20,15 @@ export function FeaturedPost() {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <span className="h-px w-10 bg-gold" />
-                <span className="eyebrow !mb-0">{t("blogPage.featured.eyebrow")}</span>
+                <span className="eyebrow !mb-0" data-cms-field="blogPage.featured.eyebrow" suppressContentEditableWarning>{t("blogPage.featured.eyebrow")}</span>
               </div>
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-navy leading-[1.1]">
-                {t("blogPage.featured.titleA")} <span className="text-gradient-gold italic font-display">{t("blogPage.featured.titleB")}</span>
+                <span data-cms-field="blogPage.featured.titleA" suppressContentEditableWarning>{t("blogPage.featured.titleA")}</span> <span className="text-gradient-gold italic font-display" data-cms-field="blogPage.featured.titleB" suppressContentEditableWarning>{t("blogPage.featured.titleB")}</span>
               </h2>
             </div>
             <div className="hidden md:flex flex-col items-end text-right">
-              <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">{t("blogPage.featured.issueLabel")}</span>
-              <span className="font-display text-base text-navy tabular-nums mt-0.5">{t("blogPage.featured.issueValue")}</span>
+              <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground" data-cms-field="blogPage.featured.issueLabel" suppressContentEditableWarning>{t("blogPage.featured.issueLabel")}</span>
+              <span className="font-display text-base text-navy tabular-nums mt-0.5" data-cms-field="blogPage.featured.issueValue" suppressContentEditableWarning>{t("blogPage.featured.issueValue")}</span>
             </div>
           </div>
         </Reveal>
@@ -49,7 +49,7 @@ export function FeaturedPost() {
                 />
                 <span className="absolute top-0 left-0 h-8 w-8 border-t-2 border-l-2 border-gold" />
                 <span className="absolute bottom-0 right-0 h-8 w-8 border-b-2 border-r-2 border-gold" />
-                <div className="absolute top-3 left-3 inline-flex items-center gap-2 rounded-full bg-navy/90 backdrop-blur-md px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-gold">
+                <div className="absolute top-3 left-3 inline-flex items-center gap-2 rounded-full bg-navy/90 backdrop-blur-md px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-gold" data-cms-field={`blogPage.grid.categories.${p.category}`}>
                   {t(`blogPage.grid.categories.${p.category}`, { defaultValue: p.category })}
                 </div>
               </div>
@@ -60,7 +60,7 @@ export function FeaturedPost() {
                 <span className="tabular-nums tracking-wider">{p.date}</span>
                 <span className="h-1 w-1 rounded-full bg-gold/60" />
                 <span className="inline-flex items-center gap-1.5">
-                  <Clock className="h-3 w-3" /> {p.readMins} {t("blogPage.featured.minRead")}
+                  <Clock className="h-3 w-3" /> {p.readMins} <span data-cms-field="blogPage.featured.minRead" suppressContentEditableWarning>{t("blogPage.featured.minRead")}</span>
                 </span>
               </div>
 

@@ -13,10 +13,14 @@ export function ServicesHero() {
     <PageHero
       num="01"
       eyebrow={t("servicesPage.hero.eyebrow")}
+      eyebrowField="servicesPage.hero.eyebrow"
       icon={Briefcase}
       heroImage={managedHeroImg}
+      assetKey="services.hero"
       title={t("servicesPage.hero.title")}
+      titleField="servicesPage.hero.title"
       description={t("servicesPage.hero.description")}
+      descriptionField="servicesPage.hero.description"
       crumbs={[{ label: t("servicesPage.hero.crumb") }]}
       ctas={[
         { label: t("servicesPage.hero.ctaQuote"), to: "/rfq", variant: "primary", icon: ArrowUpRight },

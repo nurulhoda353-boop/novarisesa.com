@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import type { ReactNode } from "react";
+import { useEditMode } from "@/components/cms/EditModeContext";
 
 const SILK = [0.22, 1, 0.36, 1] as const;
 
@@ -19,6 +20,7 @@ export function SectionReveal({
   delay?: number;
 }) {
   const reduce = useReducedMotion();
+  const { editing } = useEditMode();
 
   const variants: Variants = {
     hidden: {
@@ -33,6 +35,13 @@ export function SectionReveal({
       transition: { duration: 1.15, delay, ease: SILK },
     },
   };
+
+  // Pen mode: skip the whileInView entrance animation — a data-cms-field
+  // descendant being toggled contentEditable can otherwise leave this stuck
+  // at its hidden (invisible) state.
+  if (editing) {
+    return <div className={className}>{children}</div>;
+  }
 
   return (
     <motion.div

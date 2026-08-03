@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import i18n from "@/i18n/config";
 import { API_URL } from "./site";
+import { useEditMode } from "@/components/cms/EditModeContext";
 
 type CmsCollections = Record<string, CmsItem[]>;
 type CmsSettings = Record<string, Record<string, unknown>>;
@@ -208,6 +209,8 @@ export function useCmsContent() {
 
 export function useCmsAsset(key: string, fallback: string): string {
   const { settings } = useCmsContent();
+  const { assetOverrides } = useEditMode();
+  if (assetOverrides[key]) return assetOverrides[key];
   const value = settings.assets?.[key];
   return typeof value === "string" && value.trim() ? value : fallback;
 }

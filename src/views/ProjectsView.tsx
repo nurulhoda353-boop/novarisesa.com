@@ -27,7 +27,7 @@ export function ProjectsView() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-3 mb-6">
                 <span className="h-px w-8 bg-gold" />
-                <span className="text-[11px] uppercase tracking-[0.3em] text-gold">
+                <span className="text-[11px] uppercase tracking-[0.3em] text-gold" data-cms-field="projects.eyebrow" suppressContentEditableWarning>
                   {t("projects.eyebrow")}
                 </span>
               </div>
@@ -36,8 +36,8 @@ export function ProjectsView() {
                 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05]"
                 trigger="mount"
                 lines={[
-                  t("projects.title.l1"),
-                  { text: t("projects.title.l2"), className: "text-white/50" },
+                  { text: t("projects.title.l1"), field: "projects.title.l1" },
+                  { text: t("projects.title.l2"), className: "text-white/50", field: "projects.title.l2" },
                 ]}
               />
             </div>
@@ -53,11 +53,11 @@ export function ProjectsView() {
                 <div>
                   <div className="inline-flex items-center gap-3 mb-3">
                     <span className="h-px w-8 bg-gold" />
-                    <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold">
+                    <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold" data-cms-field="projects.featuredLabel" suppressContentEditableWarning>
                       {t("projects.featuredLabel")}
                     </span>
                   </div>
-                  <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight">
+                  <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight" data-cms-field="projects.featuredLabel">
                     {t("projects.featuredLabel")}
                   </h2>
                 </div>
@@ -90,7 +90,7 @@ export function ProjectsView() {
                             {t(`projects.items.${p.key}.sector`)}
                           </span>
                           <span className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
-                            <Sparkles className="h-3 w-3 text-gold" /> {t("projects.featured")}
+                            <Sparkles className="h-3 w-3 text-gold" /> <span data-cms-field="projects.featured" suppressContentEditableWarning>{t("projects.featured")}</span>
                           </span>
                         </div>
                         <div
@@ -120,7 +120,7 @@ export function ProjectsView() {
                             {t(`projects.items.${p.key}.client`)}
                           </span>
                           <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-navy group-hover:text-gold transition-colors">
-                            {t("projects.viewDetails")}
+                            <span data-cms-field="projects.viewDetails" suppressContentEditableWarning>{t("projects.viewDetails")}</span>
                             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                           </span>
                         </div>
@@ -141,11 +141,11 @@ export function ProjectsView() {
                 <div>
                   <div className="inline-flex items-center gap-3 mb-3">
                     <span className="h-px w-8 bg-gold" />
-                    <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold">
+                    <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold" data-cms-field="projects.moreLabel" suppressContentEditableWarning>
                       {t("projects.moreLabel")}
                     </span>
                   </div>
-                  <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight">
+                  <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight" data-cms-field="projects.moreLabel">
                     {t("projects.moreLabel")}
                   </h2>
                 </div>
@@ -207,7 +207,7 @@ export function ProjectsView() {
                 to="/contact"
                 className="inline-flex items-center gap-2 rounded-full bg-navy px-8 py-4 text-sm font-semibold text-white shadow-elegant transition-all hover:bg-navy-deep hover:scale-[1.03]"
               >
-                {t("projects.ctaContact")}
+                <span data-cms-field="projects.ctaContact" suppressContentEditableWarning>{t("projects.ctaContact")}</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

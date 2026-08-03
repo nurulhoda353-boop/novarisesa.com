@@ -20,11 +20,11 @@ export function Process() {
         <Reveal className="max-w-3xl mb-12">
           <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-gold mb-5">
             <span className="h-px w-8 bg-gold" />
-            {t("process.eyebrow")}
+            <span data-cms-field="process.eyebrow" suppressContentEditableWarning>{t("process.eyebrow")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]">
-            {t("process.title.l1")}<br />
-            <span className="text-muted-foreground">{t("process.title.l2")}</span>
+            <span data-cms-field="process.title.l1" suppressContentEditableWarning>{t("process.title.l1")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="process.title.l2" suppressContentEditableWarning>{t("process.title.l2")}</span>
           </h2>
         </Reveal>
 
@@ -41,8 +41,8 @@ export function Process() {
                       {s.no}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-navy mb-2">{t(`process.steps.${s.key}.title`)}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-[14rem] mx-auto">{t(`process.steps.${s.key}.desc`)}</p>
+                  <h3 className="text-lg font-bold text-navy mb-2" data-cms-field={`process.steps.${s.key}.title`}>{t(`process.steps.${s.key}.title`)}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed max-w-[14rem] mx-auto" data-cms-field={`process.steps.${s.key}.desc`}>{t(`process.steps.${s.key}.desc`)}</p>
                 </div>
               </StaggerItem>
             ))}

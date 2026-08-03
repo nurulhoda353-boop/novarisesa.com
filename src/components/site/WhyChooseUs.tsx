@@ -22,12 +22,12 @@ export function WhyChooseUs() {
         <Reveal className="text-center max-w-2xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("whyUs.eyebrow")}
+            <span data-cms-field="whyUs.eyebrow" suppressContentEditableWarning>{t("whyUs.eyebrow")}</span>
             <span className="h-px w-8 bg-gold" />
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("whyUs.titleA")}<br />
-            <span className="text-muted-foreground">{t("whyUs.titleB")}</span>
+            <span data-cms-field="whyUs.titleA" suppressContentEditableWarning>{t("whyUs.titleA")}</span><br />
+            <span className="text-muted-foreground" data-cms-field="whyUs.titleB" suppressContentEditableWarning>{t("whyUs.titleB")}</span>
           </h2>
         </Reveal>
 
@@ -40,8 +40,8 @@ export function WhyChooseUs() {
                 <div className="h-11 w-11 rounded-xl bg-gold/10 group-hover:bg-gold flex items-center justify-center mb-5 transition-all duration-500 group-hover:rotate-[-6deg]">
                   <r.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.6} />
                 </div>
-                <h3 className="text-base lg:text-lg font-display font-bold text-navy mb-2 leading-tight">{t(`whyUs.items.${r.key}.title`)}</h3>
-                <p className="text-[13px] text-muted-foreground leading-relaxed">{t(`whyUs.items.${r.key}.desc`)}</p>
+                <h3 className="text-base lg:text-lg font-display font-bold text-navy mb-2 leading-tight" data-cms-field={`whyUs.items.${r.key}.title`}>{t(`whyUs.items.${r.key}.title`)}</h3>
+                <p className="text-[13px] text-muted-foreground leading-relaxed" data-cms-field={`whyUs.items.${r.key}.desc`}>{t(`whyUs.items.${r.key}.desc`)}</p>
               </article>
             </StaggerItem>
           ))}

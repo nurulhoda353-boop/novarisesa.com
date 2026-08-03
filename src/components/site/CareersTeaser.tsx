@@ -30,7 +30,7 @@ export function CareersTeaser() {
           <Reveal className="lg:col-span-6 order-2 lg:order-1">
             <div className="relative group">
               <div className="absolute -inset-3 bg-gradient-to-br from-gold/30 to-transparent rounded-3xl blur-2xl opacity-60 group-hover:opacity-90 transition-opacity duration-700" />
-              <div className="relative h-[420px] lg:h-[480px] overflow-hidden rounded-3xl border border-border shadow-elegant">
+              <div className="relative h-[420px] lg:h-[480px] overflow-hidden rounded-3xl border border-border shadow-elegant" data-cms-asset="home.careers">
                 <Image
                   src={managedCareersImage}
                   alt="NOVARISE workforce on a Saudi industrial project site"
@@ -46,7 +46,7 @@ export function CareersTeaser() {
                     <span className="absolute inline-flex h-full w-full rounded-full bg-gold opacity-75 animate-ping" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-gold" />
                   </span>
-                  <span className="text-[10px] uppercase tracking-[0.25em] text-white font-semibold">
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-white font-semibold" data-cms-field="careersTeaser.imageBadge" suppressContentEditableWarning>
                     {t("careersTeaser.imageBadge")}
                   </span>
                 </div>
@@ -57,10 +57,10 @@ export function CareersTeaser() {
                     {stats.map((s) => (
                       <div key={s.key} className="text-center">
                         <s.icon className="h-4 w-4 text-gold mx-auto mb-1.5" strokeWidth={1.6} />
-                        <div className="text-lg lg:text-xl font-display font-bold text-white leading-none tabular-nums">
+                        <div className="text-lg lg:text-xl font-display font-bold text-white leading-none tabular-nums" data-cms-field={`careersTeaser.${s.key}Value`}>
                           {t(`careersTeaser.${s.key}Value`)}
                         </div>
-                        <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/75">
+                        <div className="mt-1 text-[9px] uppercase tracking-[0.18em] text-white/75" data-cms-field={`careersTeaser.${s.key}Label`}>
                           {t(`careersTeaser.${s.key}Label`)}
                         </div>
                       </div>
@@ -76,16 +76,16 @@ export function CareersTeaser() {
             <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-5">
               <span className="h-px w-8 bg-gold" />
               <Briefcase className="h-3.5 w-3.5" />
-              {t("careersTeaser.eyebrow")}
+              <span data-cms-field="careersTeaser.eyebrow" suppressContentEditableWarning>{t("careersTeaser.eyebrow")}</span>
             </div>
 
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-              {t("careersTeaser.titleA")}
+              <span data-cms-field="careersTeaser.titleA" suppressContentEditableWarning>{t("careersTeaser.titleA")}</span>
               <br />
-              <span className="text-gradient-gold">{t("careersTeaser.titleB")}</span>
+              <span className="text-gradient-gold" data-cms-field="careersTeaser.titleB" suppressContentEditableWarning>{t("careersTeaser.titleB")}</span>
             </h2>
 
-            <p className="mt-6 text-base lg:text-lg text-muted-foreground leading-relaxed max-w-xl">
+            <p className="mt-6 text-base lg:text-lg text-muted-foreground leading-relaxed max-w-xl" data-cms-field="careersTeaser.desc">
               {t("careersTeaser.desc")}
             </p>
 
@@ -94,7 +94,7 @@ export function CareersTeaser() {
                 to="/careers"
                 className="group inline-flex items-center gap-2 rounded-full bg-navy px-7 py-3.5 text-sm font-semibold text-white shadow-elegant transition-all hover:bg-navy-deep hover:scale-[1.03]"
               >
-                {t("careersTeaser.cta")}
+                <span data-cms-field="careersTeaser.cta" suppressContentEditableWarning>{t("careersTeaser.cta")}</span>
                 <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
               </Link>
               <a
@@ -102,7 +102,7 @@ export function CareersTeaser() {
                 className="inline-flex items-center gap-2 rounded-full border border-navy/20 bg-white px-7 py-3.5 text-sm font-semibold text-navy hover:border-gold hover:text-gold transition-colors"
               >
                 <Mail className="h-4 w-4" />
-                {t("careersTeaser.ctaCv")}
+                <span data-cms-field="careersTeaser.ctaCv" suppressContentEditableWarning>{t("careersTeaser.ctaCv")}</span>
               </a>
             </div>
           </Reveal>

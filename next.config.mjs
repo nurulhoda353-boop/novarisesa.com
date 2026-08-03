@@ -1,3 +1,5 @@
+const DASHBOARD_ORIGIN = process.env.NEXT_PUBLIC_DASHBOARD_ORIGIN ?? "https://my.novarisesa.com";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -14,7 +16,7 @@ const nextConfig = {
       source: "/:path*",
       headers: [
         { key: "X-Content-Type-Options", value: "nosniff" },
-        { key: "X-Frame-Options", value: "SAMEORIGIN" },
+        { key: "Content-Security-Policy", value: `frame-ancestors 'self' ${DASHBOARD_ORIGIN}` },
         {
           key: "Strict-Transport-Security",
           value: "max-age=63072000; includeSubDomains; preload",

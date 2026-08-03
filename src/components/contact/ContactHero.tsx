@@ -13,10 +13,14 @@ export function ContactHero() {
     <PageHero
       num="05"
       eyebrow={t("contactPage.hero.eyebrow")}
+      eyebrowField="contactPage.hero.eyebrow"
       icon={MessageSquare}
       heroImage={managedHeroImg}
+      assetKey="contact.hero"
       title={t("contactPage.hero.title")}
+      titleField="contactPage.hero.title"
       description={t("contactPage.hero.description")}
+      descriptionField="contactPage.hero.description"
       crumbs={[{ label: t("contactPage.hero.crumb") }]}
       ctas={[
         { label: "+966 55 442 9574", href: "tel:+966554429574", variant: "primary", icon: Phone },

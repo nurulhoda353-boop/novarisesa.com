@@ -34,6 +34,7 @@ const logoColor = "/assets/logo-navy-full.png";
 const logoWhite = "/assets/logo-white-full.png";
 import { LanguageSwitcher } from "@/components/site/LanguageSwitcher";
 import { useCmsAsset, useCmsNavigation } from "@/lib/cms-content";
+import { useEditMode } from "@/components/cms/EditModeContext";
 
 
 type NavChild = { key: string; hash: string; icon: LucideIcon; label?: string; labelKey?: string; descKey?: string };
@@ -81,6 +82,7 @@ export function Header() {
   const managedLogoWhite = useCmsAsset("brand.logoWhite", logoWhite);
   const cmsNavigation = useCmsNavigation("header");
   const { t, i18n } = useTranslation();
+  const { editing } = useEditMode();
   const pathname = usePathname();
   const isRtl = i18n.dir() === "rtl";
   const [scrolled, setScrolled] = useState(false);
@@ -161,7 +163,10 @@ export function Header() {
 
             {/* Logo */}
             <Link to="/" className="relative flex items-center gap-2.5 pl-1 pr-3 group" aria-label="NOVARISE — Home">
-              <div className="relative h-8 lg:h-9 w-[130px] lg:w-[170px] transition-transform duration-500 group-hover:scale-[1.03]">
+              <div
+                className="relative h-8 lg:h-9 w-[130px] lg:w-[170px] transition-transform duration-500 group-hover:scale-[1.03]"
+                data-cms-asset={scrolled ? "brand.logoColor" : "brand.logoWhite"}
+              >
                 <Image
                   src={managedLogoWhite}
                   alt="NOVARISE Trading and Contracting Company"
@@ -243,7 +248,7 @@ export function Header() {
                 to="/rfq"
                 className="group relative inline-flex items-center gap-1 rounded-lg bg-gold pl-3 pr-2.5 h-8 text-[12px] font-semibold text-gold-foreground shadow-gold overflow-hidden transition-all hover:scale-[1.03]"
               >
-                <span className="relative z-10">{t("nav.requestRfq")}</span>
+                <span className="relative z-10" data-cms-field="nav.requestRfq" suppressContentEditableWarning>{t("nav.requestRfq")}</span>
                 <ArrowUpRight className="relative z-10 h-3.5 w-3.5 transition-transform group-hover:rotate-45" />
                 <span className="absolute inset-0 -translate-x-full bg-white/25 skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
               </Link>
@@ -413,12 +418,12 @@ export function Header() {
 
                 {/* Get in touch */}
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={editing ? false : { opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.28, ease: drawerEase }}
                   className="mt-5 mx-0.5 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4"
                 >
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold mb-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold mb-3" data-cms-field="footer.getInTouch">
                     {t("footer.getInTouch", "Get in touch")}
                   </div>
                   <a
@@ -441,7 +446,7 @@ export function Header() {
 
               {/* CTA + copyright */}
               <motion.div
-                initial={{ opacity: 0, y: 12 }}
+                initial={editing ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.32, ease: drawerEase }}
                 className="relative px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2 space-y-3"
@@ -451,7 +456,7 @@ export function Header() {
                   onClick={closeMenu}
                   className="group relative w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-4 py-3.5 text-[13px] font-semibold text-gold-foreground shadow-gold overflow-hidden"
                 >
-                  <span className="relative z-10">{t("nav.requestRfq")}</span>
+                  <span className="relative z-10" data-cms-field="nav.requestRfq" suppressContentEditableWarning>{t("nav.requestRfq")}</span>
                   <ArrowUpRight className="relative z-10 h-3.5 w-3.5 transition-transform group-hover:rotate-45" />
                   <span className="absolute inset-0 -translate-x-full bg-white/25 skew-x-12 transition-transform duration-700 group-hover:translate-x-full" />
                 </Link>

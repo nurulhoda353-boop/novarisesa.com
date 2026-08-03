@@ -61,7 +61,7 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-4">
             <Link to="/" aria-label="NOVARISE — Home" className="inline-block mb-5">
-              <span className="relative block h-12 lg:h-14 w-44">
+              <span className="relative block h-12 lg:h-14 w-44" data-cms-asset="brand.logoWhite">
                 <Image
                   src={managedLogo}
                   alt="NOVARISE Trading and Contracting Company"
@@ -71,7 +71,7 @@ export function Footer() {
                 />
               </span>
             </Link>
-            <p className="text-white/70 text-sm leading-relaxed max-w-sm">
+            <p className="text-white/70 text-sm leading-relaxed max-w-sm" data-cms-field="footer.tagline">
               {t("footer.tagline")}
             </p>
             <a
@@ -80,7 +80,7 @@ export function Footer() {
               rel="noopener"
               className="mt-5 inline-flex items-center gap-2 rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-xs font-semibold text-gold hover:bg-gold hover:text-navy-deep transition-colors"
             >
-              {t("footer.downloadProfile")}
+              <span data-cms-field="footer.downloadProfile" suppressContentEditableWarning>{t("footer.downloadProfile")}</span>
             </a>
             <div className="flex items-center gap-3 mt-6">
               {[Facebook, Twitter, Linkedin, Instagram].map((Icon, i) => (
@@ -98,7 +98,7 @@ export function Footer() {
           {/* Links: two columns on mobile, original layout on desktop */}
           <div className="lg:col-span-5 grid grid-cols-2 gap-8 lg:contents">
             <div className="lg:col-span-2">
-              <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5">{t("footer.company")}</h4>
+              <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.company">{t("footer.company")}</h4>
               <ul className="space-y-3">
                 {company.map((l) => (
                   <li key={l.to}>
@@ -111,17 +111,17 @@ export function Footer() {
             </div>
 
             <div className="lg:col-span-3">
-              <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5">{t("footer.servicesHeading")}</h4>
+              <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.servicesHeading">{t("footer.servicesHeading")}</h4>
               <ul className="space-y-3">
                 <li>
                   <Link to="/services" className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}>
-                    {t("footer.allServices")} <ArrowUpRight className="h-3.5 w-3.5" />
+                    <span data-cms-field="footer.allServices" suppressContentEditableWarning>{t("footer.allServices")}</span> <ArrowUpRight className="h-3.5 w-3.5" />
                   </Link>
                 </li>
                 {services.map((l) => (
                   <li key={l.to}>
                     <Link to={l.to} className={linkBase} activeProps={activeProps}>
-                      {t(`services.${l.key}.label`)}
+                      <span data-cms-field={`services.${l.key}.label`} suppressContentEditableWarning>{t(`services.${l.key}.label`)}</span>
                     </Link>
                   </li>
                 ))}
@@ -131,20 +131,20 @@ export function Footer() {
 
           {/* Get in touch */}
           <div className="lg:col-span-3">
-            <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5">{t("footer.getInTouch")}</h4>
+            <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.getInTouch">{t("footer.getInTouch")}</h4>
             <ul className="space-y-4 text-sm text-white/80">
               <li className="flex items-start gap-3">
                 <MapPin className="h-4 w-4 mt-0.5 text-gold shrink-0" />
                 <span>
-                  {t("footer.addressLine1")}<br />
-                  {t("footer.addressLine2")}
+                  <span data-cms-field="footer.addressLine1" suppressContentEditableWarning>{t("footer.addressLine1")}</span><br />
+                  <span data-cms-field="footer.addressLine2" suppressContentEditableWarning>{t("footer.addressLine2")}</span>
                   <a
                     href="https://www.google.com/maps/search/?api=1&query=2124+King+Faisal+Rd+Al+Bathaa+Umluj+48313"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-3 block text-[10px] uppercase tracking-[0.2em] text-gold hover:text-white transition-colors"
                   >
-                    {t("footer.viewMap")}
+                    <span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span>
                   </a>
                 </span>
               </li>
@@ -157,14 +157,14 @@ export function Footer() {
                 <a href="mailto:info@novarisesa.com" className="hover:text-gold transition" dir="ltr">info@novarisesa.com</a>
               </li>
               <li className="mt-2 pt-4 border-t border-white/10">
-                <div className="text-[10px] uppercase tracking-[0.28em] text-gold mb-2">{t("footer.officeHours")}</div>
+                <div className="text-[10px] uppercase tracking-[0.28em] text-gold mb-2" data-cms-field="footer.officeHours">{t("footer.officeHours")}</div>
                 <div className="flex items-center justify-between text-xs text-white/75">
-                  <span>{t("footer.sunThu")}</span>
-                  <span className="tabular-nums text-white" dir="ltr">{t("footer.sunThuHours")}</span>
+                  <span data-cms-field="footer.sunThu" suppressContentEditableWarning>{t("footer.sunThu")}</span>
+                  <span className="tabular-nums text-white" dir="ltr" data-cms-field="footer.sunThuHours" suppressContentEditableWarning>{t("footer.sunThuHours")}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs text-white/55 mt-1.5">
-                  <span>{t("footer.friSat")}</span>
-                  <span>{t("footer.byAppointment")}</span>
+                  <span data-cms-field="footer.friSat" suppressContentEditableWarning>{t("footer.friSat")}</span>
+                  <span data-cms-field="footer.byAppointment" suppressContentEditableWarning>{t("footer.byAppointment")}</span>
                 </div>
               </li>
             </ul>
@@ -174,9 +174,9 @@ export function Footer() {
         <div className="pt-6 lg:pt-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-white/50">
           <p>{t("footer.copyright", { year: 2026 })}</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span>{t("footer.crLabel")} <span className="text-white/80 tabular-nums" dir="ltr">4701103544</span></span>
-            <span>{t("footer.vatLabel")} <span className="text-white/80 tabular-nums" dir="ltr">300930779500003</span></span>
-            <span>{t("footer.estLabel")} <span className="text-white/80" dir="ltr">2019</span></span>
+            <span><span data-cms-field="footer.crLabel" suppressContentEditableWarning>{t("footer.crLabel")}</span> <span className="text-white/80 tabular-nums" dir="ltr">4701103544</span></span>
+            <span><span data-cms-field="footer.vatLabel" suppressContentEditableWarning>{t("footer.vatLabel")}</span> <span className="text-white/80 tabular-nums" dir="ltr">300930779500003</span></span>
+            <span><span data-cms-field="footer.estLabel" suppressContentEditableWarning>{t("footer.estLabel")}</span> <span className="text-white/80" dir="ltr">2019</span></span>
           </div>
         </div>
 

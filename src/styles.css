@@ -437,3 +437,100 @@ html[dir="rtl"] .mr-\[0\.22em\] {
 /* Tabular Latin numerals embedded in RTL Arabic copy — keep them LTR so
    "+2,500" / "25M" don't get mirrored next to Arabic labels. */
 html[dir="rtl"] .tabular-nums { direction: ltr; unicode-bidi: isolate; }
+
+/* CMS live-preview mode (framed inside the dashboard for click-to-edit) —
+   inert outside of that context, see EditModeContext. */
+
+/* Pen mode: every editable text/image gets a text-cursor hover affordance,
+   overriding the site's custom cursor (which otherwise sets cursor:none). */
+html.novarise-edit-mode [data-cms-field],
+html.novarise-edit-mode [data-cms-asset] {
+  cursor: text !important;
+}
+html.novarise-edit-mode [data-cms-field]:hover {
+  outline: 1.5px dashed #dfa247;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+html.novarise-edit-mode [data-cms-field]:focus {
+  outline: 2px solid #dfa247;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+html.novarise-edit-mode [data-cms-asset] {
+  cursor: pointer !important;
+}
+html.novarise-edit-mode [data-cms-asset]:hover {
+  outline: 2px dashed #dfa247;
+  outline-offset: -2px;
+}
+
+/* Floating image-replace popover (AssetOverlay) */
+.novarise-asset-popover {
+  transform: translate(-50%, -50%);
+  z-index: 2147483000;
+  display: grid;
+  gap: 8px;
+  width: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  background: white;
+  color: #1c335c;
+  box-shadow: 0 20px 50px rgba(10, 20, 40, 0.35);
+  border: 1px solid #eee;
+  font-size: 12px;
+}
+.novarise-asset-popover-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  height: 20px;
+  width: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 0;
+  background: #f2f2f2;
+  color: #55617a;
+}
+.novarise-asset-popover-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e4;
+  background: #fafafa;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1c335c;
+}
+.novarise-asset-popover-action input[type="file"] {
+  display: none;
+}
+.novarise-asset-popover-url {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e4;
+  background: #fafafa;
+  color: #55617a;
+}
+.novarise-asset-popover-url input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  color: #1c335c;
+}
+.novarise-asset-popover-remove {
+  color: #a33636;
+  border-color: #f0d7d7;
+  background: #fdf3f3;
+}
