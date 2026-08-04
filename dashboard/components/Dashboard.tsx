@@ -485,6 +485,123 @@ function replaceAtPath(
   return next;
 }
 
+// Slug -> i18n key for the 12 launch projects (en.json uses camelCase keys).
+const PROJECT_I18N_KEY: Record<string, string> = {
+  "neom": "neom",
+  "red-sea-global": "redSeaGlobal",
+  "amaala": "amaala",
+  "jafurah": "jafurah",
+  "afif": "afif",
+  "red-sea-aluminium": "redSeaAluminium",
+  "durma-pp12": "durma",
+  "taiba-1": "taiba1",
+  "rumah-1": "rumah1",
+  "qassim-1": "qassim1",
+  "nairiyah-1": "nairiyah1",
+  "yanbu-3": "yanbu3",
+};
+
+/** Like replaceAtPath but creates missing intermediate objects/arrays. */
+function setAtPath(document: Record<string, unknown>, path: Array<string | number>, value: unknown) {
+  let cursor = document as Record<string | number, unknown>;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const part = path[index];
+    const existing = cursor[part];
+    if (typeof existing !== "object" || existing === null) {
+      cursor[part] = typeof path[index + 1] === "number" ? [] : {};
+    }
+    cursor = cursor[part] as Record<string | number, unknown>;
+  }
+  cursor[path[path.length - 1]] = value;
+}
+
+/**
+ * The public site reads the 6 launch services / 12 launch projects / 9 launch
+ * posts through the i18n bundle first (that is what pen mode writes to), so a
+ * dashboard-only save would silently not show up. Mirroring the saved fields
+ * into the same translation paths keeps both editors in agreement.
+ * Only non-empty values are mirrored, so an untouched blank field can never
+ * wipe existing site copy.
+ */
+function translationOverridesFor(
+  resource: string,
+  slug: string,
+  values: Record<string, unknown>,
+): Array<[Array<string | number>, unknown]> {
+  const out: Array<[Array<string | number>, unknown]> = [];
+  const put = (dotted: string, value: unknown) => {
+    if (typeof value === "string" && !value.trim()) return;
+    if (Array.isArray(value) && !value.length) return;
+    if (value === null || value === undefined) return;
+    out.push([dotted.split(".").map((part) => (/^\d+$/.test(part) ? Number(part) : part)), value]);
+  };
+  if (resource === "services") {
+    const base = `serviceDetails.${slug}`;
+    put(`${base}.title`, values.title);
+    put(`${base}.eyebrow`, values.eyebrow);
+    put(`${base}.tagline`, values.summary);
+    put(`${base}.lead`, values.lead);
+    put(`${base}.intro`, values.intro);
+    const stats = values.stats as Array<{ label?: string }> | undefined;
+    if (stats?.length) put(`${base}.statLabels`, stats.map((row) => row.label ?? ""));
+    const subs = values.subServices as Array<{ title?: string; desc?: string }> | undefined;
+    if (subs?.length) put(`${base}.subServices`, subs.map((row) => ({ title: row.title ?? "", desc: row.desc ?? "" })));
+    const caps = values.capabilities as Array<{ label?: string; value?: string }> | undefined;
+    if (caps?.length) put(`${base}.capabilities.rows`, caps.map((row) => ({ label: row.label ?? "", value: row.value ?? "" })));
+    const process = values.process as Array<{ title?: string; desc?: string }> | undefined;
+    if (process?.length) put(`${base}.process`, process.map((row) => ({ title: row.title ?? "", desc: row.desc ?? "" })));
+    put(`${base}.certifications`, values.certifications);
+    const faqs = values.faqs as Array<{ q?: string; a?: string }> | undefined;
+    if (faqs?.length) put(`${base}.faqs`, faqs.map((row) => ({ q: row.q ?? "", a: row.a ?? "" })));
+  } else if (resource === "projects") {
+    const key = PROJECT_I18N_KEY[slug] ?? slug;
+    put(`projects.items.${key}.title`, values.title);
+    put(`projects.items.${key}.sector`, values.sector);
+    put(`projects.items.${key}.client`, values.client);
+    put(`projects.items.${key}.location`, values.location);
+    put(`projects.items.${key}.value`, values.value);
+    put(`projects.items.${key}.duration`, values.duration);
+    put(`projects.items.${key}.scope`, values.summary);
+    put(`projects.content.${key}.long`, values.long);
+    put(`projects.content.${key}.highlights`, values.highlights);
+  } else if (resource === "posts") {
+    const base = `blogPage.posts.${slug}`;
+    put(`${base}.title`, values.title);
+    put(`${base}.excerpt`, values.summary);
+    put(`${base}.date`, values.date);
+    put(`${base}.paragraphs`, values.paragraphs);
+  }
+  return out;
+}
+
+/** Writes the mirrored translation paths into the stored translations document. */
+async function syncTranslationOverrides(
+  resource: string,
+  slug: string,
+  locale: string,
+  values: Record<string, unknown>,
+) {
+  const overrides = translationOverridesFor(resource, slug, values);
+  if (!overrides.length) return;
+  const response = await api<{ items: ManagedSetting[] }>("/cms/settings");
+  const stored = response.items.find(
+    (entry) => entry.group_name === "translations" && entry.key === locale,
+  );
+  const document = stored && typeof stored.value === "object" && stored.value !== null
+    ? cloneDocument(stored.value)
+    : {};
+  overrides.forEach(([path, value]) => setAtPath(document, path, value));
+  await api("/cms/settings", {
+    method: "PUT",
+    body: JSON.stringify({
+      group_name: "translations",
+      key: locale,
+      value: document,
+      is_public: true,
+    }),
+  });
+}
+
 function SiteContentPage({ user, onTopbarActions }: { user: User; onTopbarActions: (node: ReactNode) => void }) {
   const [locale, setLocale] = useState<"en" | "ar">("en");
   const [document, setDocument] = useState<Record<string, unknown>>({});
@@ -1055,6 +1172,9 @@ function ContentModal({
   const [food, setFood] = useState("");
   const [accommodation, setAccommodation] = useState("");
   const [documents, setDocuments] = useState("");
+  const [rateAmount, setRateAmount] = useState("");
+  const [rateCurrency, setRateCurrency] = useState("SAR");
+  const [rateUnit, setRateUnit] = useState("hour");
   const [bodyJson, setBodyJson] = useState("{}");
   const [bodyError, setBodyError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1062,7 +1182,7 @@ function ContentModal({
   const [serviceIcon, setServiceIcon] = useState("Building2");
   const [serviceNum, setServiceNum] = useState("");
   const [statsList, setStatsList] = useState<{ value: string; suffix: string; label: string }[]>([]);
-  const [subServicesList, setSubServicesList] = useState<{ title: string; desc: string }[]>([]);
+  const [subServicesList, setSubServicesList] = useState<{ title: string; desc: string; icon: string }[]>([]);
   const [capabilitiesRows, setCapabilitiesRows] = useState<{ label: string; value: string }[]>([]);
   const [processList, setProcessList] = useState<{ num: string; title: string; desc: string }[]>([]);
   const [certificationsList, setCertificationsList] = useState<string[]>([]);
@@ -1112,6 +1232,9 @@ function ContentModal({
       setFood(String(detail.body.food ?? ""));
       setAccommodation(String(detail.body.accommodation ?? ""));
       setDocuments(Array.isArray(detail.body.documents) ? detail.body.documents.join("\n") : "");
+      setRateAmount(String(detail.body.rate_amount ?? ""));
+      setRateCurrency(String(detail.body.rate_currency ?? "SAR"));
+      setRateUnit(String(detail.body.rate_unit ?? "hour"));
       setServiceIcon(String(detail.body.icon ?? "Building2"));
       setServiceNum(String(detail.body.number ?? ""));
       setStatsList(Array.isArray(detail.body.stats) ? detail.body.stats.map((s) => {
@@ -1119,8 +1242,8 @@ function ContentModal({
         return { value: String(row.value ?? ""), suffix: String(row.suffix ?? ""), label: String(row.label ?? "") };
       }) : []);
       setSubServicesList(Array.isArray(detail.body.sub_services) ? detail.body.sub_services.map((s) => {
-        const row = s as { title?: unknown; desc?: unknown };
-        return { title: String(row.title ?? ""), desc: String(row.desc ?? "") };
+        const row = s as { title?: unknown; desc?: unknown; icon?: unknown };
+        return { title: String(row.title ?? ""), desc: String(row.desc ?? ""), icon: String(row.icon ?? "Wrench") };
       }) : []);
       setCapabilitiesRows(Array.isArray(detail.body.capabilities) ? detail.body.capabilities.map((r) => {
         const row = r as { label?: unknown; value?: unknown };
@@ -1214,6 +1337,9 @@ function ContentModal({
           accommodation: accommodation || null,
           documents: documents.split("\n").map((line) => line.trim()).filter(Boolean),
           contacts: contactsList.filter((c) => c.raw.trim()),
+          rate_amount: rateAmount.trim() || null,
+          rate_currency: rateCurrency.trim() || "SAR",
+          rate_unit: rateUnit.trim() || null,
         };
       } else if (isPost) {
         parsedBody = {
@@ -1276,10 +1402,40 @@ function ContentModal({
       meta_title: metaTitle || undefined,
       meta_description: metaDescription || undefined,
     };
-    await api(`/cms/content/${resource}${item ? `/${item.id}` : ""}`, {
-      method: item ? "PATCH" : "POST",
-      body: JSON.stringify(body),
-    });
+    try {
+      await api(`/cms/content/${resource}${item ? `/${item.id}` : ""}`, {
+        method: item ? "PATCH" : "POST",
+        body: JSON.stringify(body),
+      });
+      // Mirror the same fields into the pen-mode translation store, otherwise the
+      // public site keeps rendering the old i18n copy and the save looks ignored.
+      await syncTranslationOverrides(resource, slug, locale, {
+        title,
+        summary,
+        eyebrow,
+        lead,
+        intro,
+        stats: statsList,
+        subServices: subServicesList,
+        capabilities: capabilitiesRows,
+        process: processList,
+        certifications: certificationsList,
+        faqs: faqsList,
+        sector: projectSector,
+        client: projectClient,
+        location,
+        value: projectValue,
+        duration: projectDuration,
+        long: projectLong.filter(Boolean),
+        highlights: projectHighlights.filter(Boolean),
+        date: postDate,
+        paragraphs: postParagraphs.filter(Boolean),
+      });
+    } catch (reason) {
+      setSaving(false);
+      setBodyError(reason instanceof Error ? reason.message : "Could not save this item.");
+      return;
+    }
     onSaved();
   }
 
@@ -1361,6 +1517,20 @@ function ContentModal({
             <label className="full">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} /></label>
             <label>Approval<input value={approval} onChange={(event) => setApproval(event.target.value)} /></label>
             <label>Duration<input value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
+            <label>Pay rate
+              <input type="number" min="0" step="0.01" placeholder="e.g. 33" value={rateAmount} onChange={(event) => setRateAmount(event.target.value)} />
+              <small className="field-hint">Shown on the site as “{rateAmount || "33"} {rateCurrency || "SAR"} / {rateUnit || "hour"}”.</small>
+            </label>
+            <label>Currency
+              <select value={rateCurrency} onChange={(event) => setRateCurrency(event.target.value)}>
+                {["SAR", "USD", "AED", "INR", "BDT"].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <label>Rate unit
+              <select value={rateUnit} onChange={(event) => setRateUnit(event.target.value)}>
+                {["hour", "day", "month", "shift", "project"].map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
             <label>Salary cycle<input value={salaryCycle} onChange={(event) => setSalaryCycle(event.target.value)} /></label>
             <label>Food<input value={food} onChange={(event) => setFood(event.target.value)} /></label>
             <label className="full">Accommodation<input value={accommodation} onChange={(event) => setAccommodation(event.target.value)} /></label>
@@ -1404,9 +1574,12 @@ function ContentModal({
               label="Sub-services"
               items={subServicesList}
               onChange={setSubServicesList}
-              empty={{ title: "", desc: "" }}
+              empty={{ title: "", desc: "", icon: "Wrench" }}
               renderItem={(s, set) => <>
                 <input placeholder="Title" value={s.title} onChange={(event) => set({ ...s, title: event.target.value })} />
+                <select value={s.icon || "Wrench"} onChange={(event) => set({ ...s, icon: event.target.value })}>
+                  {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
                 <input placeholder="Description" value={s.desc} onChange={(event) => set({ ...s, desc: event.target.value })} />
               </>}
             />

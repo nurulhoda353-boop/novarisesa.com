@@ -28,22 +28,41 @@ export function useTranslatedPosts() {
       all: [translatedFeatured, ...translatedPosts],
     };
   }
+  // The 9 launch posts also exist as static entries; keep their bundled artwork and
+  // metadata as the fallback so seeding them into the CMS never blanks the cards.
+  const staticBySlug = new Map([featuredPost, ...posts].map((p) => [p.slug, p]));
   const mapped = managed.map((item): BlogPost => {
     const body = item.data.body && typeof item.data.body === "object"
       ? item.data.body as Record<string, unknown>
       : {};
     const paragraphs = Array.isArray(body.paragraphs) ? body.paragraphs.map(String) : [];
+    const base = staticBySlug.get(item.slug);
+    // Pen-mode writes these same keys, so let i18n win when it has a value.
+    const key = `blogPage.posts.${item.slug}`;
+    const s = (field: string, value: string) => {
+      const translated = t(`${key}.${field}`, { defaultValue: "" });
+      return typeof translated === "string" && translated ? translated : value;
+    };
+    const i18nParagraphs = t(`${key}.paragraphs`, { returnObjects: true, defaultValue: null }) as
+      | string[]
+      | null;
+    const resolvedParagraphs = Array.isArray(i18nParagraphs) && i18nParagraphs.length
+      ? i18nParagraphs
+      : paragraphs;
+    const excerpt = s("excerpt", item.summary ?? base?.excerpt ?? "");
     return {
       slug: item.slug,
-      title: item.title,
-      excerpt: item.summary ?? "",
-      category: String(body.category ?? "Insights") as BlogPost["category"],
-      date: String(body.date ?? item.data.published_at ?? item.updated_at),
-      readMins: Number(body.readMins ?? body.read_mins ?? 5),
-      author: String(body.author ?? "NOVARISE"),
-      authorRole: String(body.authorRole ?? body.author_role ?? "Editorial Team"),
-      image: String(item.data.featured_media_url ?? "/assets/news-energy.jpg"),
-      paragraphs: paragraphs.length ? paragraphs : [item.summary ?? ""],
+      title: s("title", item.title),
+      excerpt,
+      category: String(body.category ?? base?.category ?? "Insights") as BlogPost["category"],
+      date: s("date", String(body.date ?? base?.date ?? item.data.published_at ?? item.updated_at)),
+      readMins: Number(body.readMins ?? body.read_mins ?? base?.readMins ?? 5),
+      author: String(body.author ?? base?.author ?? "NOVARISE"),
+      authorRole: t(`blogPage.authorRoles.${body.authorRole ?? base?.authorRole ?? ""}`, {
+        defaultValue: String(body.authorRole ?? body.author_role ?? base?.authorRole ?? "Editorial Team"),
+      }),
+      image: String(item.data.featured_media_url ?? base?.image ?? "/assets/news-energy.jpg"),
+      paragraphs: resolvedParagraphs.length ? resolvedParagraphs : [excerpt],
     };
   });
   const featured = mapped.find((_, index) => managed[index]?.is_featured) ?? mapped[0];

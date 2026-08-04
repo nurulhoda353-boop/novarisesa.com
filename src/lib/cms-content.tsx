@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import i18n from "@/i18n/config";
 import { API_URL } from "./site";
+import { allProjects } from "./projects-data";
 import { useEditMode } from "@/components/cms/EditModeContext";
 
 type CmsCollections = Record<string, CmsItem[]>;
@@ -84,11 +85,18 @@ function applyTranslationOverrides(settings: CmsSettings, locale: string) {
   i18n.addResourceBundle(locale, "translation", overrides, true, true);
 }
 
+/** Drops undefined/null entries so a deep merge never blanks a bundled default. */
+function prune<T extends Record<string, unknown>>(input: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => value !== undefined && value !== null),
+  ) as Partial<T>;
+}
+
 function collectionTranslationOverrides(collections: CmsCollections) {
   const serviceDetails = Object.fromEntries(
     (collections.services ?? []).map((item) => [
       item.slug,
-      {
+      prune({
         title: item.title,
         tagline: item.summary,
         lead: item.data.lead,
@@ -96,10 +104,13 @@ function collectionTranslationOverrides(collections: CmsCollections) {
         eyebrow: item.data.eyebrow,
         subServices: item.data.sub_services,
         faqs: item.data.faqs,
-        capabilities: item.data.capabilities,
+        // useTranslatedService reads `capabilities.rows`, not a bare array.
+        capabilities: Array.isArray(item.data.capabilities)
+          ? { rows: item.data.capabilities }
+          : undefined,
         process: item.data.process,
         certifications: item.data.certifications,
-      },
+      }),
     ]),
   );
 
@@ -110,23 +121,64 @@ function collectionTranslationOverrides(collections: CmsCollections) {
     ]),
   );
 
+  // en.json keys the 12 launch projects by camelCase key, not by slug.
+  const projectKey = (slug: string) =>
+    allProjects.find((project) => project.slug === slug)?.key ?? slug;
+
   const projectItems = Object.fromEntries(
-    (collections.projects ?? []).map((item) => [
-      item.slug,
-      {
-        title: item.title,
-        scope: item.summary,
-        client: item.data.client_name,
-        location: item.data.location,
-        ...((item.data.body as Record<string, unknown> | undefined) ?? {}),
-      },
-    ]),
+    (collections.projects ?? []).map((item) => {
+      const body = (item.data.body as Record<string, unknown> | undefined) ?? {};
+      const { long: _long, highlights: _highlights, ...facts } = body;
+      return [
+        projectKey(item.slug),
+        prune({
+          title: item.title,
+          scope: item.summary,
+          client: item.data.client_name,
+          location: item.data.location,
+          ...facts,
+        }),
+      ];
+    }),
+  );
+
+  // Long-form copy lives under projects.content.<key>, a separate namespace.
+  const projectContent = Object.fromEntries(
+    (collections.projects ?? []).map((item) => {
+      const body = (item.data.body as Record<string, unknown> | undefined) ?? {};
+      return [
+        projectKey(item.slug),
+        prune({
+          long: Array.isArray(body.long) && body.long.length ? body.long : undefined,
+          highlights: Array.isArray(body.highlights) && body.highlights.length
+            ? body.highlights
+            : undefined,
+        }),
+      ];
+    }),
+  );
+
+  const postItems = Object.fromEntries(
+    (collections.posts ?? []).map((item) => {
+      const body = (item.data.body as Record<string, unknown> | undefined) ?? {};
+      return [
+        item.slug,
+        prune({
+          title: item.title,
+          excerpt: item.summary,
+          date: body.date,
+          paragraphs: Array.isArray(body.paragraphs) && body.paragraphs.length
+            ? body.paragraphs
+            : undefined,
+        }),
+      ];
+    }),
   );
 
   const requirementItems = Object.fromEntries(
     (collections.requirements ?? []).map((item) => [
       item.slug,
-      {
+      prune({
         position: item.title,
         project: item.data.project_name,
         approval: item.data.approval,
@@ -135,14 +187,15 @@ function collectionTranslationOverrides(collections: CmsCollections) {
         food: item.data.food,
         accommodation: item.data.accommodation,
         documents: item.data.documents,
-      },
+      }),
     ]),
   );
 
   return {
     services,
     serviceDetails,
-    projects: { items: projectItems },
+    projects: { items: projectItems, content: projectContent },
+    blogPage: { posts: postItems },
     requirementsPage: { items: requirementItems },
   };
 }
@@ -171,8 +224,11 @@ export function CmsContentProvider({ children }: { children: ReactNode }) {
       try {
         const next = await loadCmsPayload(locale);
         if (cancelled) return;
-        applyTranslationOverrides(next.settings, locale);
+        // Collection-derived copy first, then the saved translation document on
+        // top: pen-mode edits and dashboard saves both land in that document, so
+        // it must win over values auto-derived from the collection rows.
         i18n.addResourceBundle(locale, "translation", collectionTranslationOverrides(next.collections), true, true);
+        applyTranslationOverrides(next.settings, locale);
         setPayload(next);
       } catch {
         if (!cancelled) setPayload(null);
