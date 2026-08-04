@@ -1205,6 +1205,8 @@ function ContentModal({
   const [eventDateDisplay, setEventDateDisplay] = useState("");
   const [eventStartsOn, setEventStartsOn] = useState("");
   const [eventEndsOn, setEventEndsOn] = useState("");
+  const hasSections = isService || isProject || isPost || isRequirement;
+  const [tab, setTab] = useState<"content" | "sections" | "publish">("content");
 
   useEffect(() => {
     if (!supportsMedia) return;
@@ -1296,6 +1298,15 @@ function ContentModal({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    // The slug input lives on the Publishing tab, so it may not be mounted when
+    // the form is submitted; never let that produce an item without an address.
+    const safeSlug = slug.trim() || slugify(title);
+    if (!safeSlug) {
+      setTab("publish");
+      setBodyError("Please give this item a web address on the Publishing tab.");
+      return;
+    }
+    if (safeSlug !== slug) setSlug(safeSlug);
     setSaving(true);
     setBodyError("");
     let parsedBody: Record<string, unknown> = {};
@@ -1368,8 +1379,8 @@ function ContentModal({
     }
     const body = {
       title,
-      slug,
-      code: isRequirement ? slug : undefined,
+      slug: safeSlug,
+      code: isRequirement ? safeSlug : undefined,
       summary,
       status,
       is_featured: featured,
@@ -1409,7 +1420,7 @@ function ContentModal({
       });
       // Mirror the same fields into the pen-mode translation store, otherwise the
       // public site keeps rendering the old i18n copy and the save looks ignored.
-      await syncTranslationOverrides(resource, slug, locale, {
+      await syncTranslationOverrides(resource, safeSlug, locale, {
         title,
         summary,
         eyebrow,
@@ -1464,229 +1475,343 @@ function ContentModal({
           </div>
           <button type="button" onClick={onClose}><X /></button>
         </div>
+        <div className="modal-tabs" role="tablist">
+          <button type="button" role="tab" className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>
+            <FilePenLine size={14} /> Page content
+          </button>
+          {hasSections && (
+            <button type="button" role="tab" className={tab === "sections" ? "active" : ""} onClick={() => setTab("sections")}>
+              <FolderKanban size={14} /> Page sections
+            </button>
+          )}
+          <button type="button" role="tab" className={tab === "publish" ? "active" : ""} onClick={() => setTab("publish")}>
+            <Settings size={14} /> Publishing
+          </button>
+        </div>
+
         <div className="form-grid">
-          <label className="full">Title
-            <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item) setSlug(slugify(event.target.value)); }} required />
-          </label>
-          <label>Identifier / slug
-            <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
-          </label>
-          <div className="full modal-language-row">
-            <span>Language</span>
-            <div className="segmented language-tabs" aria-label="Content language">
-              <button type="button" className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
-              <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
-            </div>
-          </div>
-          {supportsMedia && <>
-            <div className="full form-divider"><ImageIcon size={13} /><span>Primary image</span></div>
-            <label className="full">
-              <AssetPreview src={previewSrc} label="Primary image" />
+          {tab === "content" && <>
+            {supportsMedia && <label className="full">Main picture
+              <AssetPreview src={previewSrc} label="Main picture" />
               <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
-                <option value="">{heroFallback ? "Current live image (unchanged)" : "No managed image"}</option>
+                <option value="">{heroFallback ? "Keep the picture that is live now" : "No picture chosen"}</option>
                 {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
                   <option value={media.id} key={media.id}>{media.file_name}</option>
                 ))}
               </select>
-              {!mediaId && heroFallback && (
-                <small className="field-hint">
-                  This is the image live on the site now. To replace it, use the pen icon on the Site content page and click the image directly — that also works for brand-new items after their first save.
-                </small>
-              )}
+              <small className="field-hint">
+                The big picture at the top of this page. Upload new pictures in <b>Media library</b> first, then pick one here.
+              </small>
+            </label>}
+
+            <label className="full">Name
+              <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item) setSlug(slugify(event.target.value)); }} required />
+              <small className="field-hint">The large heading at the top of the page, and the name on list cards.</small>
             </label>
-          </>}
-          <div className="full form-divider"><Settings size={13} /><span>Publishing</span></div>
-          <label>Status
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              {statusOptions.map((value) => <option key={value}>{value}</option>)}
-            </select>
-          </label>
-          {!isRequirement && <label>Sort order
-            <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
-          </label>}
-          {!isRequirement && <label className="check-row">
-            <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
-            Feature this item
-          </label>}
-          {(isRequirement || isProject || isEvent) && (
-            <label>Location<input value={location} onChange={(event) => setLocation(event.target.value)} /></label>
-          )}
-          {isRequirement && <>
-            <div className="full form-divider"><BriefcaseBusiness size={13} /><span>Requirement details</span></div>
-            <label>Headcount<input type="number" min="1" value={headcount} onChange={(event) => setHeadcount(Number(event.target.value))} /></label>
-            <label className="full">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} /></label>
-            <label>Approval<input value={approval} onChange={(event) => setApproval(event.target.value)} /></label>
-            <label>Duration<input value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-            <label>Pay rate
-              <input type="number" min="0" step="0.01" placeholder="e.g. 33" value={rateAmount} onChange={(event) => setRateAmount(event.target.value)} />
-              <small className="field-hint">Shown on the site as “{rateAmount || "33"} {rateCurrency || "SAR"} / {rateUnit || "hour"}”.</small>
+
+            <label className="full">Short description
+              <textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} />
+              <small className="field-hint">One or two lines shown under the heading and on the card in lists.</small>
             </label>
-            <label>Currency
-              <select value={rateCurrency} onChange={(event) => setRateCurrency(event.target.value)}>
-                {["SAR", "USD", "AED", "INR", "BDT"].map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>Rate unit
-              <select value={rateUnit} onChange={(event) => setRateUnit(event.target.value)}>
-                {["hour", "day", "month", "shift", "project"].map((value) => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </label>
-            <label>Salary cycle<input value={salaryCycle} onChange={(event) => setSalaryCycle(event.target.value)} /></label>
-            <label>Food<input value={food} onChange={(event) => setFood(event.target.value)} /></label>
-            <label className="full">Accommodation<input value={accommodation} onChange={(event) => setAccommodation(event.target.value)} /></label>
-            <label className="full">Documents (one per line)<textarea rows={4} value={documents} onChange={(event) => setDocuments(event.target.value)} /></label>
-            <ListEditor
-              label="Contact numbers"
-              items={contactsList}
-              onChange={setContactsList}
-              empty={{ display: "", raw: "", whatsapp: true }}
-              renderItem={(c, set) => <>
-                <input placeholder="Display, e.g. +966 57 875 3016" value={c.display} onChange={(event) => set({ ...c, display: event.target.value })} />
-                <input placeholder="Digits only, e.g. 966578753016" value={c.raw} onChange={(event) => set({ ...c, raw: event.target.value })} />
-                <label className="check-row mini"><input type="checkbox" checked={c.whatsapp} onChange={(event) => set({ ...c, whatsapp: event.target.checked })} /> WhatsApp</label>
-              </>}
-            />
-          </>}
-          {isService && <>
-            <div className="full form-divider"><FilePenLine size={13} /><span>Service details</span></div>
-            <label>Eyebrow<input value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} /></label>
-            <label>Lead<input value={lead} onChange={(event) => setLead(event.target.value)} /></label>
-            <label className="full">Intro<textarea rows={4} value={intro} onChange={(event) => setIntro(event.target.value)} /></label>
-            <label>Display number<input placeholder="e.g. 07" value={serviceNum} onChange={(event) => setServiceNum(event.target.value)} /></label>
-            <label>Icon
-              <select value={serviceIcon} onChange={(event) => setServiceIcon(event.target.value)}>
-                {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
-              </select>
-            </label>
-            <div className="full form-divider"><FolderKanban size={13} /><span>Structured sections</span></div>
-            <ListEditor
-              label="Stats"
-              items={statsList}
-              onChange={setStatsList}
-              empty={{ value: "", suffix: "", label: "" }}
-              renderItem={(s, set) => <>
-                <input placeholder="Value, e.g. 12" value={s.value} onChange={(event) => set({ ...s, value: event.target.value })} />
-                <input placeholder="Suffix, e.g. M+" value={s.suffix} onChange={(event) => set({ ...s, suffix: event.target.value })} />
-                <input placeholder="Label, e.g. Safe Man-hours" value={s.label} onChange={(event) => set({ ...s, label: event.target.value })} />
-              </>}
-            />
-            <ListEditor
-              label="Sub-services"
-              items={subServicesList}
-              onChange={setSubServicesList}
-              empty={{ title: "", desc: "", icon: "Wrench" }}
-              renderItem={(s, set) => <>
-                <input placeholder="Title" value={s.title} onChange={(event) => set({ ...s, title: event.target.value })} />
-                <select value={s.icon || "Wrench"} onChange={(event) => set({ ...s, icon: event.target.value })}>
+
+            {isService && <>
+              <label>Small label above the name
+                <input placeholder="e.g. Civil &amp; Structural" value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} />
+                <small className="field-hint">Tiny gold text sitting above the big heading.</small>
+              </label>
+              <label>Service number
+                <input placeholder="e.g. 01" value={serviceNum} onChange={(event) => setServiceNum(event.target.value)} />
+                <small className="field-hint">The big faded number shown beside the service.</small>
+              </label>
+              <label className="full">Opening line
+                <input value={lead} onChange={(event) => setLead(event.target.value)} />
+                <small className="field-hint">One strong sentence directly under the heading.</small>
+              </label>
+              <label className="full">Introduction paragraph
+                <textarea rows={4} value={intro} onChange={(event) => setIntro(event.target.value)} />
+                <small className="field-hint">The full opening paragraph of the service page.</small>
+              </label>
+              <label>Icon
+                <select value={serviceIcon} onChange={(event) => setServiceIcon(event.target.value)}>
                   {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select>
-                <input placeholder="Description" value={s.desc} onChange={(event) => set({ ...s, desc: event.target.value })} />
-              </>}
-            />
-            <ListEditor
-              label="Capabilities table"
-              items={capabilitiesRows}
-              onChange={setCapabilitiesRows}
-              empty={{ label: "", value: "" }}
-              renderItem={(r, set) => <>
-                <input placeholder="Label, e.g. Concrete capacity / day" value={r.label} onChange={(event) => set({ ...r, label: event.target.value })} />
-                <input placeholder="Value, e.g. Up to 1,200 m³" value={r.value} onChange={(event) => set({ ...r, value: event.target.value })} />
-              </>}
-            />
-            <ListEditor
-              label="Process steps"
-              items={processList}
-              onChange={setProcessList}
-              empty={{ num: String(processList.length + 1).padStart(2, "0"), title: "", desc: "" }}
-              renderItem={(p, set) => <>
-                <input placeholder="Step no., e.g. 01" value={p.num} onChange={(event) => set({ ...p, num: event.target.value })} />
-                <input placeholder="Title" value={p.title} onChange={(event) => set({ ...p, title: event.target.value })} />
-                <input placeholder="Description" value={p.desc} onChange={(event) => set({ ...p, desc: event.target.value })} />
-              </>}
-            />
-            <ListEditor
-              label="Certifications"
-              items={certificationsList}
-              onChange={setCertificationsList}
-              empty=""
-              renderItem={(c, set) => <input placeholder="e.g. ISO 9001:2015" value={c} onChange={(event) => set(event.target.value)} />}
-            />
-            <ListEditor
-              label="FAQs"
-              items={faqsList}
-              onChange={setFaqsList}
-              empty={{ q: "", a: "" }}
-              renderItem={(f, set) => <>
-                <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
-                <input placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
-              </>}
-            />
+                <small className="field-hint">Small symbol shown on the service card.</small>
+              </label>
+            </>}
+
+            {isProject && <>
+              <label>Client
+                <input value={projectClient} onChange={(event) => setProjectClient(event.target.value)} />
+                <small className="field-hint">Who the project is for. Shown in the fact strip.</small>
+              </label>
+              <label>Sector
+                <input placeholder="e.g. Giga-project" value={projectSector} onChange={(event) => setProjectSector(event.target.value)} />
+                <small className="field-hint">Gold badge at the top of the project page.</small>
+              </label>
+              <label>Location
+                <input value={location} onChange={(event) => setLocation(event.target.value)} />
+                <small className="field-hint">Where the project is. Shown in the fact strip.</small>
+              </label>
+              <label>Project value
+                <input placeholder="e.g. USD 500B+" value={projectValue} onChange={(event) => setProjectValue(event.target.value)} />
+                <small className="field-hint">Contract size shown in the fact strip.</small>
+              </label>
+              <label>Duration
+                <input placeholder="e.g. 2024 – Ongoing" value={projectDuration} onChange={(event) => setProjectDuration(event.target.value)} />
+                <small className="field-hint">Time period shown in the fact strip.</small>
+              </label>
+            </>}
+
+            {isEvent && <>
+              <label>Event type
+                <select value={eventType} onChange={(event) => setEventType(event.target.value)}>
+                  {["Conference", "Exhibition", "Site Visit", "Webinar"].map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+                <small className="field-hint">Shown as the badge on the event card.</small>
+              </label>
+              <label>Location
+                <input value={location} onChange={(event) => setLocation(event.target.value)} />
+              </label>
+              <label>Starts on
+                <input type="date" value={eventStartsOn} onChange={(event) => setEventStartsOn(event.target.value)} />
+                <small className="field-hint">Used for the day/month box and to decide if the event is past.</small>
+              </label>
+              <label>Ends on
+                <input type="date" value={eventEndsOn} onChange={(event) => setEventEndsOn(event.target.value)} />
+              </label>
+              <label className="full">Date as written
+                <input placeholder="e.g. June 18 – 20, 2026" value={eventDateDisplay} onChange={(event) => setEventDateDisplay(event.target.value)} />
+                <small className="field-hint">The date exactly as visitors should read it on the card.</small>
+              </label>
+            </>}
+
+            {isPost && <>
+              <label>Category badge
+                <select value={postCategory} onChange={(event) => setPostCategory(event.target.value)}>
+                  {["Insights", "Case Study", "Safety", "Vision 2030", "Industry"].map((value) => (
+                    <option key={value} value={value}>{value}</option>
+                  ))}
+                </select>
+                <small className="field-hint">Coloured tag on the article card.</small>
+              </label>
+              <label>Date as written
+                <input placeholder="e.g. May 12, 2026" value={postDate} onChange={(event) => setPostDate(event.target.value)} />
+              </label>
+              <label>Author name
+                <input value={postAuthor} onChange={(event) => setPostAuthor(event.target.value)} />
+              </label>
+              <label>Author job title
+                <input value={postAuthorRole} onChange={(event) => setPostAuthorRole(event.target.value)} />
+              </label>
+              <label>Reading time (minutes)
+                <input type="number" min="1" value={postReadMins} onChange={(event) => setPostReadMins(Number(event.target.value))} />
+                <small className="field-hint">Shown as “{postReadMins || 5} min read”.</small>
+              </label>
+            </>}
+
+            {isRequirement && <>
+              <label>How many people needed
+                <input type="number" min="1" value={headcount} onChange={(event) => setHeadcount(Number(event.target.value))} />
+              </label>
+              <label>Approval
+                <input placeholder="e.g. Aramco Approved" value={approval} onChange={(event) => setApproval(event.target.value)} />
+                <small className="field-hint">Green badge on the requirement card. Leave empty for none.</small>
+              </label>
+              <label className="full">Project name
+                <input value={projectName} onChange={(event) => setProjectName(event.target.value)} />
+              </label>
+              <label>Location
+                <input value={location} onChange={(event) => setLocation(event.target.value)} />
+              </label>
+              <label>Contract duration
+                <input placeholder="e.g. Long Term" value={duration} onChange={(event) => setDuration(event.target.value)} />
+              </label>
+              <label>Pay rate
+                <input type="number" min="0" step="0.01" placeholder="e.g. 33" value={rateAmount} onChange={(event) => setRateAmount(event.target.value)} />
+                <small className="field-hint">Shown on the site as “{rateAmount || "33"} {rateCurrency || "SAR"} / {rateUnit || "hour"}”.</small>
+              </label>
+              <label>Currency
+                <select value={rateCurrency} onChange={(event) => setRateCurrency(event.target.value)}>
+                  {["SAR", "USD", "AED", "INR", "BDT"].map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>Paid per
+                <select value={rateUnit} onChange={(event) => setRateUnit(event.target.value)}>
+                  {["hour", "day", "month", "shift", "project"].map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+              <label>Salary paid
+                <input placeholder="e.g. Monthly" value={salaryCycle} onChange={(event) => setSalaryCycle(event.target.value)} />
+              </label>
+              <label>Food
+                <input placeholder="e.g. Provided by company" value={food} onChange={(event) => setFood(event.target.value)} />
+              </label>
+              <label className="full">Accommodation
+                <input placeholder="e.g. Provided by company" value={accommodation} onChange={(event) => setAccommodation(event.target.value)} />
+              </label>
+            </>}
+            {bodyError && <p className="form-error full">{bodyError}</p>}
           </>}
-          {isProject && <>
-            <div className="full form-divider"><FolderKanban size={13} /><span>Project details</span></div>
-            <label>Client<input value={projectClient} onChange={(event) => setProjectClient(event.target.value)} /></label>
-            <label>Sector<input placeholder="e.g. Giga-project" value={projectSector} onChange={(event) => setProjectSector(event.target.value)} /></label>
-            <label>Value<input placeholder="e.g. USD 500B+" value={projectValue} onChange={(event) => setProjectValue(event.target.value)} /></label>
-            <label>Duration<input placeholder="e.g. 2024 – Ongoing" value={projectDuration} onChange={(event) => setProjectDuration(event.target.value)} /></label>
-            <ListEditor
-              label="Long description (paragraphs)"
-              items={projectLong}
-              onChange={setProjectLong}
-              empty=""
-              renderItem={(p, set) => <textarea rows={3} value={p} onChange={(event) => set(event.target.value)} />}
-            />
-            <ListEditor
-              label="Highlights"
-              items={projectHighlights}
-              onChange={setProjectHighlights}
-              empty=""
-              renderItem={(h, set) => <input value={h} onChange={(event) => set(event.target.value)} />}
-            />
+
+          {tab === "sections" && <>
+            {isService && <>
+              <ListEditor
+                label="Key numbers"
+                items={statsList}
+                onChange={setStatsList}
+                empty={{ value: "", suffix: "", label: "" }}
+                renderItem={(s, set) => <>
+                  <input placeholder="Number, e.g. 12" value={s.value} onChange={(event) => set({ ...s, value: event.target.value })} />
+                  <input placeholder="After the number, e.g. M+" value={s.suffix} onChange={(event) => set({ ...s, suffix: event.target.value })} />
+                  <input placeholder="What it means, e.g. Safe Man-hours" value={s.label} onChange={(event) => set({ ...s, label: event.target.value })} />
+                </>}
+              />
+              <ListEditor
+                label="What's included"
+                items={subServicesList}
+                onChange={setSubServicesList}
+                empty={{ title: "", desc: "", icon: "Wrench" }}
+                renderItem={(s, set) => <>
+                  <input placeholder="Title" value={s.title} onChange={(event) => set({ ...s, title: event.target.value })} />
+                  <select value={s.icon || "Wrench"} onChange={(event) => set({ ...s, icon: event.target.value })}>
+                    {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
+                  </select>
+                  <input placeholder="Short description" value={s.desc} onChange={(event) => set({ ...s, desc: event.target.value })} />
+                </>}
+              />
+              <ListEditor
+                label="Capability table"
+                items={capabilitiesRows}
+                onChange={setCapabilitiesRows}
+                empty={{ label: "", value: "" }}
+                renderItem={(r, set) => <>
+                  <input placeholder="Left column, e.g. Concrete capacity / day" value={r.label} onChange={(event) => set({ ...r, label: event.target.value })} />
+                  <input placeholder="Right column, e.g. Up to 1,200 m³" value={r.value} onChange={(event) => set({ ...r, value: event.target.value })} />
+                </>}
+              />
+              <ListEditor
+                label="How we work (steps)"
+                items={processList}
+                onChange={setProcessList}
+                empty={{ num: String(processList.length + 1).padStart(2, "0"), title: "", desc: "" }}
+                renderItem={(p, set) => <>
+                  <input placeholder="Step no., e.g. 01" value={p.num} onChange={(event) => set({ ...p, num: event.target.value })} />
+                  <input placeholder="Step title" value={p.title} onChange={(event) => set({ ...p, title: event.target.value })} />
+                  <input placeholder="Step description" value={p.desc} onChange={(event) => set({ ...p, desc: event.target.value })} />
+                </>}
+              />
+              <ListEditor
+                label="Certifications"
+                items={certificationsList}
+                onChange={setCertificationsList}
+                empty=""
+                renderItem={(c, set) => <input placeholder="e.g. ISO 9001:2015" value={c} onChange={(event) => set(event.target.value)} />}
+              />
+              <ListEditor
+                label="Questions &amp; answers"
+                items={faqsList}
+                onChange={setFaqsList}
+                empty={{ q: "", a: "" }}
+                renderItem={(f, set) => <>
+                  <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
+                  <input placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
+                </>}
+              />
+            </>}
+
+            {isProject && <>
+              <ListEditor
+                label="Full description (one box per paragraph)"
+                items={projectLong}
+                onChange={setProjectLong}
+                empty=""
+                renderItem={(p, set) => <textarea rows={3} value={p} onChange={(event) => set(event.target.value)} />}
+              />
+              <ListEditor
+                label="Key highlights (bullet points)"
+                items={projectHighlights}
+                onChange={setProjectHighlights}
+                empty=""
+                renderItem={(h, set) => <input placeholder="e.g. 240 certified workers mobilised" value={h} onChange={(event) => set(event.target.value)} />}
+              />
+            </>}
+
+            {isPost && (
+              <ListEditor
+                label="Article text (one box per paragraph)"
+                items={postParagraphs}
+                onChange={setPostParagraphs}
+                empty=""
+                renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
+              />
+            )}
+
+            {isRequirement && <>
+              <label className="full">Required documents (one per line)
+                <textarea rows={4} placeholder={"Valid Iqama\nMedical Insurance"} value={documents} onChange={(event) => setDocuments(event.target.value)} />
+              </label>
+              <ListEditor
+                label="Contact numbers"
+                items={contactsList}
+                onChange={setContactsList}
+                empty={{ display: "", raw: "", whatsapp: true }}
+                renderItem={(c, set) => <>
+                  <input placeholder="As shown, e.g. +966 57 875 3016" value={c.display} onChange={(event) => set({ ...c, display: event.target.value })} />
+                  <input placeholder="Digits only, e.g. 966578753016" value={c.raw} onChange={(event) => set({ ...c, raw: event.target.value })} />
+                  <label className="check-row mini"><input type="checkbox" checked={c.whatsapp} onChange={(event) => set({ ...c, whatsapp: event.target.checked })} /> Has WhatsApp</label>
+                </>}
+              />
+            </>}
           </>}
-          {isEvent && <>
-            <div className="full form-divider"><CalendarDays size={13} /><span>Event details</span></div>
-            <label>Type
-              <select value={eventType} onChange={(event) => setEventType(event.target.value)}>
-                {["Conference", "Exhibition", "Site Visit", "Webinar"].map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
+
+          {tab === "publish" && <>
+            <label>Show on website
+              <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                {statusOptions.map((value) => <option key={value}>{value}</option>)}
               </select>
+              <small className="field-hint">
+                <b>published</b> = visible to everyone. <b>draft</b> = hidden. <b>archived</b> = removed from the site.
+              </small>
             </label>
-            <label>Display date<input placeholder="e.g. June 18 – 20, 2026" value={eventDateDisplay} onChange={(event) => setEventDateDisplay(event.target.value)} /></label>
-            <label>Starts on<input type="date" value={eventStartsOn} onChange={(event) => setEventStartsOn(event.target.value)} /></label>
-            <label>Ends on<input type="date" value={eventEndsOn} onChange={(event) => setEventEndsOn(event.target.value)} /></label>
-          </>}
-          {isPost && <>
-            <div className="full form-divider"><Newspaper size={13} /><span>Article details</span></div>
-            <label>Card badge
-              <select value={postCategory} onChange={(event) => setPostCategory(event.target.value)}>
-                {["Insights", "Case Study", "Safety", "Vision 2030", "Industry"].map((value) => (
-                  <option key={value} value={value}>{value}</option>
-                ))}
-              </select>
+            {!isRequirement && <label>Position in list
+              <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
+              <small className="field-hint">Smaller number shows first. You can also use the arrows on the list page.</small>
+            </label>}
+            {!isRequirement && <label className="check-row full">
+              <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
+              Highlight this as featured
+            </label>}
+            <div className="full modal-language-row">
+              <span>Editing language</span>
+              <div className="segmented language-tabs" aria-label="Content language">
+                <button type="button" className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
+                <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
+              </div>
+            </div>
+            <label className="full">Web address
+              <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
+              <small className="field-hint">
+                {publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`} — changing this breaks links people already saved.
+              </small>
             </label>
-            <label>Display date<input placeholder="e.g. May 12, 2026" value={postDate} onChange={(event) => setPostDate(event.target.value)} /></label>
-            <label>Author<input value={postAuthor} onChange={(event) => setPostAuthor(event.target.value)} /></label>
-            <label>Author role<input value={postAuthorRole} onChange={(event) => setPostAuthorRole(event.target.value)} /></label>
-            <label>Read time (minutes)<input type="number" min="1" value={postReadMins} onChange={(event) => setPostReadMins(Number(event.target.value))} /></label>
-            <ListEditor
-              label="Article body (paragraphs)"
-              items={postParagraphs}
-              onChange={setPostParagraphs}
-              empty=""
-              renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
-            />
+            <label className="full">Google search title
+              <input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} />
+              <small className="field-hint">The blue clickable line in Google results. Leave empty to use the name above.</small>
+            </label>
+            <label className="full">Google search description
+              <textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} />
+              <small className="field-hint">The grey text under the blue line in Google results.</small>
+            </label>
+            {bodyError && <p className="form-error full">{bodyError}</p>}
           </>}
-          <div className="full form-divider"><FileText size={13} /><span>Summary &amp; SEO</span></div>
-          <label className="full">Summary<textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
-          {bodyError && <p className="form-error full">{bodyError}</p>}
-          <label>Meta title<input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} /></label>
-          <label>Meta description<textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} /></label>
         </div>
         <div className="modal-actions">
+          <span className="modal-actions-note">Changes go live on the website as soon as you save.</span>
           <button type="button" onClick={onClose}>Cancel</button>
           <button className="primary-button compact" disabled={saving || !can(user, "cms.manage_content")}>
-            {saving ? "Saving..." : "Save content"}
+            {saving ? "Saving…" : "Save & publish"}
           </button>
         </div>
       </form>
