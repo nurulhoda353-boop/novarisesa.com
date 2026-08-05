@@ -19,6 +19,7 @@ import {
   LogOut,
   Menu,
   MessageSquareText,
+  Moon,
   MoreHorizontal,
   Newspaper,
   Pencil,
@@ -26,6 +27,8 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Star,
+  Sun,
   Trash2,
   Users,
   X,
@@ -35,6 +38,21 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, SITE_URL } from "@/lib/api";
+
+// ── Dark / Light mode toggle ──────────────────────────────────────────────────
+function useTheme() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
+  function toggle() {
+    const next = !dark;
+    document.documentElement.classList.toggle("dark", next);
+    try { localStorage.setItem("nr-theme", next ? "dark" : "light"); } catch {}
+    setDark(next);
+  }
+  return { dark, toggle };
+}
 
 const SITE_ORIGIN = new URL(SITE_URL).origin;
 
@@ -175,6 +193,7 @@ function can(user: User, code: string) {
 }
 
 export default function Dashboard({ route }: { route: string[] }) {
+  const { dark, toggle: toggleTheme } = useTheme();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [mobile, setMobile] = useState(false);
@@ -267,6 +286,9 @@ export default function Dashboard({ route }: { route: string[] }) {
           </button>
           {topbarActions && <div className="topbar-page-actions">{topbarActions}</div>}
           <a className="site-link" href="https://novarisesa.com" target="_blank"><Globe2 size={16} /> View website</a>
+          <button className="theme-toggle" onClick={toggleTheme} title={dark ? "Switch to light mode" : "Switch to dark mode"} aria-label="Toggle theme">
+            {dark ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
           <Link className="icon-button" href="/inbox/contact" title={`${inboxNew} new inbox items`}>
             <Bell size={18} />
             {inboxNew > 0 && <i />}
@@ -1033,17 +1055,27 @@ function ContentPage({ resource, user }: { resource: string; user: User }) {
               <article className="content-card" key={item.id}>
                 <div className="content-card-media">
                   <AssetPreview src={thumb} label={item.title} compact />
-                  <div className="content-card-badges">
-                    <Badge value={item.status} />
-                    {item.is_featured && <span className="badge badge-featured">Featured</span>}
+                  <div className="content-card-overlay">
+                    <div className="content-card-top-bar">
+                      <span className="content-card-number">
+                        {String(index + 1).padStart(2, '0')} &bull; {item.status.toUpperCase()}
+                      </span>
+                      {item.is_featured && <span className="content-card-icon-badge"><Star size={14} /></span>}
+                    </div>
+                    <div className="content-card-title-area">
+                      <h3 className="content-card-title" title={item.title}>{item.title}</h3>
+                      <div className="content-card-line"></div>
+                    </div>
                   </div>
                 </div>
                 <div className="content-card-body">
-                  <strong title={item.title}>{item.title}</strong>
-                  <small>/{item.slug}</small>
+                  <p className="content-card-summary">{item.summary || `Manage the ${item.title} content and configuration.`}</p>
                 </div>
                 <div className="content-card-foot">
-                  <span>Updated {new Date(item.updated_at).toLocaleDateString()}</span>
+                  <div className="content-card-meta">
+                    <span className="slug">/{item.slug}</span>
+                    <span className="date">Updated {new Date(item.updated_at).toLocaleDateString()}</span>
+                  </div>
                   <span className="content-card-actions">
                     {can(user, "cms.manage_content") && (
                       <span className="reorder-buttons">
@@ -1465,7 +1497,12 @@ function ContentModal({
       <form className="modal wide" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <p className="eyebrow">{item ? "Edit content" : "New content"}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+              <p className="eyebrow" style={{ margin: 0 }}>
+                {item ? "EDITING" : "NEW CONTENT"}
+              </p>
+              {item && <Badge value={item.status} />}
+            </div>
             <h2>{item ? item.title : `Create ${humanize(resource.replace(/s$/, ""))}`}</h2>
             {item && publicPageHref(resource, slug) && (
               <a className="modal-live-link" href={publicPageHref(resource, slug) as string} target="_blank" rel="noreferrer">
@@ -1491,18 +1528,32 @@ function ContentModal({
 
         <div className="form-grid">
           {tab === "content" && <>
-            {supportsMedia && <label className="full">Main picture
-              <AssetPreview src={previewSrc} label="Main picture" />
-              <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
-                <option value="">{heroFallback ? "Keep the picture that is live now" : "No picture chosen"}</option>
-                {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
-                  <option value={media.id} key={media.id}>{media.file_name}</option>
-                ))}
-              </select>
-              <small className="field-hint">
-                The big picture at the top of this page. Upload new pictures in <b>Media library</b> first, then pick one here.
-              </small>
-            </label>}
+            {supportsMedia && (() => {
+              const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
+              return (
+                <label className="full">Main picture
+                  <div className={displaySrc ? "modal-image-preview" : "modal-image-preview empty-preview"}>
+                    {displaySrc ? (
+                      <img src={displaySrc} alt="Main picture" />
+                    ) : (
+                      <>
+                        <ImageIcon size={24} />
+                        <span>No picture selected</span>
+                      </>
+                    )}
+                  </div>
+                  <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
+                    <option value="">{heroFallback ? "Keep the picture that is live now" : "No picture chosen"}</option>
+                    {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
+                      <option value={media.id} key={media.id}>{media.file_name}</option>
+                    ))}
+                  </select>
+                  <small className="field-hint">
+                    The big picture at the top of this page. Upload new pictures in <b>Media library</b> first, then pick one here.
+                  </small>
+                </label>
+              );
+            })()}
 
             <label className="full">Name
               <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item) setSlug(slugify(event.target.value)); }} required />
