@@ -1130,12 +1130,14 @@ function ListEditor<T>({
   onChange,
   empty,
   renderItem,
+  variant = "default",
 }: {
   label: string;
   items: T[];
   onChange: (items: T[]) => void;
   empty: T;
   renderItem: (item: T, setItem: (value: T) => void) => ReactNode;
+  variant?: "default" | "stack";
 }) {
   function add() {
     onChange([...items, empty]);
@@ -1158,7 +1160,7 @@ function ListEditor<T>({
       </div>
       {items.map((item, index) => (
         <div className="list-editor-row" key={index}>
-          <div className="list-editor-fields">
+          <div className={`list-editor-fields${variant === "stack" ? " stack" : ""}`}>
             {renderItem(item, (value) => onChange(items.map((it, i) => (i === index ? value : it))))}
           </div>
           <div className="list-editor-row-actions">
@@ -1170,6 +1172,33 @@ function ListEditor<T>({
       ))}
       {!items.length && <p className="list-editor-empty">Nothing yet — click + Add.</p>}
     </div>
+  );
+}
+
+function EditorSection({
+  step,
+  title,
+  description,
+  layout = "grid",
+  children,
+}: {
+  step: string;
+  title: string;
+  description: string;
+  layout?: "grid" | "stack";
+  children: ReactNode;
+}) {
+  return (
+    <section className="editor-section">
+      <div className="editor-section-head">
+        <span>{step}</span>
+        <div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+      </div>
+      <div className={`editor-section-body ${layout === "stack" ? "editor-section-stack" : "form-grid"}`}>{children}</div>
+    </section>
   );
 }
 
@@ -1278,7 +1307,6 @@ function ContentModal({
   const [eventStartsOn, setEventStartsOn] = useState("");
   const [eventEndsOn, setEventEndsOn] = useState("");
   const hasSections = (isService || isProject || isPost || isRequirement) && !isFaq;
-  const [tab, setTab] = useState<"content" | "sections" | "publish">("content");
 
   useEffect(() => {
     if (!supportsMedia) return;
@@ -1384,14 +1412,13 @@ function ContentModal({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    // The slug input lives on the Publishing tab, so it may not be mounted when
+    // The slug input lives in the sidebar, so it may not be mounted when
     // the form is submitted; never let that produce an item without an address.
     const safeSlug = isFaq
       ? (slug.trim() || `faq-${slugify(title).slice(0, 48)}-${Date.now().toString(36)}`)
       : (slug.trim() || slugify(title));
     if (!safeSlug) {
-      setTab("publish");
-      setBodyError("Please give this item a web address on the Publishing tab.");
+      setBodyError("Please give this item a web address in the sidebar under Advanced options.");
       return;
     }
     if (safeSlug !== slug) setSlug(safeSlug);
@@ -1556,7 +1583,7 @@ function ContentModal({
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
-      <form className="modal wide" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
+      <form className="modal editor-sheet" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
@@ -1574,22 +1601,13 @@ function ContentModal({
           </div>
           <button type="button" onClick={onClose}><X /></button>
         </div>
-        <div className="modal-tabs" role="tablist">
-          <button type="button" role="tab" className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>
-            <FilePenLine size={14} /> Page content
-          </button>
-          {hasSections && (
-            <button type="button" role="tab" className={tab === "sections" ? "active" : ""} onClick={() => setTab("sections")}>
-              <FolderKanban size={14} /> Page sections
-            </button>
-          )}
-          <button type="button" role="tab" className={tab === "publish" ? "active" : ""} onClick={() => setTab("publish")}>
-            <Settings size={14} /> Publishing
-          </button>
-        </div>
-
-        <div className="form-grid">
-          {tab === "content" && <>
+        <div className="editor-body">
+          <div className="editor-main">
+            <EditorSection
+              step="01"
+              title="Hero & headline"
+              description="The picture, title and intro at the top of the page — in the same order visitors see on the live site."
+            >
             {supportsMedia && (() => {
               const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
               return (
@@ -1626,6 +1644,14 @@ function ContentModal({
               <textarea rows={isFaq ? 5 : 3} value={summary} onChange={(event) => setSummary(event.target.value)} />
               <small className="field-hint">{isFaq ? "The full answer shown when someone opens this question." : "One or two lines shown under the heading and on the card in lists."}</small>
             </label>
+            </EditorSection>
+
+            {!isFaq && (
+            <EditorSection
+              step="02"
+              title="Key details"
+              description="Facts, labels and metadata that appear in the page body and listing cards."
+            >
 
             {isService && <>
               <label>Small label above the name
@@ -1787,13 +1813,18 @@ function ContentModal({
                 <input type="datetime-local" value={requirementClosesAt} onChange={(event) => setRequirementClosesAt(event.target.value)} />
               </label>
             </>}
-            {bodyError && <p className="form-error full">{bodyError}</p>}
-          </>}
+            </EditorSection>
+            )}
 
-          {tab === "sections" && <>
-            {isService && <>
+            {hasSections && isService && <>
+            <EditorSection
+              step="03"
+              title="Key numbers"
+              description="The stat strip below the hero — big numbers with short labels."
+              layout="stack"
+            >
               <ListEditor
-                label="Key numbers"
+                label="Stats"
                 items={statsList}
                 onChange={setStatsList}
                 empty={{ value: "", suffix: "", label: "" }}
@@ -1803,21 +1834,38 @@ function ContentModal({
                   <input placeholder="What it means, e.g. Safe Man-hours" value={s.label} onChange={(event) => set({ ...s, label: event.target.value })} />
                 </>}
               />
+            </EditorSection>
+
+            <EditorSection
+              step="04"
+              title="What's included"
+              description="Sub-service cards with icon, title and short description."
+              layout="stack"
+            >
               <ListEditor
-                label="What's included"
+                label="Sub-services"
                 items={subServicesList}
                 onChange={setSubServicesList}
                 empty={{ title: "", desc: "", icon: "Wrench" }}
+                variant="stack"
                 renderItem={(s, set) => <>
                   <input placeholder="Title" value={s.title} onChange={(event) => set({ ...s, title: event.target.value })} />
                   <select value={s.icon || "Wrench"} onChange={(event) => set({ ...s, icon: event.target.value })}>
                     {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
                   </select>
-                  <input placeholder="Short description" value={s.desc} onChange={(event) => set({ ...s, desc: event.target.value })} />
+                  <textarea rows={2} placeholder="Short description" value={s.desc} onChange={(event) => set({ ...s, desc: event.target.value })} />
                 </>}
               />
+            </EditorSection>
+
+            <EditorSection
+              step="05"
+              title="Capability table"
+              description="Two-column spec rows — label on the left, value on the right."
+              layout="stack"
+            >
               <ListEditor
-                label="Capability table"
+                label="Rows"
                 items={capabilitiesRows}
                 onChange={setCapabilitiesRows}
                 empty={{ label: "", value: "" }}
@@ -1826,17 +1874,34 @@ function ContentModal({
                   <input placeholder="Right column, e.g. Up to 1,200 m³" value={r.value} onChange={(event) => set({ ...r, value: event.target.value })} />
                 </>}
               />
+            </EditorSection>
+
+            <EditorSection
+              step="06"
+              title="How we work"
+              description="Numbered process steps visitors scroll through on the page."
+              layout="stack"
+            >
               <ListEditor
-                label="How we work (steps)"
+                label="Steps"
                 items={processList}
                 onChange={setProcessList}
                 empty={{ num: String(processList.length + 1).padStart(2, "0"), title: "", desc: "" }}
+                variant="stack"
                 renderItem={(p, set) => <>
                   <input placeholder="Step no., e.g. 01" value={p.num} onChange={(event) => set({ ...p, num: event.target.value })} />
                   <input placeholder="Step title" value={p.title} onChange={(event) => set({ ...p, title: event.target.value })} />
-                  <input placeholder="Step description" value={p.desc} onChange={(event) => set({ ...p, desc: event.target.value })} />
+                  <textarea rows={2} placeholder="Step description" value={p.desc} onChange={(event) => set({ ...p, desc: event.target.value })} />
                 </>}
               />
+            </EditorSection>
+
+            <EditorSection
+              step="07"
+              title="Certifications"
+              description="Badges or standards listed near the bottom of the service page."
+              layout="stack"
+            >
               <ListEditor
                 label="Certifications"
                 items={certificationsList}
@@ -1844,74 +1909,135 @@ function ContentModal({
                 empty=""
                 renderItem={(c, set) => <input placeholder="e.g. ISO 9001:2015" value={c} onChange={(event) => set(event.target.value)} />}
               />
+            </EditorSection>
+
+            <EditorSection
+              step="08"
+              title="Questions & answers"
+              description="FAQ accordion at the end of the service page."
+              layout="stack"
+            >
               <ListEditor
-                label="Questions &amp; answers"
+                label="FAQs"
                 items={faqsList}
                 onChange={setFaqsList}
                 empty={{ q: "", a: "" }}
-                renderItem={(f, set) => <>
-                  <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
-                  <input placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
-                </>}
-              />
-            </>}
-
-            {isProject && <>
-              <ListEditor
-                label="Full description (one box per paragraph)"
-                items={projectLong}
-                onChange={setProjectLong}
-                empty=""
-                renderItem={(p, set) => <textarea rows={3} value={p} onChange={(event) => set(event.target.value)} />}
-              />
-              <ListEditor
-                label="Key highlights (bullet points)"
-                items={projectHighlights}
-                onChange={setProjectHighlights}
-                empty=""
-                renderItem={(h, set) => <input placeholder="e.g. 240 certified workers mobilised" value={h} onChange={(event) => set(event.target.value)} />}
-              />
-              <ListEditor
-                label="Questions &amp; answers"
-                items={projectFaqsList}
-                onChange={setProjectFaqsList}
-                empty={{ q: "", a: "" }}
+                variant="stack"
                 renderItem={(f, set) => <>
                   <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
                   <textarea rows={3} placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
                 </>}
               />
+            </EditorSection>
             </>}
 
-            {isPost && (
+            {hasSections && isProject && <>
+            <EditorSection
+              step="03"
+              title="Full description"
+              description="Main article body — one text box per paragraph, in reading order."
+              layout="stack"
+            >
               <ListEditor
-                label="Article text (one box per paragraph)"
+                label="Paragraphs"
+                items={projectLong}
+                onChange={setProjectLong}
+                empty=""
+                variant="stack"
+                renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
+              />
+            </EditorSection>
+
+            <EditorSection
+              step="04"
+              title="Key highlights"
+              description="Bullet points summarising the project at a glance."
+              layout="stack"
+            >
+              <ListEditor
+                label="Highlights"
+                items={projectHighlights}
+                onChange={setProjectHighlights}
+                empty=""
+                renderItem={(h, set) => <input placeholder="e.g. 240 certified workers mobilised" value={h} onChange={(event) => set(event.target.value)} />}
+              />
+            </EditorSection>
+
+            <EditorSection
+              step="05"
+              title="Questions & answers"
+              description="FAQ accordion on the project detail page."
+              layout="stack"
+            >
+              <ListEditor
+                label="FAQs"
+                items={projectFaqsList}
+                onChange={setProjectFaqsList}
+                empty={{ q: "", a: "" }}
+                variant="stack"
+                renderItem={(f, set) => <>
+                  <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
+                  <textarea rows={3} placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
+                </>}
+              />
+            </EditorSection>
+            </>}
+
+            {hasSections && isPost && (
+            <EditorSection
+              step="03"
+              title="Article text"
+              description="Blog body — one box per paragraph, top to bottom."
+              layout="stack"
+            >
+              <ListEditor
+                label="Paragraphs"
                 items={postParagraphs}
                 onChange={setPostParagraphs}
                 empty=""
+                variant="stack"
                 renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
               />
+            </EditorSection>
             )}
 
-            {isRequirement && <>
-              <label className="full">Required documents (one per line)
-                <textarea rows={4} placeholder={"Valid Iqama\nMedical Insurance"} value={documents} onChange={(event) => setDocuments(event.target.value)} />
+            {hasSections && isRequirement && <>
+            <EditorSection
+              step="03"
+              title="Required documents"
+              description="Listed on the requirement page — one document name per line."
+              layout="stack"
+            >
+              <label className="full">Documents
+                <textarea rows={5} placeholder={"Valid Iqama\nMedical Insurance"} value={documents} onChange={(event) => setDocuments(event.target.value)} />
               </label>
+            </EditorSection>
+
+            <EditorSection
+              step="04"
+              title="Contact numbers"
+              description="Phone numbers with optional WhatsApp link on the apply card."
+              layout="stack"
+            >
               <ListEditor
-                label="Contact numbers"
+                label="Contacts"
                 items={contactsList}
                 onChange={setContactsList}
                 empty={{ display: "", raw: "", whatsapp: true }}
+                variant="stack"
                 renderItem={(c, set) => <>
                   <input placeholder="As shown, e.g. +966 57 875 3016" value={c.display} onChange={(event) => set({ ...c, display: event.target.value })} />
                   <input placeholder="Digits only, e.g. 966578753016" value={c.raw} onChange={(event) => set({ ...c, raw: event.target.value })} />
                   <label className="check-row mini"><input type="checkbox" checked={c.whatsapp} onChange={(event) => set({ ...c, whatsapp: event.target.checked })} /> Has WhatsApp</label>
                 </>}
               />
+            </EditorSection>
             </>}
-          </>}
 
-          {tab === "publish" && <>
+          </div>
+
+          <aside className="editor-sidebar">
+            <p className="sidebar-title">Publishing</p>
             <label>Show on website
               <select value={status} onChange={(event) => setStatus(event.target.value)}>
                 {statusOptions.map((value) => <option key={value}>{value}</option>)}
@@ -1922,13 +2048,13 @@ function ContentModal({
             </label>
             {!isRequirement && <label>Position in list
               <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
-              <small className="field-hint">Smaller number shows first. You can also use the arrows on the list page.</small>
+              <small className="field-hint">Smaller number shows first.</small>
             </label>}
-            {!isRequirement && !isFaq && <label className="check-row full">
+            {!isRequirement && !isFaq && <label className="check-row">
               <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
-              Highlight this as featured
+              Highlight as featured
             </label>}
-            <div className="full modal-language-row">
+            <div className="modal-language-row">
               <span>Editing language</span>
               <div className="segmented language-tabs" aria-label="Content language">
                 <button type="button" className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
@@ -1936,30 +2062,28 @@ function ContentModal({
               </div>
             </div>
             {!isFaq && (
-              <details className="advanced-fields full">
-                <summary>Advanced options (web address &amp; Google search)</summary>
+              <details className="advanced-fields">
+                <summary>Advanced (web address &amp; Google)</summary>
                 <div className="advanced-fields-body">
                   {!isRequirement && (
                     <label className="full">Web address
                       <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
                       <small className="field-hint">
-                        {publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`} — changing this breaks links people already saved.
+                        {publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`}
                       </small>
                     </label>
                   )}
                   <label className="full">Google search title
                     <input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} />
-                    <small className="field-hint">The blue clickable line in Google results. Leave empty to use the name above.</small>
                   </label>
                   <label className="full">Google search description
                     <textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} />
-                    <small className="field-hint">The grey text under the blue line in Google results.</small>
                   </label>
                 </div>
               </details>
             )}
-            {bodyError && <p className="form-error full">{bodyError}</p>}
-          </>}
+            {bodyError && <p className="form-error">{bodyError}</p>}
+          </aside>
         </div>
         <div className="modal-actions">
           <span className="modal-actions-note">Changes go live on the website as soon as you save.</span>
