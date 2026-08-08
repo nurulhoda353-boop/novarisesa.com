@@ -270,15 +270,18 @@
   - Contact phone/email → `site.ts` constants (FAQ + ContactInfo)।
   - Settings JSON editor শুধু **owner** role-এর জন্য।
 - Backend tests **14/14 passed** · public site + dashboard **build pass**।
+- **Production deploy:** commit `90e8f67` → GitHub `main` push → Coolify auto-redeploy।
+- Production health: `api.novarisesa.com`, `my.novarisesa.com`, `novarisesa.com` — সব `ok`।
+- Production API `collections.faq` key live (migration `20260808_0001` applied on deploy)।
 
 ### Tomorrow / Next — planned
-1. `alembic upgrade head` লোকাল + Coolify production deploy।
-2. Browser smoke test: FAQ admin, inbox detail, blog categories, News section, detail SEO।
-3. Production-এ প্রথম FAQ items + blog categories seed করা।
+1. Browser smoke test: FAQ admin, inbox detail, blog categories, News section।
+2. Production-এ প্রথম FAQ items + blog categories seed করা (dashboard থেকে)।
+3. Optional: Rich text editor (WYSIWYG) ভবিষ্যত sprint-এ।
 
 ### Notes
-- Migration ফাইল: `backend/alembic/versions/20260808_0001_add_faq_items.py` — deploy-এর আগে অবশ্যই চালাতে হবে।
-- প্রোডাকশন রেডিনেস estimate: **~90–92%** (আগে ~74%)।
+- Commit: `90e8f67 feat: complete CMS production readiness for daily management modules`
+- প্রোডাকশন রেডিনেস: **~90–92%** ✅
 
 ---
 
