@@ -1180,25 +1180,78 @@ function EditorSection({
   title,
   description,
   layout = "grid",
+  tone = "white",
   children,
 }: {
   step: string;
   title: string;
   description: string;
-  layout?: "grid" | "stack";
+  layout?: "grid" | "stack" | "hero" | "split-left" | "split-right";
+  tone?: "white" | "sand";
   children: ReactNode;
 }) {
+  const bodyClass = {
+    grid: "form-grid",
+    stack: "editor-section-stack",
+    hero: "editor-hero-layout",
+    "split-left": "editor-split editor-split-left",
+    "split-right": "editor-split editor-split-right",
+  }[layout];
   return (
-    <section className="editor-section">
-      <div className="editor-section-head">
-        <span>{step}</span>
-        <div>
-          <h3>{title}</h3>
-          <p>{description}</p>
+    <section className={`editor-timeline-block editor-tone-${tone}`}>
+      <span className="editor-timeline-marker">{step}</span>
+      <div className="editor-section">
+        <div className="editor-section-head">
+          <div>
+            <h3>{title}</h3>
+            <p>{description}</p>
+          </div>
         </div>
+        <div className={`editor-section-body ${bodyClass}`}>{children}</div>
       </div>
-      <div className={`editor-section-body ${layout === "stack" ? "editor-section-stack" : "form-grid"}`}>{children}</div>
     </section>
+  );
+}
+
+function EditorMediaPicker({
+  label,
+  previewSrc,
+  mediaId,
+  onMediaIdChange,
+  mediaItems,
+  heroFallback,
+  hint,
+}: {
+  label: string;
+  previewSrc: string;
+  mediaId: string;
+  onMediaIdChange: (value: string) => void;
+  mediaItems: MediaItem[];
+  heroFallback: string;
+  hint?: ReactNode;
+}) {
+  const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
+  return (
+    <label className="editor-media-field full">
+      <span className="editor-field-label">{label}</span>
+      <div className={displaySrc ? "editor-media-preview" : "editor-media-preview empty"}>
+        {displaySrc ? (
+          <img src={displaySrc} alt={label} />
+        ) : (
+          <>
+            <ImageIcon size={28} />
+            <span>No picture selected</span>
+          </>
+        )}
+      </div>
+      <select value={mediaId} onChange={(event) => onMediaIdChange(event.target.value)}>
+        <option value="">{heroFallback ? "Keep the picture that is live now" : "No picture chosen"}</option>
+        {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
+          <option value={media.id} key={media.id}>{media.file_name}</option>
+        ))}
+      </select>
+      {hint && <small className="field-hint">{hint}</small>}
+    </label>
   );
 }
 
@@ -1410,18 +1463,19 @@ function ContentModal({
     return () => { cancelled = true; };
   }, [item, resource, locale]);
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    // The slug input lives in the sidebar, so it may not be mounted when
-    // the form is submitted; never let that produce an item without an address.
+  async function save(event?: React.FormEvent, nextStatus?: string) {
+    event?.preventDefault();
+    const finalStatus = nextStatus ?? status;
+    // Slug lives in page settings; keep a safe fallback on save.
     const safeSlug = isFaq
       ? (slug.trim() || `faq-${slugify(title).slice(0, 48)}-${Date.now().toString(36)}`)
       : (slug.trim() || slugify(title));
     if (!safeSlug) {
-      setBodyError("Please give this item a web address in the sidebar under Advanced options.");
+      setBodyError("Please give this item a web address in Page settings below.");
       return;
     }
     if (safeSlug !== slug) setSlug(safeSlug);
+    if (nextStatus) setStatus(nextStatus);
     setSaving(true);
     setBodyError("");
     let parsedBody: Record<string, unknown> = {};
@@ -1501,7 +1555,7 @@ function ContentModal({
       slug: safeSlug,
       code: isRequirement ? safeSlug : undefined,
       summary,
-      status,
+      status: finalStatus,
       is_featured: featured,
       sort_order: sortOrder,
       headcount: isRequirement ? headcount : undefined,
@@ -1581,78 +1635,128 @@ function ContentModal({
   const heroFallback = assetSlots.find(([key]) => key === `${resource}.${slug}.hero`)?.[2] ?? "";
   const previewSrc = selectedMedia?.public_url || heroFallback;
 
+  const publishStatus = isRequirement ? "active" : "published";
+  const publishLabel = isRequirement ? "Activate" : "Publish";
+
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
-      <form className="modal editor-sheet" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="modal-head">
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-              <p className="eyebrow" style={{ margin: 0 }}>
-                {item ? "EDITING" : "NEW CONTENT"}
-              </p>
-              {item && <Badge value={item.status} />}
+      <form className="modal editor-timeline" onSubmit={(event) => save(event)} onMouseDown={(event) => event.stopPropagation()}>
+        <header className="editor-toolbar">
+          <div className="editor-toolbar-left">
+            <button type="button" className="editor-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+            <div>
+              <div className="editor-toolbar-meta">
+                <span className="eyebrow">{item ? "EDITING" : "NEW CONTENT"}</span>
+                {item && <Badge value={item.status} />}
+              </div>
+              <h2>{item ? item.title : `Create ${humanize(resource.replace(/s$/, ""))}`}</h2>
+              {item && publicPageHref(resource, slug) && (
+                <a className="modal-live-link" href={publicPageHref(resource, slug) as string} target="_blank" rel="noreferrer">
+                  <Globe2 size={12} /> View live page
+                </a>
+              )}
             </div>
-            <h2>{item ? item.title : `Create ${humanize(resource.replace(/s$/, ""))}`}</h2>
-            {item && publicPageHref(resource, slug) && (
-              <a className="modal-live-link" href={publicPageHref(resource, slug) as string} target="_blank" rel="noreferrer">
-                <Globe2 size={12} /> View live page
-              </a>
-            )}
           </div>
-          <button type="button" onClick={onClose}><X /></button>
-        </div>
-        <div className="editor-body">
-          <div className="editor-main">
+          <div className="editor-toolbar-center">
+            <div className="segmented language-tabs" aria-label="Content language">
+              <button type="button" className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
+              <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
+            </div>
+          </div>
+          <div className="editor-toolbar-right">
+            <button
+              type="button"
+              className="secondary-button compact"
+              disabled={saving || !can(user, "cms.manage_content")}
+              onClick={(event) => save(event, "draft")}
+            >
+              {saving && status === "draft" ? "Saving…" : "Save draft"}
+            </button>
+            <button
+              type="button"
+              className="primary-button compact"
+              disabled={saving || !can(user, "cms.manage_content") || (!canPublish && !isRequirement)}
+              onClick={(event) => save(event, publishStatus)}
+            >
+              {saving && status !== "draft" ? "Saving…" : publishLabel}
+            </button>
+          </div>
+        </header>
+
+        <div className="editor-timeline-scroll">
+          <div className="editor-timeline-rail">
             <EditorSection
               step="01"
-              title="Hero & headline"
-              description="The picture, title and intro at the top of the page — in the same order visitors see on the live site."
+              title="Hero"
+              description="Top of the page — headline, intro and hero picture, like the live detail page."
+              layout="hero"
+              tone="sand"
             >
-            {supportsMedia && (() => {
-              const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
-              return (
-                <label className="full">Main picture
-                  <div className={displaySrc ? "modal-image-preview" : "modal-image-preview empty-preview"}>
-                    {displaySrc ? (
-                      <img src={displaySrc} alt="Main picture" />
-                    ) : (
-                      <>
-                        <ImageIcon size={24} />
-                        <span>No picture selected</span>
-                      </>
-                    )}
-                  </div>
-                  <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
-                    <option value="">{heroFallback ? "Keep the picture that is live now" : "No picture chosen"}</option>
-                    {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
-                      <option value={media.id} key={media.id}>{media.file_name}</option>
-                    ))}
-                  </select>
-                  <small className="field-hint">
-                    The big picture at the top of this page. Upload new pictures in <b>Media library</b> first, then pick one here.
-                  </small>
-                </label>
-              );
-            })()}
-
-            <label className="full">{isFaq ? "Question" : "Name"}
-              <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item && !isFaq) setSlug(slugify(event.target.value)); }} required />
-              <small className="field-hint">{isFaq ? "The question visitors will see in the accordion." : "The large heading at the top of the page, and the name on list cards."}</small>
-            </label>
-
-            <label className="full">{isFaq ? "Answer" : "Short description"}
-              <textarea rows={isFaq ? 5 : 3} value={summary} onChange={(event) => setSummary(event.target.value)} />
-              <small className="field-hint">{isFaq ? "The full answer shown when someone opens this question." : "One or two lines shown under the heading and on the card in lists."}</small>
-            </label>
+            {supportsMedia && (
+              <div className="editor-hero-media">
+                <EditorMediaPicker
+                  label="Hero picture"
+                  previewSrc={previewSrc}
+                  mediaId={mediaId}
+                  onMediaIdChange={setMediaId}
+                  mediaItems={mediaItems}
+                  heroFallback={heroFallback}
+                  hint={<>Full-width banner at the top. Upload in <b>Media library</b> first.</>}
+                />
+              </div>
+            )}
+            <div className="editor-hero-copy">
+              <label className="full">{isFaq ? "Question" : "Page title"}
+                <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item && !isFaq) setSlug(slugify(event.target.value)); }} required />
+                <small className="field-hint">{isFaq ? "Shown in the FAQ accordion." : "Large heading on the page and list cards."}</small>
+              </label>
+              <label className="full">{isFaq ? "Answer" : "Short summary"}
+                <textarea rows={isFaq ? 5 : 3} value={summary} onChange={(event) => setSummary(event.target.value)} />
+                <small className="field-hint">{isFaq ? "Full answer when the question is opened." : "Subtitle under the heading and on cards."}</small>
+              </label>
+            </div>
+            {isService && (
+              <div className="editor-hero-aside">
+                <p className="editor-aside-title">Hero stats strip</p>
+                <ListEditor
+                  label="Key numbers"
+                  items={statsList}
+                  onChange={setStatsList}
+                  empty={{ value: "", suffix: "", label: "" }}
+                  variant="stack"
+                  renderItem={(s, set) => <>
+                    <input placeholder="Number" value={s.value} onChange={(event) => set({ ...s, value: event.target.value })} />
+                    <input placeholder="Suffix, e.g. M+" value={s.suffix} onChange={(event) => set({ ...s, suffix: event.target.value })} />
+                    <input placeholder="Label" value={s.label} onChange={(event) => set({ ...s, label: event.target.value })} />
+                  </>}
+                />
+              </div>
+            )}
             </EditorSection>
 
             {!isFaq && (
             <EditorSection
               step="02"
-              title="Key details"
-              description="Facts, labels and metadata that appear in the page body and listing cards."
+              title={isService ? "Overview" : "Key details"}
+              description={isService ? "Opening copy beside the page image — same layout as the live service page." : "Facts and metadata shown in the page body and listing cards."}
+              layout={isService && supportsMedia ? "split-left" : "grid"}
+              tone="white"
             >
 
+            {isService && supportsMedia && (
+              <div className="editor-split-media">
+                <div className="editor-media-frame">
+                  {previewSrc ? (
+                    <img src={previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc} alt="Page preview" />
+                  ) : (
+                    <div className="editor-media-frame-empty"><ImageIcon size={32} /><span>Hero picture appears here</span></div>
+                  )}
+                </div>
+                <small className="field-hint">Uses the hero picture from section 01.</small>
+              </div>
+            )}
+
+            <div className={isService && supportsMedia ? "editor-split-content form-grid" : undefined}>
             {isService && <>
               <label>Small label above the name
                 <input placeholder="e.g. Civil &amp; Structural" value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} />
@@ -1813,34 +1917,17 @@ function ContentModal({
                 <input type="datetime-local" value={requirementClosesAt} onChange={(event) => setRequirementClosesAt(event.target.value)} />
               </label>
             </>}
+            </div>
             </EditorSection>
             )}
 
             {hasSections && isService && <>
             <EditorSection
               step="03"
-              title="Key numbers"
-              description="The stat strip below the hero — big numbers with short labels."
-              layout="stack"
-            >
-              <ListEditor
-                label="Stats"
-                items={statsList}
-                onChange={setStatsList}
-                empty={{ value: "", suffix: "", label: "" }}
-                renderItem={(s, set) => <>
-                  <input placeholder="Number, e.g. 12" value={s.value} onChange={(event) => set({ ...s, value: event.target.value })} />
-                  <input placeholder="After the number, e.g. M+" value={s.suffix} onChange={(event) => set({ ...s, suffix: event.target.value })} />
-                  <input placeholder="What it means, e.g. Safe Man-hours" value={s.label} onChange={(event) => set({ ...s, label: event.target.value })} />
-                </>}
-              />
-            </EditorSection>
-
-            <EditorSection
-              step="04"
               title="What's included"
-              description="Sub-service cards with icon, title and short description."
+              description="Sub-service cards in a three-column grid on the live page."
               layout="stack"
+              tone="sand"
             >
               <ListEditor
                 label="Sub-services"
@@ -1859,11 +1946,17 @@ function ContentModal({
             </EditorSection>
 
             <EditorSection
-              step="05"
+              step="04"
               title="Capability table"
-              description="Two-column spec rows — label on the left, value on the right."
-              layout="stack"
+              description="Spec rows — label on the left, value on the right."
+              layout="split-right"
+              tone="white"
             >
+              <div className="editor-split-intro">
+                <p className="editor-aside-title">On the live page</p>
+                <p className="editor-split-copy">Two-column table beside the section heading. Add one row per capability.</p>
+              </div>
+              <div className="editor-split-content">
               <ListEditor
                 label="Rows"
                 items={capabilitiesRows}
@@ -1874,13 +1967,15 @@ function ContentModal({
                   <input placeholder="Right column, e.g. Up to 1,200 m³" value={r.value} onChange={(event) => set({ ...r, value: event.target.value })} />
                 </>}
               />
+              </div>
             </EditorSection>
 
             <EditorSection
-              step="06"
+              step="05"
               title="How we work"
-              description="Numbered process steps visitors scroll through on the page."
+              description="Numbered process steps in a horizontal timeline on the page."
               layout="stack"
+              tone="sand"
             >
               <ListEditor
                 label="Steps"
@@ -1897,11 +1992,17 @@ function ContentModal({
             </EditorSection>
 
             <EditorSection
-              step="07"
+              step="06"
               title="Certifications"
-              description="Badges or standards listed near the bottom of the service page."
-              layout="stack"
+              description="Badge list shown beside the section heading."
+              layout="split-left"
+              tone="white"
             >
+              <div className="editor-split-intro">
+                <p className="editor-aside-title">Certifications</p>
+                <p className="editor-split-copy">Standards and badges displayed in a grid on the live page.</p>
+              </div>
+              <div className="editor-split-content">
               <ListEditor
                 label="Certifications"
                 items={certificationsList}
@@ -1909,14 +2010,21 @@ function ContentModal({
                 empty=""
                 renderItem={(c, set) => <input placeholder="e.g. ISO 9001:2015" value={c} onChange={(event) => set(event.target.value)} />}
               />
+              </div>
             </EditorSection>
 
             <EditorSection
-              step="08"
+              step="07"
               title="Questions & answers"
-              description="FAQ accordion at the end of the service page."
-              layout="stack"
+              description="FAQ accordion — intro on the left, questions on the right."
+              layout="split-left"
+              tone="sand"
             >
+              <div className="editor-split-intro">
+                <p className="editor-aside-title">FAQs</p>
+                <p className="editor-split-copy">Visitors expand each question to read the full answer.</p>
+              </div>
+              <div className="editor-split-content">
               <ListEditor
                 label="FAQs"
                 items={faqsList}
@@ -1928,16 +2036,19 @@ function ContentModal({
                   <textarea rows={3} placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
                 </>}
               />
+              </div>
             </EditorSection>
             </>}
 
             {hasSections && isProject && <>
             <EditorSection
               step="03"
-              title="Full description"
-              description="Main article body — one text box per paragraph, in reading order."
-              layout="stack"
+              title="Story & highlights"
+              description="Main paragraphs on the left, highlight bullets in the navy card on the right."
+              layout="split-right"
+              tone="sand"
             >
+              <div className="editor-split-content">
               <ListEditor
                 label="Paragraphs"
                 items={projectLong}
@@ -1946,14 +2057,9 @@ function ContentModal({
                 variant="stack"
                 renderItem={(p, set) => <textarea rows={4} value={p} onChange={(event) => set(event.target.value)} />}
               />
-            </EditorSection>
-
-            <EditorSection
-              step="04"
-              title="Key highlights"
-              description="Bullet points summarising the project at a glance."
-              layout="stack"
-            >
+              </div>
+              <div className="editor-split-aside">
+                <p className="editor-aside-title">Key highlights</p>
               <ListEditor
                 label="Highlights"
                 items={projectHighlights}
@@ -1961,13 +2067,15 @@ function ContentModal({
                 empty=""
                 renderItem={(h, set) => <input placeholder="e.g. 240 certified workers mobilised" value={h} onChange={(event) => set(event.target.value)} />}
               />
+              </div>
             </EditorSection>
 
             <EditorSection
-              step="05"
+              step="04"
               title="Questions & answers"
               description="FAQ accordion on the project detail page."
               layout="stack"
+              tone="white"
             >
               <ListEditor
                 label="FAQs"
@@ -1986,9 +2094,10 @@ function ContentModal({
             {hasSections && isPost && (
             <EditorSection
               step="03"
-              title="Article text"
-              description="Blog body — one box per paragraph, top to bottom."
+              title="Article body"
+              description="Blog paragraphs in reading order — one box per paragraph."
               layout="stack"
+              tone="sand"
             >
               <ListEditor
                 label="Paragraphs"
@@ -2035,63 +2144,44 @@ function ContentModal({
             </>}
 
           </div>
+        </div>
 
-          <aside className="editor-sidebar">
-            <p className="sidebar-title">Publishing</p>
-            <label>Show on website
-              <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                {statusOptions.map((value) => <option key={value}>{value}</option>)}
-              </select>
-              <small className="field-hint">
-                <b>published</b> = visible to everyone. <b>draft</b> = hidden. <b>archived</b> = removed from the site.
-              </small>
-            </label>
-            {!isRequirement && <label>Position in list
-              <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
-              <small className="field-hint">Smaller number shows first.</small>
-            </label>}
-            {!isRequirement && !isFaq && <label className="check-row">
-              <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
-              Highlight as featured
-            </label>}
-            <div className="modal-language-row">
-              <span>Editing language</span>
-              <div className="segmented language-tabs" aria-label="Content language">
-                <button type="button" className={locale === "en" ? "active" : ""} onClick={() => setLocale("en")}>English</button>
-                <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
-              </div>
-            </div>
-            {!isFaq && (
-              <details className="advanced-fields">
-                <summary>Advanced (web address &amp; Google)</summary>
-                <div className="advanced-fields-body">
-                  {!isRequirement && (
-                    <label className="full">Web address
-                      <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
-                      <small className="field-hint">
-                        {publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`}
-                      </small>
-                    </label>
-                  )}
+        <footer className="editor-page-settings">
+          <details className="editor-settings-panel">
+            <summary>Page settings</summary>
+            <div className="editor-settings-body form-grid">
+              <label>Status on website
+                <select value={status} onChange={(event) => setStatus(event.target.value)}>
+                  {statusOptions.map((value) => <option key={value}>{value}</option>)}
+                </select>
+              </label>
+              {!isRequirement && <label>Position in list
+                <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
+              </label>}
+              {!isRequirement && !isFaq && <label className="check-row full">
+                <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
+                Highlight as featured
+              </label>}
+              {!isFaq && !isRequirement && (
+                <label className="full">Web address
+                  <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
+                  <small className="field-hint">{publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`}</small>
+                </label>
+              )}
+              {!isFaq && (
+                <>
                   <label className="full">Google search title
                     <input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} />
                   </label>
                   <label className="full">Google search description
-                    <textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} />
+                    <textarea rows={2} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} />
                   </label>
-                </div>
-              </details>
-            )}
-            {bodyError && <p className="form-error">{bodyError}</p>}
-          </aside>
-        </div>
-        <div className="modal-actions">
-          <span className="modal-actions-note">Changes go live on the website as soon as you save.</span>
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button className="primary-button compact" disabled={saving || !can(user, "cms.manage_content")}>
-            {saving ? "Saving…" : "Save & publish"}
-          </button>
-        </div>
+                </>
+              )}
+            </div>
+          </details>
+          {bodyError && <p className="form-error">{bodyError}</p>}
+        </footer>
       </form>
     </div>
   );
