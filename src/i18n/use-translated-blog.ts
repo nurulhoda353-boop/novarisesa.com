@@ -54,7 +54,7 @@ export function useTranslatedPosts() {
       slug: item.slug,
       title: s("title", item.title),
       excerpt,
-      category: String(body.category ?? base?.category ?? "Insights") as BlogPost["category"],
+      category: String(item.data.category ?? body.category ?? base?.category ?? "Insights") as BlogPost["category"],
       date: s("date", String(body.date ?? base?.date ?? item.data.published_at ?? item.updated_at)),
       readMins: Number(body.readMins ?? body.read_mins ?? base?.readMins ?? 5),
       author: String(body.author ?? base?.author ?? "NOVARISE"),

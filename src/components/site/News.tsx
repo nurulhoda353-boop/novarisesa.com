@@ -1,19 +1,48 @@
 "use client";
 
 import Image from "next/image";
-
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight } from "lucide-react";
 import { Link } from "@/components/nav/AppLink";
-const supplyImg = "/assets/news-supply-chain.jpg";
-const safetyImg = "/assets/news-safety.jpg";
-const energyImg = "/assets/news-energy.jpg";
+import { useTranslatedPosts } from "@/i18n/use-translated-blog";
 
-const images = [supplyImg, safetyImg, energyImg];
+const fallbackImages = [
+  "/assets/news-supply-chain.jpg",
+  "/assets/news-safety.jpg",
+  "/assets/news-energy.jpg",
+];
 
 export function News() {
   const { t } = useTranslation();
-  const items = t("news.items", { returnObjects: true }) as { cat: string; date: string; title: string; read: string }[];
+  const { all } = useTranslatedPosts();
+  const i18nItems = t("news.items", { returnObjects: true }) as {
+    cat: string;
+    date: string;
+    title: string;
+    read: string;
+  }[];
+
+  const items = useMemo(() => {
+    if (all.length) {
+      return all.slice(0, 3).map((post) => ({
+        slug: post.slug,
+        cat: post.category,
+        date: post.date,
+        title: post.title,
+        read: `${post.readMins} ${t("blogPage.grid.min", { defaultValue: "min read" })}`,
+        image: post.image,
+      }));
+    }
+    return i18nItems.map((item, index) => ({
+      slug: null as string | null,
+      cat: item.cat,
+      date: item.date,
+      title: item.title,
+      read: item.read,
+      image: fallbackImages[index] ?? fallbackImages[0],
+    }));
+  }, [all, i18nItems, t]);
 
   return (
     <section id="insights" className="relative py-16 lg:py-24 bg-sand-soft overflow-hidden">
@@ -34,32 +63,39 @@ export function News() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {items.map((n, i) => (
-            <article
-              key={n.title}
-              className="group bg-card rounded-2xl overflow-hidden border border-border hover:border-gold hover:shadow-elegant transition-all"
-            >
-              <div className="aspect-[16/10] relative overflow-hidden">
-                <Image src={images[i]} alt={n.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/60 via-transparent to-transparent" />
-                <div className="absolute top-4 left-4 rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-navy">
-                  {n.cat}
+          {items.map((n, i) => {
+            const card = (
+              <article className="group bg-card rounded-2xl overflow-hidden border border-border hover:border-gold hover:shadow-elegant transition-all h-full">
+                <div className="aspect-[16/10] relative overflow-hidden">
+                  <Image src={n.image} alt={n.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/60 via-transparent to-transparent" />
+                  <div className="absolute top-4 left-4 rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-navy">
+                    {n.cat}
+                  </div>
+                  <div className="absolute bottom-4 right-4 text-white text-[11px] uppercase tracking-wider">
+                    {n.date}
+                  </div>
                 </div>
-                <div className="absolute bottom-4 right-4 text-white text-[11px] uppercase tracking-wider">
-                  {n.date}
+                <div className="p-6">
+                  <h3 className="text-lg font-bold text-navy leading-snug group-hover:text-gold transition-colors min-h-[3.5rem]">
+                    {n.title}
+                  </h3>
+                  <div className="mt-5 pt-5 border-t border-border flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{n.read}</span>
+                    <ArrowUpRight className="h-4 w-4 text-gold group-hover:rotate-45 transition-all" />
+                  </div>
                 </div>
-              </div>
-              <div className="p-6">
-                <h3 className="text-lg font-bold text-navy leading-snug group-hover:text-gold transition-colors min-h-[3.5rem]">
-                  {n.title}
-                </h3>
-                <div className="mt-5 pt-5 border-t border-border flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{n.read}</span>
-                  <ArrowUpRight className="h-4 w-4 text-gold group-hover:rotate-45 transition-all" />
-                </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+
+            return n.slug ? (
+              <Link key={n.slug} to="/blog/$slug" params={{ slug: n.slug }} className="block">
+                {card}
+              </Link>
+            ) : (
+              <div key={`${n.title}-${i}`}>{card}</div>
+            );
+          })}
         </div>
       </div>
     </section>

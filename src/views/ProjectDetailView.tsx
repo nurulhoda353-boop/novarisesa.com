@@ -37,6 +37,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
     scope: "",
     long: [] as string[],
     highlights: [] as string[],
+    faqs: [] as { q: string; a: string }[],
   };
   const { t } = useTranslation();
   const k = project.key;
@@ -44,7 +45,9 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
 
   const longParagraphs = project.long;
   const highlights = project.highlights;
-  const faqs = t("projects.faqs", { returnObjects: true, defaultValue: [] }) as { q: string; a: string }[];
+  const faqs = project.faqs.length
+    ? project.faqs
+    : (t("projects.faqs", { returnObjects: true, defaultValue: [] }) as { q: string; a: string }[]);
 
   const currentIdx = allProjects.findIndex((p) => p.slug === project.slug);
   const nextProject = allProjects[(currentIdx + 1) % allProjects.length];

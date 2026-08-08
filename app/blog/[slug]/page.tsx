@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { posts, featuredPost } from "@/lib/blog-data";
 import { absoluteUrl } from "@/lib/site";
 import { BlogPostDetailView } from "@/views/BlogPostDetailView";
+import { cmsDetailMetadata } from "@/lib/cms-detail-metadata";
 
 const allStaticPosts = [featuredPost, ...posts];
 
@@ -18,7 +19,7 @@ export async function generateMetadata({
   const post = allStaticPosts.find((p) => p.slug === slug);
   if (!post) return {};
   const canonical = absoluteUrl(`/blog/${post.slug}`);
-  return {
+  return cmsDetailMetadata("posts", slug, {
     title: `${post.title} — NOVARISE Insights`,
     description: post.excerpt,
     alternates: { canonical },
@@ -28,7 +29,7 @@ export async function generateMetadata({
       description: post.excerpt,
       images: [post.image],
     },
-  };
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

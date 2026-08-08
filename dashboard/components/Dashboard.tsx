@@ -14,6 +14,7 @@ import {
   FilePenLine,
   FolderKanban,
   Globe2,
+  HelpCircle,
   ImageIcon,
   Inbox,
   LogOut,
@@ -33,6 +34,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -129,6 +131,7 @@ const contentNav = [
   ["posts", "Insights", Newspaper],
   ["requirements", "Requirements", Users],
   ["events", "Events", CalendarDays],
+  ["faq", "FAQ", HelpCircle],
 ] as const;
 const hiddenContentResources = new Set(["pages"]);
 const inboxNav = [
@@ -264,6 +267,7 @@ export default function Dashboard({ route }: { route: string[] }) {
           <Nav key={key} href={`/content/${key}`} icon={Icon} label={label} active={active === `content/${key}`} />
         ))}
         <Nav href="/media" icon={ImageIcon} label="Media library" active={active === "media"} />
+        <Nav href="/taxonomy" icon={BookOpen} label="Categories & tags" active={active === "taxonomy"} />
         <p className="nav-label">Inbox</p>
         {inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
@@ -304,7 +308,7 @@ export default function Dashboard({ route }: { route: string[] }) {
           {route[0] === "media" && <MediaPage user={user} />}
           {route[0] === "navigation" && <NavigationPage user={user} />}
           {route[0] === "taxonomy" && <TaxonomyPage user={user} />}
-          {route[0] === "settings" && <SettingsPage />}
+          {route[0] === "settings" && <SettingsPage user={user} />}
           {route[0] === "users" && <UsersPage user={user} />}
         </main>
       </div>
@@ -586,6 +590,10 @@ function translationOverridesFor(
     put(`projects.items.${key}.scope`, values.summary);
     put(`projects.content.${key}.long`, values.long);
     put(`projects.content.${key}.highlights`, values.highlights);
+    const projectFaqs = values.projectFaqs as Array<{ q?: string; a?: string }> | undefined;
+    if (projectFaqs?.length) {
+      put(`projects.content.${key}.faqs`, projectFaqs.map((row) => ({ q: row.q ?? "", a: row.a ?? "" })));
+    }
   } else if (resource === "posts") {
     const base = `blogPage.posts.${slug}`;
     put(`${base}.title`, values.title);
@@ -904,7 +912,8 @@ function publicPageHref(resource: string, slug: string): string | null {
   if (resource === "services") return `${SITE_ORIGIN}/services/${slug}`;
   if (resource === "projects") return `${SITE_ORIGIN}/projects/${slug}`;
   if (resource === "posts") return `${SITE_ORIGIN}/blog/${slug}`;
-  if (resource === "events") return `${SITE_ORIGIN}/careers`;
+  if (resource === "events") return `${SITE_ORIGIN}/blog#events`;
+  if (resource === "faq") return null;
   if (resource === "requirements") return `${SITE_ORIGIN}/requirements`;
   return null;
 }
@@ -1164,6 +1173,29 @@ function ListEditor<T>({
   );
 }
 
+function IconPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="icon-picker-grid">
+      {SERVICE_ICON_NAMES.map((name) => {
+        const Icon = (LucideIcons as unknown as Record<string, React.ComponentType<{ size?: number }>>)[name];
+        if (!Icon) return null;
+        return (
+          <button
+            key={name}
+            type="button"
+            className={value === name ? "active" : ""}
+            onClick={() => onChange(name)}
+            title={name}
+            aria-label={name}
+          >
+            <Icon size={18} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ContentModal({
   resource,
   item,
@@ -1178,6 +1210,7 @@ function ContentModal({
   onSaved: () => void;
 }) {
   const isRequirement = resource === "requirements";
+  const isFaq = resource === "faq";
   const isService = resource === "services";
   const isPost = resource === "posts";
   const supportsMedia = ["services", "projects", "posts", "events"].includes(resource);
@@ -1225,8 +1258,15 @@ function ContentModal({
   const [projectDuration, setProjectDuration] = useState("");
   const [projectLong, setProjectLong] = useState<string[]>([]);
   const [projectHighlights, setProjectHighlights] = useState<string[]>([]);
+  const [projectFaqsList, setProjectFaqsList] = useState<{ q: string; a: string }[]>([]);
+  const [projectStartedOn, setProjectStartedOn] = useState("");
+  const [projectCompletedOn, setProjectCompletedOn] = useState("");
+  const [requirementOpensAt, setRequirementOpensAt] = useState("");
+  const [requirementClosesAt, setRequirementClosesAt] = useState("");
   const [contactsList, setContactsList] = useState<{ display: string; raw: string; whatsapp: boolean }[]>([]);
   const [postCategory, setPostCategory] = useState("Insights");
+  const [postCategoryId, setPostCategoryId] = useState("");
+  const [postCategories, setPostCategories] = useState<TaxonomyItem[]>([]);
   const [postAuthor, setPostAuthor] = useState("");
   const [postAuthorRole, setPostAuthorRole] = useState("");
   const [postReadMins, setPostReadMins] = useState(5);
@@ -1237,13 +1277,18 @@ function ContentModal({
   const [eventDateDisplay, setEventDateDisplay] = useState("");
   const [eventStartsOn, setEventStartsOn] = useState("");
   const [eventEndsOn, setEventEndsOn] = useState("");
-  const hasSections = isService || isProject || isPost || isRequirement;
+  const hasSections = (isService || isProject || isPost || isRequirement) && !isFaq;
   const [tab, setTab] = useState<"content" | "sections" | "publish">("content");
 
   useEffect(() => {
     if (!supportsMedia) return;
     api<{ items: MediaItem[] }>("/cms/media?limit=100").then((response) => setMediaItems(response.items));
   }, [supportsMedia]);
+
+  useEffect(() => {
+    if (!isPost) return;
+    api<{ items: TaxonomyItem[] }>("/cms/taxonomy/categories").then((response) => setPostCategories(response.items));
+  }, [isPost]);
 
   useEffect(() => {
     if (!item) return;
@@ -1269,6 +1314,8 @@ function ContentModal({
       setRateAmount(String(detail.body.rate_amount ?? ""));
       setRateCurrency(String(detail.body.rate_currency ?? "SAR"));
       setRateUnit(String(detail.body.rate_unit ?? "hour"));
+      setRequirementOpensAt(String(detail.body.opens_at ?? "").slice(0, 16));
+      setRequirementClosesAt(String(detail.body.closes_at ?? "").slice(0, 16));
       setServiceIcon(String(detail.body.icon ?? "Building2"));
       setServiceNum(String(detail.body.number ?? ""));
       setStatsList(Array.isArray(detail.body.stats) ? detail.body.stats.map((s) => {
@@ -1298,11 +1345,18 @@ function ContentModal({
       setProjectDuration(String(detail.body.duration ?? ""));
       setProjectLong(Array.isArray(detail.body.long) ? detail.body.long.map(String) : []);
       setProjectHighlights(Array.isArray(detail.body.highlights) ? detail.body.highlights.map(String) : []);
+      setProjectFaqsList(Array.isArray(detail.body.faqs) ? detail.body.faqs.map((f) => {
+        const row = f as { q?: unknown; a?: unknown };
+        return { q: String(row.q ?? ""), a: String(row.a ?? "") };
+      }) : []);
+      setProjectStartedOn(String(detail.body.started_on ?? "").slice(0, 10));
+      setProjectCompletedOn(String(detail.body.completed_on ?? "").slice(0, 10));
       setContactsList(Array.isArray(detail.body.contacts) ? detail.body.contacts.map((c) => {
         const row = c as { display?: unknown; raw?: unknown; whatsapp?: unknown };
         return { display: String(row.display ?? ""), raw: String(row.raw ?? ""), whatsapp: Boolean(row.whatsapp) };
       }) : []);
       setPostCategory(String(detail.body.category ?? "Insights"));
+      setPostCategoryId(String(detail.extra?.category_id ?? ""));
       setPostAuthor(String(detail.body.author ?? ""));
       setPostAuthorRole(String(detail.body.authorRole ?? ""));
       setPostReadMins(Number(detail.body.readMins ?? 5));
@@ -1332,7 +1386,9 @@ function ContentModal({
     event.preventDefault();
     // The slug input lives on the Publishing tab, so it may not be mounted when
     // the form is submitted; never let that produce an item without an address.
-    const safeSlug = slug.trim() || slugify(title);
+    const safeSlug = isFaq
+      ? (slug.trim() || `faq-${slugify(title).slice(0, 48)}-${Date.now().toString(36)}`)
+      : (slug.trim() || slugify(title));
     if (!safeSlug) {
       setTab("publish");
       setBodyError("Please give this item a web address on the Publishing tab.");
@@ -1365,6 +1421,7 @@ function ContentModal({
           duration: projectDuration,
           long: projectLong.filter(Boolean),
           highlights: projectHighlights.filter(Boolean),
+          faqs: projectFaqsList.filter((row) => row.q.trim() || row.a.trim()),
         };
       } else if (isRequirement) {
         let existing: Record<string, unknown> = {};
@@ -1383,10 +1440,13 @@ function ContentModal({
           rate_amount: rateAmount.trim() || null,
           rate_currency: rateCurrency.trim() || "SAR",
           rate_unit: rateUnit.trim() || null,
+          opens_at: requirementOpensAt ? new Date(requirementOpensAt).toISOString() : null,
+          closes_at: requirementClosesAt ? new Date(requirementClosesAt).toISOString() : null,
         };
       } else if (isPost) {
+        const selectedCategory = postCategories.find((row) => row.id === postCategoryId);
         parsedBody = {
-          category: postCategory,
+          category: selectedCategory?.name.en || postCategory,
           author: postAuthor,
           authorRole: postAuthorRole,
           readMins: postReadMins,
@@ -1437,9 +1497,10 @@ function ContentModal({
       rate_unit: parsedBody.rate_unit || null,
       opens_at: parsedBody.opens_at || null,
       closes_at: parsedBody.closes_at || null,
-      started_on: isEvent ? (eventStartsOn || null) : undefined,
-      completed_on: isEvent ? (eventEndsOn || null) : undefined,
+      started_on: isProject ? (projectStartedOn || null) : isEvent ? (eventStartsOn || null) : undefined,
+      completed_on: isProject ? (projectCompletedOn || null) : isEvent ? (eventEndsOn || null) : undefined,
       contacts: Array.isArray(parsedBody.contacts) ? parsedBody.contacts : [],
+      category_id: isPost && postCategoryId ? postCategoryId : null,
       body: parsedBody,
       locale,
       meta_title: metaTitle || undefined,
@@ -1471,6 +1532,7 @@ function ContentModal({
         duration: projectDuration,
         long: projectLong.filter(Boolean),
         highlights: projectHighlights.filter(Boolean),
+        projectFaqs: projectFaqsList.filter((row) => row.q.trim() || row.a.trim()),
         date: postDate,
         paragraphs: postParagraphs.filter(Boolean),
       });
@@ -1555,14 +1617,14 @@ function ContentModal({
               );
             })()}
 
-            <label className="full">Name
-              <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item) setSlug(slugify(event.target.value)); }} required />
-              <small className="field-hint">The large heading at the top of the page, and the name on list cards.</small>
+            <label className="full">{isFaq ? "Question" : "Name"}
+              <input value={title} onChange={(event) => { setTitle(event.target.value); if (!item && !isFaq) setSlug(slugify(event.target.value)); }} required />
+              <small className="field-hint">{isFaq ? "The question visitors will see in the accordion." : "The large heading at the top of the page, and the name on list cards."}</small>
             </label>
 
-            <label className="full">Short description
-              <textarea rows={3} value={summary} onChange={(event) => setSummary(event.target.value)} />
-              <small className="field-hint">One or two lines shown under the heading and on the card in lists.</small>
+            <label className="full">{isFaq ? "Answer" : "Short description"}
+              <textarea rows={isFaq ? 5 : 3} value={summary} onChange={(event) => setSummary(event.target.value)} />
+              <small className="field-hint">{isFaq ? "The full answer shown when someone opens this question." : "One or two lines shown under the heading and on the card in lists."}</small>
             </label>
 
             {isService && <>
@@ -1583,9 +1645,7 @@ function ContentModal({
                 <small className="field-hint">The full opening paragraph of the service page.</small>
               </label>
               <label>Icon
-                <select value={serviceIcon} onChange={(event) => setServiceIcon(event.target.value)}>
-                  {SERVICE_ICON_NAMES.map((name) => <option key={name} value={name}>{name}</option>)}
-                </select>
+                <IconPicker value={serviceIcon} onChange={setServiceIcon} />
                 <small className="field-hint">Small symbol shown on the service card.</small>
               </label>
             </>}
@@ -1610,6 +1670,12 @@ function ContentModal({
               <label>Duration
                 <input placeholder="e.g. 2024 – Ongoing" value={projectDuration} onChange={(event) => setProjectDuration(event.target.value)} />
                 <small className="field-hint">Time period shown in the fact strip.</small>
+              </label>
+              <label>Started on
+                <input type="date" value={projectStartedOn} onChange={(event) => setProjectStartedOn(event.target.value)} />
+              </label>
+              <label>Completed on
+                <input type="date" value={projectCompletedOn} onChange={(event) => setProjectCompletedOn(event.target.value)} />
               </label>
             </>}
 
@@ -1639,13 +1705,25 @@ function ContentModal({
             </>}
 
             {isPost && <>
-              <label>Category badge
-                <select value={postCategory} onChange={(event) => setPostCategory(event.target.value)}>
-                  {["Insights", "Case Study", "Safety", "Vision 2030", "Industry"].map((value) => (
-                    <option key={value} value={value}>{value}</option>
+              <label>Category
+                <select
+                  value={postCategoryId}
+                  onChange={(event) => {
+                    setPostCategoryId(event.target.value);
+                    const selected = postCategories.find((row) => row.id === event.target.value);
+                    if (selected?.name.en) setPostCategory(selected.name.en);
+                  }}
+                >
+                  <option value="">Choose a category</option>
+                  {postCategories.map((row) => (
+                    <option key={row.id} value={row.id}>{row.name.en || row.slug}</option>
                   ))}
                 </select>
-                <small className="field-hint">Coloured tag on the article card.</small>
+                <small className="field-hint">
+                  {postCategories.length
+                    ? "Manage categories under Categories & tags in the sidebar."
+                    : "No categories yet — add them under Categories & tags first."}
+                </small>
               </label>
               <label>Date as written
                 <input placeholder="e.g. May 12, 2026" value={postDate} onChange={(event) => setPostDate(event.target.value)} />
@@ -1701,6 +1779,12 @@ function ContentModal({
               </label>
               <label className="full">Accommodation
                 <input placeholder="e.g. Provided by company" value={accommodation} onChange={(event) => setAccommodation(event.target.value)} />
+              </label>
+              <label>Opens on
+                <input type="datetime-local" value={requirementOpensAt} onChange={(event) => setRequirementOpensAt(event.target.value)} />
+              </label>
+              <label>Closes on
+                <input type="datetime-local" value={requirementClosesAt} onChange={(event) => setRequirementClosesAt(event.target.value)} />
               </label>
             </>}
             {bodyError && <p className="form-error full">{bodyError}</p>}
@@ -1787,6 +1871,16 @@ function ContentModal({
                 empty=""
                 renderItem={(h, set) => <input placeholder="e.g. 240 certified workers mobilised" value={h} onChange={(event) => set(event.target.value)} />}
               />
+              <ListEditor
+                label="Questions &amp; answers"
+                items={projectFaqsList}
+                onChange={setProjectFaqsList}
+                empty={{ q: "", a: "" }}
+                renderItem={(f, set) => <>
+                  <input placeholder="Question" value={f.q} onChange={(event) => set({ ...f, q: event.target.value })} />
+                  <textarea rows={3} placeholder="Answer" value={f.a} onChange={(event) => set({ ...f, a: event.target.value })} />
+                </>}
+              />
             </>}
 
             {isPost && (
@@ -1830,7 +1924,7 @@ function ContentModal({
               <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value))} />
               <small className="field-hint">Smaller number shows first. You can also use the arrows on the list page.</small>
             </label>}
-            {!isRequirement && <label className="check-row full">
+            {!isRequirement && !isFaq && <label className="check-row full">
               <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
               Highlight this as featured
             </label>}
@@ -1841,20 +1935,29 @@ function ContentModal({
                 <button type="button" className={locale === "ar" ? "active" : ""} onClick={() => setLocale("ar")}>Arabic</button>
               </div>
             </div>
-            <label className="full">Web address
-              <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
-              <small className="field-hint">
-                {publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`} — changing this breaks links people already saved.
-              </small>
-            </label>
-            <label className="full">Google search title
-              <input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} />
-              <small className="field-hint">The blue clickable line in Google results. Leave empty to use the name above.</small>
-            </label>
-            <label className="full">Google search description
-              <textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} />
-              <small className="field-hint">The grey text under the blue line in Google results.</small>
-            </label>
+            {!isFaq && (
+              <details className="advanced-fields full">
+                <summary>Advanced options (web address &amp; Google search)</summary>
+                <div className="advanced-fields-body">
+                  {!isRequirement && (
+                    <label className="full">Web address
+                      <input value={slug} onChange={(event) => setSlug(slugify(event.target.value))} required />
+                      <small className="field-hint">
+                        {publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`} — changing this breaks links people already saved.
+                      </small>
+                    </label>
+                  )}
+                  <label className="full">Google search title
+                    <input value={metaTitle} onChange={(event) => setMetaTitle(event.target.value)} />
+                    <small className="field-hint">The blue clickable line in Google results. Leave empty to use the name above.</small>
+                  </label>
+                  <label className="full">Google search description
+                    <textarea rows={3} value={metaDescription} onChange={(event) => setMetaDescription(event.target.value)} />
+                    <small className="field-hint">The grey text under the blue line in Google results.</small>
+                  </label>
+                </div>
+              </details>
+            )}
             {bodyError && <p className="form-error full">{bodyError}</p>}
           </>}
         </div>
@@ -2135,33 +2238,131 @@ function TaxonomyPage({ user }: { user: User }) {
 }
 
 function InboxPage({ inbox }: { inbox: string }) {
-  type Item = { id: string; name: string; email?: string; phone?: string; company?: string; status: string; summary?: string; created_at: string };
+  type Item = {
+    id: string;
+    name: string;
+    email?: string;
+    phone?: string;
+    company?: string;
+    status: string;
+    summary?: string;
+    created_at: string;
+    subject?: string;
+    message?: string;
+    locale?: string;
+    source?: string;
+    reference?: string;
+    service?: string;
+    location?: string;
+    budget?: string;
+    timeline?: string;
+    scope?: string;
+    nationality?: string;
+    iqama_number?: string;
+    years_experience?: number | null;
+    requirement_id?: string;
+    internal_notes?: string | null;
+  };
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(true);
+  const [selected, setSelected] = useState<Item | null>(null);
+  const [detail, setDetail] = useState<Item | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
+  const [detailStatus, setDetailStatus] = useState("new");
+  const [detailNotes, setDetailNotes] = useState("");
+  const [saving, setSaving] = useState(false);
   const title = inboxNav.find(([key]) => key === inbox)?.[1] ?? humanize(inbox);
   const load = useCallback(() => {
     setBusy(true);
     api<{ items: Item[] }>(`/cms/inbox/${inbox}`).then((r) => setItems(r.items)).finally(() => setBusy(false));
   }, [inbox]);
   useEffect(load, [load]);
-  async function update(id: string, status: string) {
-    await api(`/cms/inbox/${inbox}/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+
+  useEffect(() => {
+    if (!selected) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailBusy(true);
+    api<Item>(`/cms/inbox/${inbox}/${selected.id}`)
+      .then((row) => {
+        if (cancelled) return;
+        setDetail(row);
+        setDetailStatus(row.status);
+        setDetailNotes(row.internal_notes ?? "");
+      })
+      .finally(() => {
+        if (!cancelled) setDetailBusy(false);
+      });
+    return () => { cancelled = true; };
+  }, [inbox, selected]);
+
+  async function update(id: string, status: string, internalNotes?: string) {
+    await api(`/cms/inbox/${inbox}/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status,
+        internal_notes: internalNotes ?? null,
+      }),
+    });
     load();
   }
+
+  async function saveDetail(event: React.FormEvent) {
+    event.preventDefault();
+    if (!detail) return;
+    setSaving(true);
+    try {
+      await update(detail.id, detailStatus, detailNotes);
+      setSelected(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function detailRows(row: Item) {
+    if (inbox === "contact") {
+      return [
+        ["Subject", row.subject],
+        ["Message", row.message],
+        ["Language", row.locale],
+        ["Source", row.source],
+      ];
+    }
+    if (inbox === "rfq") {
+      return [
+        ["Reference", row.reference],
+        ["Service", row.service],
+        ["Location", row.location],
+        ["Budget", row.budget],
+        ["Timeline", row.timeline],
+        ["Scope", row.scope],
+      ];
+    }
+    return [
+      ["Phone", row.phone],
+      ["Nationality", row.nationality],
+      ["Iqama", row.iqama_number],
+      ["Experience (years)", row.years_experience != null ? String(row.years_experience) : ""],
+      ["Message", row.message],
+    ];
+  }
+
   return <>
     <PageHead eyebrow="Unified inbox" title={title} copy="Review every website submission and keep the team’s follow-up status current." />
     <div className="panel table-panel">
       {busy ? <Skeleton /> : items.length ? (
         <div className="message-list">
           {items.map((item) => (
-            <article key={item.id}>
+            <article key={item.id} className={selected?.id === item.id ? "active" : ""} onClick={() => setSelected(item)} role="button" tabIndex={0} onKeyDown={(event) => event.key === "Enter" && setSelected(item)}>
               <div className="avatar small">{item.name.slice(0, 2).toUpperCase()}</div>
               <div className="message-body">
                 <div><h3>{item.name}</h3><Badge value={item.status} /></div>
                 <p>{item.summary || "No additional note provided."}</p>
                 <small>{item.email || item.phone || "No contact detail"} {item.company ? `· ${item.company}` : ""} · {new Date(item.created_at).toLocaleString()}</small>
               </div>
-              <select value={item.status} onChange={(event) => update(item.id, event.target.value)}>
+              <select value={item.status} onClick={(event) => event.stopPropagation()} onChange={(event) => update(item.id, event.target.value)}>
                 {["new", "in_review", "contacted", "qualified", "closed", "spam"].map((value) => (
                   <option key={value} value={value}>{humanize(value)}</option>
                 ))}
@@ -2171,10 +2372,59 @@ function InboxPage({ inbox }: { inbox: string }) {
         </div>
       ) : <Empty copy="Your inbox is clear. New website submissions will appear here." />}
     </div>
+
+    {selected && (
+      <div className="modal-backdrop" onClick={() => setSelected(null)}>
+        <form className="modal wide" onClick={(event) => event.stopPropagation()} onSubmit={saveDetail}>
+          <div className="modal-head">
+            <div>
+              <p className="eyebrow">Submission detail</p>
+              <h2>{detail?.name ?? selected.name}</h2>
+            </div>
+            <button type="button" onClick={() => setSelected(null)} aria-label="Close"><X size={18} /></button>
+          </div>
+          {detailBusy ? <Skeleton /> : detail ? (
+            <div className="modal-body stack-form">
+              <div className="inbox-detail-grid">
+                <div><span>Email</span><strong>{detail.email || "—"}</strong></div>
+                <div><span>Phone</span><strong>{detail.phone || "—"}</strong></div>
+                <div><span>Company</span><strong>{detail.company || "—"}</strong></div>
+                <div><span>Received</span><strong>{new Date(detail.created_at).toLocaleString()}</strong></div>
+              </div>
+              {detailRows(detail).map(([label, value]) => (
+                value ? (
+                  <label key={label} className="full">
+                    {label}
+                    <div className="inbox-detail-block">{value}</div>
+                  </label>
+                ) : null
+              ))}
+              <label>Status
+                <select value={detailStatus} onChange={(event) => setDetailStatus(event.target.value)}>
+                  {["new", "in_review", "contacted", "qualified", "closed", "spam"].map((value) => (
+                    <option key={value} value={value}>{humanize(value)}</option>
+                  ))}
+                </select>
+              </label>
+              {inbox !== "applications" && (
+                <label className="full">Internal notes
+                  <textarea rows={4} value={detailNotes} onChange={(event) => setDetailNotes(event.target.value)} placeholder="Team-only notes about this submission…" />
+                </label>
+              )}
+              <div className="modal-actions">
+                <button type="button" onClick={() => setSelected(null)}>Close</button>
+                <button type="submit" className="primary-button" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button>
+              </div>
+            </div>
+          ) : <Empty copy="Could not load this submission." />}
+        </form>
+      </div>
+    )}
   </>;
 }
 
-function SettingsPage() {
+function SettingsPage({ user }: { user: User }) {
+  const isOwner = user.roles.includes("owner");
   type Setting = { id: string; group_name: string; key: string; value: unknown; is_public: boolean };
   const [items, setItems] = useState<Setting[]>([]);
   const [form, setForm] = useState({
@@ -2212,6 +2462,11 @@ function SettingsPage() {
   }
   return <>
     <PageHead eyebrow="Administration" title="Site settings" copy="Manage global contact, brand and page copy used by the website." />
+    {!isOwner ? (
+      <div className="panel">
+        <Empty copy="Site settings are managed through Site content (pen mode) and the content editors. Raw JSON settings are restricted to the account owner." />
+      </div>
+    ) : (
     <section className="settings-grid">
       <form className="panel settings-form" onSubmit={save}>
         <PanelTitle title="Add or update setting" detail="Use translations/en for editable website copy" />
@@ -2239,6 +2494,7 @@ function SettingsPage() {
         </div>
       </div>
     </section>
+    )}
   </>;
 }
 

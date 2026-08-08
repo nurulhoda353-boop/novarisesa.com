@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.models import (
     ContactSubmission,
     Event,
+    FaqItem,
     MediaAsset,
     NavigationItem,
     NewsletterSubscriber,
@@ -66,13 +67,22 @@ def serialize_public_item(
 ) -> dict[str, object]:
     translation = translation_for(item, locale)
     identifier = getattr(item, "slug", None) or getattr(item, "code", None)
+    category = getattr(item, "category", None)
+    category_name = None
+    if category is not None:
+        names = getattr(category, "name", None) or {}
+        category_name = names.get(locale) or names.get("en")
+    body = getattr(translation, "body", None) if translation else None
+    if isinstance(body, dict) and not category_name:
+        category_name = body.get("category")
     title = (
-        getattr(translation, "title", None)
+        getattr(translation, "question", None)
+        or getattr(translation, "title", None)
         or getattr(translation, "position", None)
         or identifier
     )
     summary = None
-    for key in ("summary", "excerpt", "tagline", "description", "lead"):
+    for key in ("answer", "summary", "excerpt", "tagline", "description", "lead"):
         value = getattr(translation, key, None) if translation else None
         if value:
             summary = value
@@ -94,6 +104,8 @@ def serialize_public_item(
             "eyebrow": getattr(translation, "eyebrow", None) if translation else None,
             "sub_services": getattr(translation, "sub_services", None) if translation else None,
             "faqs": getattr(translation, "faqs", None) if translation else None,
+            "question": getattr(translation, "question", None) if translation else None,
+            "answer": getattr(translation, "answer", None) if translation else None,
             "approval": getattr(translation, "approval", None) if translation else None,
             "duration": getattr(translation, "duration", None) if translation else None,
             "salary_cycle": getattr(translation, "salary_cycle", None) if translation else None,
@@ -136,6 +148,10 @@ def serialize_public_item(
                 item.published_at.isoformat()
                 if getattr(item, "published_at", None)
                 else None
+            ),
+            "category": category_name,
+            "category_id": (
+                str(item.category_id) if getattr(item, "category_id", None) else None
             ),
             "meta_title": getattr(translation, "meta_title", None) if translation else None,
             "meta_description": (
@@ -181,7 +197,7 @@ def site_content(
         )),
         "posts": list(db.scalars(
             select(Post)
-            .options(selectinload(Post.translations))
+            .options(selectinload(Post.translations), selectinload(Post.category))
             .where(Post.status == PublishStatus.PUBLISHED)
             .order_by(Post.published_at.desc().nullslast(), Post.updated_at.desc())
         )),
@@ -196,6 +212,12 @@ def site_content(
             .options(selectinload(Event.translations))
             .where(Event.status == PublishStatus.PUBLISHED)
             .order_by(Event.sort_order, Event.starts_on.nullslast())
+        )),
+        "faq": list(db.scalars(
+            select(FaqItem)
+            .options(selectinload(FaqItem.translations))
+            .where(FaqItem.status == PublishStatus.PUBLISHED)
+            .order_by(FaqItem.sort_order, FaqItem.updated_at.desc())
         )),
     }
     requirement_rows = list(collections["requirements"])

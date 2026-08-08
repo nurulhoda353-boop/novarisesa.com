@@ -6,6 +6,7 @@ import { Building2, Zap, Truck, HardHat, Cpu, Package, ArrowUpRight, type Lucide
 import { useTranslation } from "react-i18next";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
 import { useCmsContent } from "@/lib/cms-content";
+import { resolveServiceIcon } from "@/lib/service-icons";
 const imgCivil = "/assets/project-civil.jpg";
 const imgPower = "/assets/project-power.jpg";
 const imgRental = "/assets/project-equipment.jpg";
@@ -33,7 +34,7 @@ export function ServicesOverview() {
         return {
           id: item.slug,
           num: String(item.data.number ?? item.sort_order ?? index + 1).padStart(2, "0"),
-          icon: fallback?.icon ?? Building2,
+          icon: item.data.icon ? resolveServiceIcon(item.data.icon) : (fallback?.icon ?? Building2),
           image: String(item.data.hero_media_url ?? fallback?.image ?? imgCivil),
           titleFallback: item.title,
           shortFallback: item.summary ?? "",

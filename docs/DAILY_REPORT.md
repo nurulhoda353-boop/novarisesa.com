@@ -159,6 +159,129 @@
 
 ---
 
+## 2026-08-07 (শুক্রবার)
+
+### Done
+- পাবলিক সাইট **Site content (Pen mode)** — ইউজার সন্তুষ্ট; স্ট্যাটিক পেজ কপি/ইমেজ এডিটিং প্রোডাকশন-রেডি।
+- **ডেইলি ম্যানেজমেন্ট মডিউল** প্রোডাকশন রেডিনেস অডিট সম্পন্ন (Services, Projects, Requirements, Events, Blog, FAQ, Contact) — কোডবেস + API + ড্যাশবোর্ড + পাবলিক ইন্টিগ্রেশন ফুল স্ক্যান।
+- বর্তমান স্কোর: **সামগ্রিক ~74%** · **নন-কোডার এডমিন ফ্রেন্ডলিনেস ~69%** · **পাবলিক কন্টেন্ট ফ্লো ~88%**।
+- মডিউল স্ট্যাটাস: Requirements ✅ (~90%) · Services/Projects ⚠️ প্রায় (~82–84%) · Blog ⚠️ আংশিক (~78%) · Events/FAQ/Contact Inbox ❌ গ্যাপ (~45–72%)।
+
+### Tomorrow (2026-08-08) — planned
+
+**লক্ষ্য:** ডেইলি ম্যানেজমেন্ট মডিউলগুলো নন-কোডার এডমিনের জন্য প্রোডাকশন-রেডি করা (~90%+ স্কোর)।
+
+#### 🔴 P1 — ব্লকার (আগে করতে হবে)
+
+1. **FAQ — dedicated admin মডিউল**
+   - Backend: `faq_items` (বা সমতুল্য) টেবিল + CRUD API + EN/AR translation।
+   - Dashboard: `/content/faq` — list, add, edit, reorder, publish/archive।
+   - Public: site-wide FAQ (`Home`, `Services`, `Contact`, `RFQ`) CMS থেকে লোড; pen-mode/i18n JSON fallback রাখা।
+   - Project FAQ-ও একই প্যাটার্নে এডিটেবল করা (বা Projects মোডালে Q&A সেকশন)।
+
+2. **Contact Inbox — সম্পূর্ণ ওয়ার্কফ্লো**
+   - `GET /cms/inbox/{inbox}/{id}` detail endpoint।
+   - Inbox list-এ ক্লিক করলে **detail modal** — full `message`, `subject`, সব ফিল্ড।
+   - `internal_notes` UI (API আছে, UI নেই)।
+   - Summary logic ঠিক করা — `message` সবসময় দেখা যাবে (`cms.py` subject-priority ফিক্স)।
+   - RFQ ও Applications inbox-এও একই detail pattern।
+
+#### 🟠 P2 — গুরুত্বপূর্ণ
+
+3. **Events**
+   - Dashboard "View live" লিংক `/careers` → `/blog#events` ফিক্স।
+   - (ঐচ্ছিক) `/events/[slug]` detail page বা blog-এর events সেকশনে আরও context।
+   - Event registration CTA পরিষ্কার করা (contact vs dedicated form)।
+
+4. **Blog (Insights)**
+   - Sidebar-এ **Taxonomy** (`/taxonomy`) যোগ — categories & tags।
+   - Post editor-এ hardcoded category dropdown → taxonomy API-তে connect (`category_id`)।
+   - Homepage `News.tsx` CMS posts-এর সাথে wire করা।
+   - Category filter + (ঐচ্ছিক) pagination / load more।
+
+#### 🟡 P3 — এডমিন UX polish
+
+5. **Services & Projects**
+   - Lucide icon name dropdown → **visual icon picker** (বা slug থেকে auto-map, এডমিনে লুকানো)।
+   - Slug / sort order / SEO meta — **Advanced** সেকশনে লুকানো; title থেকে auto-slug।
+   - Projects: `started_on` / `completed_on` date fields UI।
+   - Services overview-এ CMS `icon` field ব্যবহার (static map fallback)।
+
+6. **Requirements**
+   - `opens_at` / `closes_at` date fields UI (মডেলে আছে, ফর্মে নেই)।
+
+7. **Rich text (ঐচ্ছিক — সময় থাকলে)**
+   - Blog post body + Service intro-তে WYSIWYG বা উন্নত paragraph editor।
+   - না হলে বর্তমান paragraph-list UX-এ helper text যোগ।
+
+#### 🟢 P4 — SEO & ছোট ফিক্স
+
+8. **Detail page SEO**
+   - `app/services/[slug]`, `app/projects/[slug]`, `app/blog/[slug]` — CMS `meta_title` / `meta_description` ব্যবহার।
+
+9. **Contact info এক জায়গা থেকে**
+   - `ContactInfo.tsx`, `FAQ.tsx`-এ hardcoded phone/email → CMS settings বা i18n single source।
+
+10. **Settings page**
+    - Raw JSON editor **super-admin only** বা লুকানো; সাধারণ এডমিন শুধু Pen mode + collection forms দেখবে।
+
+#### ✅ শেষে — যাচাই ও ডিপ্লয়
+
+11. লোকাল এন্ড-টু-এন্ড টেস্ট: প্রতিটা মডিউলে create → publish → পাবলিক সাইটে verify।
+12. নন-কোডার চোখে রিভিউ — কোথাও JSON/slug/icon name দেখা যায় কিনা।
+13. `main` push → Coolify redeploy (site + API + dashboard) → production smoke test।
+
+### Notes
+- পাবলিক সাইট স্ট্যাটিক কন্টেন্ট Pen mode দিয়ে এডিট — আজকের অডিটে এটা **বাদ** (ইউজার সন্তুষ্ট)।
+- আগামীকালের ফোকাস শুধু **collection management** + **inbox** + **এডমিন UX gaps**।
+- P1+P2 শেষ হলে স্কোর ~85–90%; P3+P4 সহ ~92%+ achievable ইনশাআল্লাহ।
+- রেফারেন্স ফাইল: `dashboard/components/Dashboard.tsx`, `backend/app/api/routes/cms.py`, `backend/app/models.py`, `src/lib/cms-content.tsx`।
+
+---
+
+## 2026-08-08 (শনিবার)
+
+### Done
+- **P1 — Contact Inbox সম্পূর্ণ ওয়ার্কফ্লো**
+  - `GET /cms/inbox/{inbox}/{id}` detail endpoint (contact, RFQ, applications)।
+  - Summary logic ফিক্স — contact-এ `message` আগে, তারপর `subject`।
+  - Dashboard inbox: ক্লিক করলে detail modal, full message/scope, status + internal notes save।
+- **P1 — FAQ dedicated admin**
+  - Backend: `faq_items` + `faq_item_translations` মডেল + Alembic migration (`20260808_0001`)।
+  - CMS CRUD: `/content/faq` — question/answer, EN/AR, sort order, publish/archive।
+  - Public: `collections.faq` → site-wide `FAQ.tsx` (i18n fallback রাখা)।
+- **P1 — Project FAQ**
+  - Projects modal-এ Questions & answers সেকশন।
+  - Project detail page CMS `body.faqs` থেকে লোড।
+- **P2 — Blog**
+  - Sidebar-এ **Categories & tags** (`/taxonomy`) যোগ।
+  - Post editor → taxonomy API (`category_id`) connect।
+  - Homepage `News.tsx` CMS posts থেকে লোড।
+  - `BlogGrid` dynamic categories + load more pagination।
+- **P2 — Events** "View live" লিংক `/blog#events` ফিক্স।
+- **P3 — Admin UX polish**
+  - Services icon **visual picker** (grid)।
+  - Slug / SEO meta → **Advanced options** collapsible সেকশনে লুকানো।
+  - Projects: `started_on` / `completed_on` date fields।
+  - Requirements: `opens_at` / `closes_at` datetime fields।
+  - Services overview CMS `icon` field ব্যবহার।
+- **P4 — SEO & cleanup**
+  - Detail page CMS meta: services, projects, blog posts (`cms-detail-metadata.ts`)।
+  - Contact phone/email → `site.ts` constants (FAQ + ContactInfo)।
+  - Settings JSON editor শুধু **owner** role-এর জন্য।
+- Backend tests **14/14 passed** · public site + dashboard **build pass**।
+
+### Tomorrow / Next — planned
+1. `alembic upgrade head` লোকাল + Coolify production deploy।
+2. Browser smoke test: FAQ admin, inbox detail, blog categories, News section, detail SEO।
+3. Production-এ প্রথম FAQ items + blog categories seed করা।
+
+### Notes
+- Migration ফাইল: `backend/alembic/versions/20260808_0001_add_faq_items.py` — deploy-এর আগে অবশ্যই চালাতে হবে।
+- প্রোডাকশন রেডিনেস estimate: **~90–92%** (আগে ~74%)।
+
+---
+
 ## Template (পরের দিন কপি করে ব্যবহার করো)
 
 ```markdown

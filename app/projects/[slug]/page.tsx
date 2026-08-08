@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { allProjects, getProjectBySlug } from "@/lib/projects-data";
 import { absoluteUrl } from "@/lib/site";
 import { ProjectDetailView } from "@/views/ProjectDetailView";
+import { cmsDetailMetadata } from "@/lib/cms-detail-metadata";
 
 export function generateStaticParams() {
   return allProjects.map((p) => ({ slug: p.slug }));
@@ -16,11 +17,11 @@ export async function generateMetadata({
   const project = getProjectBySlug(slug);
   if (!project) return {};
   const canonical = absoluteUrl(`/projects/${project.slug}`);
-  return {
+  return cmsDetailMetadata("projects", slug, {
     title: "Project — NOVARISE",
     alternates: { canonical },
     openGraph: { url: canonical, images: [project.img] },
-  };
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

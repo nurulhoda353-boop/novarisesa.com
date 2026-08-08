@@ -1020,8 +1020,10 @@ html.dark .badge-in_review, html.dark .badge-contacted {
   padding: 18px 22px;
   border-bottom: 1px solid var(--line);
   transition: background var(--t-fast);
+  cursor: pointer;
 }
-.message-list article:hover { background: var(--surface2); }
+.message-list article:hover,
+.message-list article.active { background: var(--surface2); }
 .message-body > div { display: flex; align-items: center; gap: 8px; }
 .message-body h3 { font-size: 13px; font-weight: 600; color: var(--navy); margin: 0; }
 html.dark .message-body h3 { color: var(--ink); }
@@ -1040,6 +1042,80 @@ html.dark .message-body p { color: var(--muted); }
 }
 html.dark .message-list select { color: var(--ink); }
 .message-list select:focus { border-color: var(--gold); outline: none; }
+
+.inbox-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+.inbox-detail-grid span {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.inbox-detail-grid strong {
+  font-size: 13px;
+  color: var(--navy);
+  font-weight: 600;
+}
+html.dark .inbox-detail-grid strong { color: var(--ink); }
+.inbox-detail-block {
+  white-space: pre-wrap;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface2);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+html.dark .inbox-detail-block { color: var(--ink); }
+
+.icon-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.icon-picker-grid button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--navy);
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
+}
+.icon-picker-grid button:hover,
+.icon-picker-grid button.active {
+  border-color: var(--gold);
+  background: rgba(223, 162, 71, 0.12);
+  color: var(--navy);
+}
+.advanced-fields {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 0 14px;
+}
+.advanced-fields summary {
+  cursor: pointer;
+  padding: 14px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy);
+  list-style: none;
+}
+html.dark .advanced-fields summary { color: var(--ink); }
+.advanced-fields-body {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 14px;
+}
 
 /* ============================================================
    MODALS

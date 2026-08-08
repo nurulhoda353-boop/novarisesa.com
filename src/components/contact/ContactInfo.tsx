@@ -3,6 +3,12 @@
 import { Phone, Mail, MapPin, Clock, MessageSquare, ArrowUpRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/site/Reveal";
+import {
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_TEL,
+  CONTACT_WHATSAPP,
+} from "@/lib/site";
 
 export function ContactInfo() {
   const { t, i18n } = useTranslation();
@@ -13,31 +19,31 @@ export function ContactInfo() {
       icon: Phone,
       label: t("contactPage.info.channels.call.label"),
       labelField: "contactPage.info.channels.call.label",
-      value: "+966 55 442 9574",
+      value: CONTACT_PHONE_DISPLAY,
       valueField: undefined as string | undefined,
       sub: t("contactPage.info.channels.call.sub"),
       subField: "contactPage.info.channels.call.sub",
-      href: "tel:+966554429574",
+      href: `tel:${CONTACT_PHONE_TEL}`,
     },
     {
       icon: Mail,
       label: t("contactPage.info.channels.email.label"),
       labelField: "contactPage.info.channels.email.label",
-      value: "info@novarisesa.com",
+      value: CONTACT_EMAIL,
       valueField: undefined as string | undefined,
       sub: t("contactPage.info.channels.email.sub"),
       subField: "contactPage.info.channels.email.sub",
-      href: "mailto:info@novarisesa.com",
+      href: `mailto:${CONTACT_EMAIL}`,
     },
     {
       icon: MessageSquare,
       label: t("contactPage.info.channels.whatsapp.label"),
       labelField: "contactPage.info.channels.whatsapp.label",
-      value: "+966 55 442 9574",
+      value: CONTACT_PHONE_DISPLAY,
       valueField: undefined as string | undefined,
       sub: t("contactPage.info.channels.whatsapp.sub"),
       subField: "contactPage.info.channels.whatsapp.sub",
-      href: "https://wa.me/966554429574",
+      href: `https://wa.me/${CONTACT_WHATSAPP}`,
     },
     {
       icon: MapPin,

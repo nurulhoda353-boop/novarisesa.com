@@ -1,15 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
 import { Plus, MessageCircle, Phone, Mail, ArrowUpRight } from "lucide-react";
 import { Reveal } from "./Reveal";
+import { useCmsContent } from "@/lib/cms-content";
+import {
+  CONTACT_EMAIL,
+  CONTACT_PHONE_DISPLAY,
+  CONTACT_PHONE_TEL,
+  CONTACT_WHATSAPP,
+} from "@/lib/site";
 
 export function FAQ() {
   const { t } = useTranslation();
+  const { collections } = useCmsContent();
   const [open, setOpen] = useState<number | null>(0);
-  const faqs = t("faq.items", { returnObjects: true }) as { q: string; a: string }[];
+  const i18nFaqs = t("faq.items", { returnObjects: true }) as { q: string; a: string }[];
+  const faqs = useMemo(() => {
+    const cmsItems = collections.faq ?? [];
+    if (cmsItems.length > 0) {
+      return cmsItems.map((item) => ({
+        q: item.title,
+        a: String(item.data?.answer ?? item.summary ?? ""),
+      }));
+    }
+    return i18nFaqs;
+  }, [collections.faq, i18nFaqs]);
 
   return (
     <section id="faq" className="relative py-16 lg:py-24 bg-sand-soft overflow-hidden">
@@ -47,17 +65,17 @@ export function FAQ() {
                   </p>
 
                   <div className="mt-6 space-y-3 text-sm">
-                    <a href="tel:+966554429574" className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors" dir="ltr">
+                    <a href={`tel:${CONTACT_PHONE_TEL}`} className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors" dir="ltr">
                       <span className="h-8 w-8 rounded-full border border-white/15 bg-white/5 flex items-center justify-center group-hover:border-gold/40 transition-colors">
                         <Phone className="h-3.5 w-3.5 text-gold" />
                       </span>
-                      +966 55 442 9574
+                      {CONTACT_PHONE_DISPLAY}
                     </a>
-                    <a href="mailto:info@novarisesa.com" className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors" dir="ltr">
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors" dir="ltr">
                       <span className="h-8 w-8 rounded-full border border-white/15 bg-white/5 flex items-center justify-center group-hover:border-gold/40 transition-colors">
                         <Mail className="h-3.5 w-3.5 text-gold" />
                       </span>
-                      info@novarisesa.com
+                      {CONTACT_EMAIL}
                     </a>
                   </div>
 

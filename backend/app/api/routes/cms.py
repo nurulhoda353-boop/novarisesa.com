@@ -26,6 +26,8 @@ from app.models import (
     ContactSubmission,
     Event,
     EventTranslation,
+    FaqItem,
+    FaqItemTranslation,
     MediaAsset,
     NavigationItem,
     NewsletterSubscriber,
@@ -66,7 +68,7 @@ from app.schemas.cms import (
 
 router = APIRouter(prefix="/cms")
 DBSession = Annotated[Session, Depends(get_db)]
-ResourceName = Literal["pages", "services", "projects", "posts", "requirements", "events"]
+ResourceName = Literal["pages", "services", "projects", "posts", "requirements", "events", "faq"]
 InboxName = Literal["contact", "rfq", "applications"]
 
 RESOURCE_CONFIG: dict[str, dict[str, Any]] = {
@@ -106,6 +108,12 @@ RESOURCE_CONFIG: dict[str, dict[str, Any]] = {
         "foreign_key": "event_id",
         "title_key": "title",
     },
+    "faq": {
+        "model": FaqItem,
+        "translation": FaqItemTranslation,
+        "foreign_key": "faq_item_id",
+        "title_key": "question",
+    },
 }
 
 INBOX_CONFIG = {
@@ -113,6 +121,69 @@ INBOX_CONFIG = {
     "rfq": RFQSubmission,
     "applications": RequirementApplication,
 }
+
+
+def inbox_summary(inbox: str, row: Any) -> str | None:
+    if inbox == "contact":
+        return getattr(row, "message", None) or getattr(row, "subject", None)
+    if inbox == "rfq":
+        return getattr(row, "scope", None) or getattr(row, "service", None)
+    if inbox == "applications":
+        message = getattr(row, "message", None)
+        if message:
+            return message
+        phone = getattr(row, "phone", None)
+        return f"{row.name} · {phone}" if phone else row.name
+    return None
+
+
+def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": str(row.id),
+        "name": row.name,
+        "email": getattr(row, "email", None),
+        "company": getattr(row, "company", None),
+        "phone": getattr(row, "phone", None),
+        "status": enum_value(row.status),
+        "summary": inbox_summary(inbox, row),
+        "created_at": row.created_at.isoformat(),
+        "internal_notes": getattr(row, "internal_notes", None),
+    }
+    if inbox == "contact":
+        payload.update(
+            {
+                "subject": row.subject,
+                "message": row.message,
+                "locale": row.locale,
+                "source": row.source,
+            }
+        )
+    elif inbox == "rfq":
+        payload.update(
+            {
+                "reference": row.reference,
+                "service": row.service,
+                "location": row.location,
+                "budget": row.budget,
+                "timeline": row.timeline,
+                "scope": row.scope,
+                "attachments": row.attachments or [],
+            }
+        )
+    elif inbox == "applications":
+        payload.update(
+            {
+                "requirement_id": str(row.requirement_id),
+                "nationality": row.nationality,
+                "iqama_number": row.iqama_number,
+                "years_experience": row.years_experience,
+                "message": row.message,
+                "resume_media_id": (
+                    str(row.resume_media_id) if row.resume_media_id else None
+                ),
+            }
+        )
+    return payload
 
 
 def audit(
@@ -160,7 +231,7 @@ def serialize_content(
     title_key = RESOURCE_CONFIG[resource]["title_key"]
     title = getattr(translation, title_key, None) or getattr(item, "slug", None) or item.code
     summary = None
-    for key in ("summary", "excerpt", "tagline", "description"):
+    for key in ("summary", "excerpt", "tagline", "description", "answer"):
         value = getattr(translation, key, None) if translation else None
         if value:
             summary = value
@@ -236,8 +307,14 @@ def serialize_detail(resource: str, item: Any, locale: str) -> ContentDetail:
                 ),
             }
         if resource == "posts":
+            category = getattr(item, "category", None)
+            category_name = None
+            if category is not None:
+                names = category.name or {}
+                category_name = names.get(translation.locale if translation else locale) or names.get("en")
             body = {
                 **body,
+                "category": category_name or body.get("category"),
                 "featured_media_id": (
                     str(item.featured_media_id) if item.featured_media_id else None
                 ),
@@ -253,6 +330,11 @@ def serialize_detail(resource: str, item: Any, locale: str) -> ContentDetail:
                 "featured_media_id": (
                     str(item.featured_media_id) if item.featured_media_id else None
                 ),
+            }
+        if resource == "faq":
+            body = {
+                "question": getattr(translation, "question", None),
+                "answer": getattr(translation, "answer", None),
             }
         if resource == "requirements":
             body = {
@@ -335,6 +417,12 @@ def translation_values(resource: str, payload: ContentUpsert) -> dict[str, Any]:
             "event_type": payload.body.get("event_type"),
             "meta_title": payload.meta_title,
             "meta_description": payload.meta_description,
+        }
+    if resource == "faq":
+        return {
+            **common,
+            "question": payload.title,
+            "answer": payload.summary or payload.body.get("answer") or "",
         }
     return {
         **common,
@@ -466,6 +554,8 @@ def overview(
         "projects": db.scalar(select(func.count()).select_from(Project)) or 0,
         "posts": db.scalar(select(func.count()).select_from(Post)) or 0,
         "requirements": db.scalar(select(func.count()).select_from(Requirement)) or 0,
+        "events": db.scalar(select(func.count()).select_from(Event)) or 0,
+        "faq": db.scalar(select(func.count()).select_from(FaqItem)) or 0,
         "media": db.scalar(select(func.count()).select_from(MediaAsset)) or 0,
         "navigation": db.scalar(select(func.count()).select_from(NavigationItem)) or 0,
         "categories": db.scalar(select(func.count()).select_from(Category)) or 0,
@@ -631,9 +721,13 @@ def list_content(
     options = [selectinload(model.translations)]
     if resource == "posts":
         options.append(selectinload(Post.tags))
+        options.append(selectinload(Post.category))
     if resource == "requirements":
         options.append(selectinload(Requirement.contacts))
-    statement = select(model).options(*options).order_by(model.updated_at.desc()).limit(limit)
+    order_columns = [model.updated_at.desc()]
+    if hasattr(model, "sort_order"):
+        order_columns = [model.sort_order, model.updated_at.desc()]
+    statement = select(model).options(*options).order_by(*order_columns).limit(limit)
     items = list(db.scalars(statement))
     media_ids = {
         str(media_id)
@@ -672,6 +766,7 @@ def get_content(
     options = [selectinload(model.translations)]
     if resource == "posts":
         options.append(selectinload(Post.tags))
+        options.append(selectinload(Post.category))
     if resource == "requirements":
         options.append(selectinload(Requirement.contacts))
     item = db.scalar(select(model).options(*options).where(model.id == item_id))
@@ -752,6 +847,7 @@ def create_content(
     options = [selectinload(model.translations)]
     if resource == "posts":
         options.append(selectinload(Post.tags))
+        options.append(selectinload(Post.category))
     if resource == "requirements":
         options.append(selectinload(Requirement.contacts))
     item = db.scalar(select(model).options(*options).where(model.id == item.id))
@@ -773,6 +869,7 @@ def update_content(
     options = [selectinload(model.translations)]
     if resource == "posts":
         options.append(selectinload(Post.tags))
+        options.append(selectinload(Post.category))
     item = db.scalar(select(model).options(*options).where(model.id == item_id))
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Content not found")
@@ -858,23 +955,23 @@ def list_inbox(
     _ = user
     model = INBOX_CONFIG[inbox]
     rows = list(db.scalars(select(model).order_by(model.created_at.desc()).limit(limit)))
-    items = []
-    for row in rows:
-        items.append(
-            {
-                "id": str(row.id),
-                "name": row.name,
-                "email": row.email,
-                "company": getattr(row, "company", None),
-                "phone": getattr(row, "phone", None),
-                "status": enum_value(row.status),
-                "summary": getattr(row, "subject", None)
-                or getattr(row, "service", None)
-                or getattr(row, "message", None),
-                "created_at": row.created_at.isoformat(),
-            }
-        )
+    items = [serialize_inbox_item(inbox, row) for row in rows]
     return {"items": items, "total": len(items)}
+
+
+@router.get("/inbox/{inbox}/{item_id}")
+def get_inbox_item(
+    inbox: InboxName,
+    item_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox", "cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    model = INBOX_CONFIG[inbox]
+    row = db.get(model, item_id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
+    return serialize_inbox_item(inbox, row)
 
 
 @router.patch("/inbox/{inbox}/{item_id}")

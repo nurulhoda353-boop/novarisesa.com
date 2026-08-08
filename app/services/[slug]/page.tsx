@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ServiceDetailView } from "@/views/ServiceDetailView";
 import { servicePages, getServiceBySlug } from "@/lib/services-data";
 import { absoluteUrl } from "@/lib/site";
+import { cmsDetailMetadata } from "@/lib/cms-detail-metadata";
 
 export function generateStaticParams() {
   return servicePages.map((s) => ({ slug: s.slug }));
@@ -16,7 +17,7 @@ export async function generateMetadata({
   const service = getServiceBySlug(slug);
   if (!service) return {};
   const canonical = absoluteUrl(`/services/${service.slug}`);
-  return {
+  return cmsDetailMetadata("services", slug, {
     title: service.metaTitle,
     description: service.metaDescription,
     alternates: { canonical },
@@ -26,7 +27,7 @@ export async function generateMetadata({
       description: service.metaDescription,
       images: [service.heroImage],
     },
-  };
+  });
 }
 
 export default async function Page({ params }: { params: Promise<{ slug: string }> }) {

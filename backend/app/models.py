@@ -347,6 +347,7 @@ class Post(UUIDMixin, TimestampMixin, Base):
     is_featured: Mapped[bool] = mapped_column(Boolean, default=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     tags: Mapped[list[Tag]] = relationship(secondary=post_tags)
+    category: Mapped["Category | None"] = relationship()
     translations: Mapped[list["PostTranslation"]] = relationship(
         back_populates="post", cascade="all, delete-orphan"
     )
@@ -405,6 +406,40 @@ class EventTranslation(UUIDMixin, TimestampMixin, Base):
     meta_title: Mapped[str | None] = mapped_column(String(255))
     meta_description: Mapped[str | None] = mapped_column(Text)
     event: Mapped[Event] = relationship(back_populates="translations")
+
+
+class FaqItem(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "faq_items"
+
+    slug: Mapped[str] = mapped_column(String(180), unique=True)
+    status: Mapped[PublishStatus] = mapped_column(
+        Enum(
+            PublishStatus,
+            name="publish_status",
+            create_type=False,
+            values_callable=lambda e: [x.value for x in e],
+        ),
+        default=PublishStatus.DRAFT,
+    )
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    translations: Mapped[list["FaqItemTranslation"]] = relationship(
+        back_populates="faq_item", cascade="all, delete-orphan"
+    )
+
+
+class FaqItemTranslation(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "faq_item_translations"
+    __table_args__ = (
+        UniqueConstraint("faq_item_id", "locale", name="uq_faq_item_translation_locale"),
+    )
+
+    faq_item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("faq_items.id", ondelete="CASCADE")
+    )
+    locale: Mapped[str] = mapped_column(String(10))
+    question: Mapped[str] = mapped_column(String(500))
+    answer: Mapped[str] = mapped_column(Text)
+    faq_item: Mapped[FaqItem] = relationship(back_populates="translations")
 
 
 class Requirement(UUIDMixin, TimestampMixin, Base):

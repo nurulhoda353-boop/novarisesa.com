@@ -17,6 +17,7 @@ export type TranslatedProject = {
   scope: string;
   long: string[];
   highlights: string[];
+  faqs: { q: string; a: string }[];
 };
 
 function str(value: unknown, fallback = ""): string {
@@ -53,6 +54,12 @@ export function useTranslatedProject(slug: string): TranslatedProject | undefine
 
   const bodyLong = Array.isArray(freeform.long) ? (freeform.long as string[]) : undefined;
   const bodyHighlights = Array.isArray(freeform.highlights) ? (freeform.highlights as string[]) : undefined;
+  const bodyFaqs = Array.isArray(freeform.faqs)
+    ? (freeform.faqs as { q?: string; a?: string }[]).map((row) => ({
+        q: String(row.q ?? ""),
+        a: String(row.a ?? ""),
+      }))
+    : undefined;
 
   return {
     key,
@@ -69,5 +76,9 @@ export function useTranslatedProject(slug: string): TranslatedProject | undefine
     scope: tField("scope", str(managed?.summary)),
     long: tArray<string>(`projects.content.${key}.long`) ?? bodyLong ?? [],
     highlights: tArray<string>(`projects.content.${key}.highlights`) ?? bodyHighlights ?? [],
+    faqs:
+      bodyFaqs?.filter((row) => row.q || row.a)
+      ?? tArray<{ q: string; a: string }>(`projects.content.${key}.faqs`)
+      ?? [],
   };
 }
