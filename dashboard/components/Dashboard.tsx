@@ -39,6 +39,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { api, SITE_URL } from "@/lib/api";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
@@ -1637,11 +1638,22 @@ function ContentModal({
   const publishStatus = isRequirement ? "active" : "published";
   const publishLabel = isRequirement ? "Activate" : "Publish";
   const [ceTab, setCeTab] = useState<"content" | "sections">("content");
+  const [mounted, setMounted] = useState(false);
   const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
 
-  return (
+  useEffect(() => {
+    setMounted(true);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="ce-overlay" role="dialog" aria-modal="true" aria-label="Content editor">
-      <form className="modal ce-modal" onSubmit={(event) => save(event)}>
+      <form className="ce-modal" onSubmit={(event) => save(event)}>
 
         {/* ── HEADER ── */}
         <div className="ce-head">
@@ -1998,7 +2010,8 @@ function ContentModal({
           </div>
         )}
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
