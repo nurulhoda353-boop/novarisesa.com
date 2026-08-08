@@ -1640,8 +1640,8 @@ function ContentModal({
   const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <form className="modal ce-modal" onSubmit={(event) => save(event)} onMouseDown={(event) => event.stopPropagation()}>
+    <div className="ce-overlay" role="dialog" aria-modal="true" aria-label="Content editor">
+      <form className="modal ce-modal" onSubmit={(event) => save(event)}>
 
         {/* ── HEADER ── */}
         <div className="ce-head">

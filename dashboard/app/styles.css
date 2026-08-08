@@ -1152,19 +1152,27 @@ html.dark .advanced-fields summary { color: var(--ink); }
 }
 .modal.wide { width: min(780px,100%); }
 
-.modal.editor-sheet,
-.modal.editor-timeline,
-.modal.ce-modal {
-  width: calc(100vw - 24px);
-  height: calc(100vh - 24px);
-  max-height: calc(100vh - 24px);
-  border-radius: var(--r-2xl);
+/* Content editor — fills workspace from sidebar edge to right */
+.ce-overlay {
+  position: fixed;
+  top: 0;
+  left: 262px;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  animation: fade-in 0.15s var(--ease-out);
 }
 
-.modal-backdrop:has(.editor-sheet),
-.modal-backdrop:has(.editor-timeline),
-.modal-backdrop:has(.ce-modal) {
-  padding: 12px;
+.modal.ce-modal {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
 }
 
 /* ── CONTENT EDITOR MODAL ── */
@@ -1218,7 +1226,6 @@ html.dark .ce-close:hover { color: var(--ink); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 28ch;
 }
 html.dark .ce-title { color: var(--ink); }
 
@@ -1261,17 +1268,16 @@ html.dark .ce-tabs button:hover { color: var(--ink); }
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 20px 28px;
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 0 24px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 0 28px;
   align-items: start;
 }
 .ce-body.ce-sections {
   display: flex;
   flex-direction: column;
   padding: 20px 24px;
-  max-width: 860px;
 }
 
 .ce-main {
@@ -1440,6 +1446,9 @@ html.dark .ce-tabs button:hover { color: var(--ink); }
 @media (max-width: 900px) {
   .ce-body { grid-template-columns: 1fr; }
   .ce-side { position: static; }
+}
+@media (max-width: 760px) {
+  .ce-overlay { left: 0; }
 }
 @media (max-width: 600px) {
   .ce-head { flex-wrap: wrap; }
