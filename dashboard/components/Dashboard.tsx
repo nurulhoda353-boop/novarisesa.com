@@ -1683,6 +1683,8 @@ function ContentModal({
         {/* ── TAB 1: CONTENT ── */}
         {ceTab === "content" && (
           <div className="ce-body">
+            {/* ── LEFT: primary content ── */}
+            <div className="ce-main">
             {/* Thumbnail / hero image */}
             {supportsMedia && (
               <div className="ce-image-row">
@@ -1839,42 +1841,52 @@ function ContentModal({
                 </label>
               </>}
 
-              {/* Publishing fields */}
-              <div className="ce-divider full" />
-              <label>Status
-                <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                  {statusOptions.map((v) => <option key={v}>{v}</option>)}
-                </select>
-              </label>
-              {!isRequirement && <label>Sort order
-                <input type="number" min="0" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
-              </label>}
-              {!isRequirement && !isFaq && <label className="check-row full">
-                <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} /> Featured
-              </label>}
-              {!isFaq && !isRequirement && (
-                <label className="full">Web address (slug)
-                  <input value={slug} onChange={(e) => setSlug(slugify(e.target.value))} required />
-                  <small className="field-hint">{publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`}</small>
-                </label>
-              )}
-              {!isFaq && <>
-                <label className="full">SEO title
-                  <input value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} />
-                </label>
-                <label className="full">SEO description
-                  <textarea rows={2} value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} />
-                </label>
-              </>}
-            </div>
+              {/* end resource-specific fields */}
+            </div>{/* end ce-grid */}
 
-            {bodyError && <p className="form-error" style={{ margin: "0 18px 14px" }}>{bodyError}</p>}
+            {bodyError && <p className="form-error" style={{ marginTop: 12 }}>{bodyError}</p>}
+            </div>{/* end ce-main */}
+
+            {/* ── RIGHT: publishing sidebar ── */}
+            <div className="ce-side">
+              <div className="ce-side-card">
+                <p className="ce-side-card-title">Publishing</p>
+                <label>Status
+                  <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                    {statusOptions.map((v) => <option key={v}>{v}</option>)}
+                  </select>
+                </label>
+                {!isRequirement && <label>Sort order
+                  <input type="number" min="0" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} />
+                </label>}
+                {!isRequirement && !isFaq && <label className="check-row">
+                  <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} /> Featured
+                </label>}
+                {!isFaq && !isRequirement && (
+                  <label>Web address (slug)
+                    <input value={slug} onChange={(e) => setSlug(slugify(e.target.value))} required />
+                    <small className="field-hint">{publicPageHref(resource, slug) || `novarisesa.com/${resource}/${slug}`}</small>
+                  </label>
+                )}
+              </div>
+              {!isFaq && (
+                <div className="ce-side-card">
+                  <p className="ce-side-card-title">SEO</p>
+                  <label>Title
+                    <input value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} />
+                  </label>
+                  <label>Description
+                    <textarea rows={3} value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} />
+                  </label>
+                </div>
+              )}
+            </div>{/* end ce-side */}
           </div>
         )}
 
         {/* ── TAB 2: SECTIONS ── */}
         {ceTab === "sections" && hasSections && (
-          <div className="ce-body">
+          <div className="ce-body ce-sections">
             {isService && <>
               <div className="ce-section-block">
                 <p className="ce-section-label">Key numbers</p>
