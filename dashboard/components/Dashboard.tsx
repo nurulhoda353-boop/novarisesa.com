@@ -31,6 +31,7 @@ import {
   Star,
   Sun,
   Trash2,
+  Upload,
   Users,
   X,
 } from "lucide-react";
@@ -41,6 +42,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { api, SITE_URL } from "@/lib/api";
+import { compressImageForWeb } from "@/lib/compress-image";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -1256,6 +1258,60 @@ function EditorMediaPicker({
   );
 }
 
+function ContentHeroField({
+  displaySrc,
+  mediaId,
+  mediaItems,
+  heroFallback,
+  uploading,
+  canUpload,
+  onMediaIdChange,
+  onUpload,
+}: {
+  displaySrc: string;
+  mediaId: string;
+  mediaItems: MediaItem[];
+  heroFallback: string;
+  uploading: boolean;
+  canUpload: boolean;
+  onMediaIdChange: (value: string) => void;
+  onUpload: (file: File) => Promise<void>;
+}) {
+  return (
+    <div className="ce-hero">
+      <div className={displaySrc ? "ce-hero-preview" : "ce-hero-preview empty"}>
+        {displaySrc ? <img src={displaySrc} alt="Hero" /> : <><ImageIcon size={28} /><span>No image</span></>}
+      </div>
+      <div className="ce-hero-controls">
+        <p className="field-label">Hero image</p>
+        {canUpload && (
+          <label className="secondary-button compact upload-button">
+            <Upload size={14} /> {uploading ? "Compressing…" : "Replace from computer"}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              disabled={uploading}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void onUpload(file);
+                event.target.value = "";
+              }}
+            />
+          </label>
+        )}
+        <select value={mediaId} onChange={(event) => onMediaIdChange(event.target.value)} disabled={uploading}>
+          <option value="">{heroFallback ? "Keep current" : "None"}</option>
+          {mediaItems.filter((media) => media.mime_type.startsWith("image/")).map((media) => (
+            <option key={media.id} value={media.id}>{media.file_name}</option>
+          ))}
+        </select>
+        <small className="field-hint">Any format accepted · compressed to WebP (~250 KB) on upload</small>
+      </div>
+    </div>
+  );
+}
+
 function IconPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <div className="icon-picker-grid">
@@ -1326,6 +1382,7 @@ function ContentModal({
   const [bodyJson, setBodyJson] = useState("{}");
   const [bodyError, setBodyError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [heroUploading, setHeroUploading] = useState(false);
   const isProject = resource === "projects";
   const [serviceIcon, setServiceIcon] = useState("Building2");
   const [serviceNum, setServiceNum] = useState("");
@@ -1641,6 +1698,26 @@ function ContentModal({
   const [mounted, setMounted] = useState(false);
   const displaySrc = previewSrc.startsWith("/") ? `https://novarisesa.com${previewSrc}` : previewSrc;
 
+  async function uploadHeroImage(file: File) {
+    if (!can(user, "cms.manage_media")) return;
+    setHeroUploading(true);
+    setBodyError("");
+    try {
+      const compressed = await compressImageForWeb(file);
+      const body = new FormData();
+      body.append("file", compressed);
+      body.append("folder", "uploads");
+      body.append("alt_en", title || "Hero image");
+      const uploaded = await api<MediaItem>("/cms/media", { method: "POST", body });
+      setMediaItems((current) => [uploaded, ...current.filter((item) => item.id !== uploaded.id)]);
+      setMediaId(uploaded.id);
+    } catch (reason) {
+      setBodyError(reason instanceof Error ? reason.message : "Could not upload image");
+    } finally {
+      setHeroUploading(false);
+    }
+  }
+
   useEffect(() => {
     setMounted(true);
     document.body.style.overflow = "hidden";
@@ -1699,21 +1776,16 @@ function ContentModal({
             <div className="ce-main">
             {/* Thumbnail / hero image */}
             {supportsMedia && (
-              <div className="ce-image-row">
-                <div className={displaySrc ? "ce-thumb" : "ce-thumb empty"}>
-                  {displaySrc ? <img src={displaySrc} alt="Hero" /> : <><ImageIcon size={20} /><span>No image</span></>}
-                </div>
-                <div className="ce-image-select">
-                  <label className="field-label">Hero image</label>
-                  <select value={mediaId} onChange={(event) => setMediaId(event.target.value)}>
-                    <option value="">{heroFallback ? "Keep current" : "None"}</option>
-                    {mediaItems.filter((m) => m.mime_type.startsWith("image/")).map((m) => (
-                      <option key={m.id} value={m.id}>{m.file_name}</option>
-                    ))}
-                  </select>
-                  <small className="field-hint">Upload new images in Media library first.</small>
-                </div>
-              </div>
+              <ContentHeroField
+                displaySrc={displaySrc}
+                mediaId={mediaId}
+                mediaItems={mediaItems}
+                heroFallback={heroFallback}
+                uploading={heroUploading}
+                canUpload={can(user, "cms.manage_media")}
+                onMediaIdChange={setMediaId}
+                onUpload={uploadHeroImage}
+              />
             )}
 
             <div className="ce-grid">
@@ -1900,9 +1972,8 @@ function ContentModal({
         {ceTab === "sections" && hasSections && (
           <div className="ce-body ce-sections">
             {isService && <>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Key numbers</p>
-                <ListEditor label="" items={statsList} onChange={setStatsList} empty={{ value: "", suffix: "", label: "" }}
+              <div className="ce-section-card">
+                <ListEditor label="Key numbers" items={statsList} onChange={setStatsList} empty={{ value: "", suffix: "", label: "" }}
                   renderItem={(s, set) => <>
                     <input placeholder="Number" value={s.value} onChange={(e) => set({ ...s, value: e.target.value })} />
                     <input placeholder="Suffix" value={s.suffix} onChange={(e) => set({ ...s, suffix: e.target.value })} />
@@ -1910,9 +1981,8 @@ function ContentModal({
                   </>}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">What's included</p>
-                <ListEditor label="" items={subServicesList} onChange={setSubServicesList} empty={{ title: "", desc: "", icon: "Wrench" }} variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="What's included" items={subServicesList} onChange={setSubServicesList} empty={{ title: "", desc: "", icon: "Wrench" }} variant="stack"
                   renderItem={(s, set) => <>
                     <input placeholder="Title" value={s.title} onChange={(e) => set({ ...s, title: e.target.value })} />
                     <select value={s.icon || "Wrench"} onChange={(e) => set({ ...s, icon: e.target.value })}>
@@ -1922,18 +1992,16 @@ function ContentModal({
                   </>}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Capability table</p>
-                <ListEditor label="" items={capabilitiesRows} onChange={setCapabilitiesRows} empty={{ label: "", value: "" }}
+              <div className="ce-section-card">
+                <ListEditor label="Capability table" items={capabilitiesRows} onChange={setCapabilitiesRows} empty={{ label: "", value: "" }}
                   renderItem={(r, set) => <>
                     <input placeholder="Label" value={r.label} onChange={(e) => set({ ...r, label: e.target.value })} />
                     <input placeholder="Value" value={r.value} onChange={(e) => set({ ...r, value: e.target.value })} />
                   </>}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Process steps</p>
-                <ListEditor label="" items={processList} onChange={setProcessList} empty={{ num: "", title: "", desc: "" }} variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="Process steps" items={processList} onChange={setProcessList} empty={{ num: "", title: "", desc: "" }} variant="stack"
                   renderItem={(p, set) => <>
                     <input placeholder="Step no." value={p.num} onChange={(e) => set({ ...p, num: e.target.value })} />
                     <input placeholder="Title" value={p.title} onChange={(e) => set({ ...p, title: e.target.value })} />
@@ -1941,15 +2009,13 @@ function ContentModal({
                   </>}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Certifications</p>
-                <ListEditor label="" items={certificationsList} onChange={setCertificationsList} empty=""
+              <div className="ce-section-card">
+                <ListEditor label="Certifications" items={certificationsList} onChange={setCertificationsList} empty=""
                   renderItem={(c, set) => <input placeholder="e.g. ISO 9001:2015" value={c} onChange={(e) => set(e.target.value)} />}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Questions & answers</p>
-                <ListEditor label="" items={faqsList} onChange={setFaqsList} empty={{ q: "", a: "" }} variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="Questions & answers" items={faqsList} onChange={setFaqsList} empty={{ q: "", a: "" }} variant="stack"
                   renderItem={(f, set) => <>
                     <input placeholder="Question" value={f.q} onChange={(e) => set({ ...f, q: e.target.value })} />
                     <textarea rows={3} placeholder="Answer" value={f.a} onChange={(e) => set({ ...f, a: e.target.value })} />
@@ -1959,21 +2025,18 @@ function ContentModal({
             </>}
 
             {isProject && <>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Full description</p>
-                <ListEditor label="" items={projectLong} onChange={setProjectLong} empty="" variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="Full description" items={projectLong} onChange={setProjectLong} empty="" variant="stack"
                   renderItem={(p, set) => <textarea rows={4} value={p} onChange={(e) => set(e.target.value)} />}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Key highlights</p>
-                <ListEditor label="" items={projectHighlights} onChange={setProjectHighlights} empty=""
+              <div className="ce-section-card">
+                <ListEditor label="Key highlights" items={projectHighlights} onChange={setProjectHighlights} empty=""
                   renderItem={(h, set) => <input placeholder="e.g. 240 certified workers mobilised" value={h} onChange={(e) => set(e.target.value)} />}
                 />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Questions & answers</p>
-                <ListEditor label="" items={projectFaqsList} onChange={setProjectFaqsList} empty={{ q: "", a: "" }} variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="Questions & answers" items={projectFaqsList} onChange={setProjectFaqsList} empty={{ q: "", a: "" }} variant="stack"
                   renderItem={(f, set) => <>
                     <input placeholder="Question" value={f.q} onChange={(e) => set({ ...f, q: e.target.value })} />
                     <textarea rows={3} placeholder="Answer" value={f.a} onChange={(e) => set({ ...f, a: e.target.value })} />
@@ -1983,22 +2046,20 @@ function ContentModal({
             </>}
 
             {isPost && (
-              <div className="ce-section-block">
-                <p className="ce-section-label">Article paragraphs</p>
-                <ListEditor label="" items={postParagraphs} onChange={setPostParagraphs} empty="" variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="Article paragraphs" items={postParagraphs} onChange={setPostParagraphs} empty="" variant="stack"
                   renderItem={(p, set) => <textarea rows={4} value={p} onChange={(e) => set(e.target.value)} />}
                 />
               </div>
             )}
 
             {isRequirement && <>
-              <div className="ce-section-block">
+              <div className="ce-section-card wide">
                 <p className="ce-section-label">Required documents <small className="field-hint" style={{ display: "inline", marginLeft: 6 }}>one per line</small></p>
-                <textarea className="full" rows={5} style={{ width: "100%" }} placeholder={"Valid Iqama\nMedical Insurance"} value={documents} onChange={(e) => setDocuments(e.target.value)} />
+                <textarea className="ce-section-textarea" rows={5} placeholder={"Valid Iqama\nMedical Insurance"} value={documents} onChange={(e) => setDocuments(e.target.value)} />
               </div>
-              <div className="ce-section-block">
-                <p className="ce-section-label">Contact numbers</p>
-                <ListEditor label="" items={contactsList} onChange={setContactsList} empty={{ display: "", raw: "", whatsapp: true }} variant="stack"
+              <div className="ce-section-card wide">
+                <ListEditor label="Contact numbers" items={contactsList} onChange={setContactsList} empty={{ display: "", raw: "", whatsapp: true }} variant="stack"
                   renderItem={(c, set) => <>
                     <input placeholder="+966 57 875 3016" value={c.display} onChange={(e) => set({ ...c, display: e.target.value })} />
                     <input placeholder="966578753016" value={c.raw} onChange={(e) => set({ ...c, raw: e.target.value })} />
