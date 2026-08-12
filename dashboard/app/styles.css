@@ -2095,6 +2095,40 @@ html.dark .project-content-group-head h2 { color: var(--ink); }
 }
 html.dark .project-content-group-head strong { color: var(--ink); }
 .project-content-group .content-grid { padding: 18px; }
+.project-card-grid.featured {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.project-card-grid.featured .content-card-media .asset-preview.compact,
+.project-card-grid.featured .content-card-media .asset-preview.compact img {
+  height: 280px;
+  min-height: 280px;
+}
+.project-card-grid.featured .content-card-title { font-size: 22px; }
+.project-card-grid.featured .content-card-body { padding: 18px 20px 10px; }
+.project-card-grid.standard {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.project-card-grid.standard .content-card-media .asset-preview.compact,
+.project-card-grid.standard .content-card-media .asset-preview.compact img {
+  height: 160px;
+  min-height: 160px;
+}
+.project-card-grid.standard .content-card-overlay { padding: 12px 14px; }
+.project-card-grid.standard .content-card-title {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+.project-card-grid.standard .content-card-body { padding: 14px 15px 8px; }
+.project-card-grid.standard .content-card-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 12px;
+}
+.project-card-grid.standard .content-card-foot { padding: 10px 15px 15px; }
 
 .content-grid {
   display: grid;
@@ -2543,6 +2577,7 @@ html.dark .content-card-actions > button:hover { color: var(--gold-light); }
   .mini-page-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .website-map, .post-composer { position: static; max-height: none; }
   .preview-frame-host { height: 62vh; }
+  .project-card-grid.standard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -2570,6 +2605,10 @@ html.dark .content-card-actions > button:hover { color: var(--gold-light); }
   .project-content-group .content-grid { padding: 14px; }
   .project-content-group-head { padding: 17px 16px; }
   .project-content-group-head p { max-width: 32rem; }
+  .project-card-grid.featured,
+  .project-card-grid.standard { grid-template-columns: 1fr; }
+  .project-card-grid.featured .content-card-media .asset-preview.compact,
+  .project-card-grid.featured .content-card-media .asset-preview.compact img { height: 220px; min-height: 220px; }
   .content-editor-toolbar { grid-template-columns: 1fr; }
   .mini-toolbar .segmented { width: 100%; }
   .mini-toolbar .segmented button { flex: 1; }

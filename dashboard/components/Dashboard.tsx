@@ -787,8 +787,8 @@ function ContentPage({ resource }: { resource: string }) {
     [items, query],
   );
 
-  const renderCards = (groupItems: ContentItem[]) => (
-    <div className="content-grid">
+  const renderCards = (groupItems: ContentItem[], variant?: "featured" | "standard") => (
+    <div className={`content-grid${variant ? ` project-card-grid ${variant}` : ""}`}>
       {groupItems.map((item) => {
         const index = visible.indexOf(item);
         const thumb = (item.extra.thumbnail_url as string | undefined)
@@ -845,7 +845,7 @@ function ContentPage({ resource }: { resource: string }) {
       items: visible.filter((item) => item.is_featured),
     },
     {
-      key: "other",
+      key: "standard",
       eyebrow: "Project archive",
       title: "Non-Featured Projects",
       copy: "Additional projects shown in the compact grid on the public Projects page.",
@@ -880,7 +880,7 @@ function ContentPage({ resource }: { resource: string }) {
                   </div>
                   <strong>{group.items.length}</strong>
                 </div>
-                {renderCards(group.items)}
+                {renderCards(group.items, group.key as "featured" | "standard")}
               </section>
             ))}
           </div>
