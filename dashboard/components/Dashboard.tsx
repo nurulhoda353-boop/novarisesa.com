@@ -909,6 +909,73 @@ function ContentPage({ resource }: { resource: string }) {
       .sort((a, b) => Number(a.extra.sort_order ?? 0) - Number(b.extra.sort_order ?? 0)),
     [items, query],
   );
+
+  const renderCards = (groupItems: ContentItem[]) => (
+    <div className="content-grid">
+      {groupItems.map((item) => {
+        const index = visible.indexOf(item);
+        const thumb = (item.extra.thumbnail_url as string | undefined)
+          || assetSlots.find(([key]) => key === `${resource}.${item.slug}.hero`)?.[2]
+          || "";
+        return (
+          <article
+            className={`content-card${resource === "projects" ? ` project-content-card ${item.is_featured ? "is-featured" : "is-standard"}` : ""}`}
+            key={item.id}
+          >
+            <div className="content-card-media">
+              <AssetPreview src={thumb} label={item.title} compact />
+              <div className="content-card-overlay">
+                <div className="content-card-top-bar">
+                  <span className="content-card-number">
+                    {String(index + 1).padStart(2, "0")} &bull; {item.status.toUpperCase()}
+                  </span>
+                  {resource === "projects" ? (
+                    <span className={`project-card-type ${item.is_featured ? "featured" : "standard"}`}>
+                      {item.is_featured && <Star size={12} fill="currentColor" />}
+                      {item.is_featured ? "Featured" : "Non-featured"}
+                    </span>
+                  ) : item.is_featured ? (
+                    <span className="content-card-icon-badge"><Star size={14} /></span>
+                  ) : null}
+                </div>
+                <div className="content-card-title-area">
+                  <h3 className="content-card-title" title={item.title}>{item.title}</h3>
+                  <div className="content-card-line"></div>
+                </div>
+              </div>
+            </div>
+            <div className="content-card-body">
+              <p className="content-card-summary">{item.summary || `Manage the ${item.title} content and configuration.`}</p>
+            </div>
+            <div className="content-card-foot">
+              <div className="content-card-meta">
+                <span className="slug">/{item.slug}</span>
+                <span className="date">Updated {new Date(item.updated_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+
+  const projectGroups = resource === "projects" ? [
+    {
+      key: "featured",
+      eyebrow: "Priority showcase",
+      title: "Featured Projects",
+      copy: "Highlighted projects shown prominently on the public Projects page.",
+      items: visible.filter((item) => item.is_featured),
+    },
+    {
+      key: "other",
+      eyebrow: "Project archive",
+      title: "Non-Featured Projects",
+      copy: "Additional projects shown in the compact grid on the public Projects page.",
+      items: visible.filter((item) => !item.is_featured),
+    },
+  ].filter((group) => group.items.length) : [];
+
   return <>
     <PageHead
       eyebrow="Website content"
@@ -924,41 +991,23 @@ function ContentPage({ resource }: { resource: string }) {
         <span>{visible.length} items</span>
       </div>
       {busy ? <Skeleton /> : visible.length ? (
-        <div className="content-grid">
-          {visible.map((item, index) => {
-            const thumb = (item.extra.thumbnail_url as string | undefined)
-              || assetSlots.find(([key]) => key === `${resource}.${item.slug}.hero`)?.[2]
-              || "";
-            return (
-              <article className="content-card" key={item.id}>
-                <div className="content-card-media">
-                  <AssetPreview src={thumb} label={item.title} compact />
-                  <div className="content-card-overlay">
-                    <div className="content-card-top-bar">
-                      <span className="content-card-number">
-                        {String(index + 1).padStart(2, "0")} &bull; {item.status.toUpperCase()}
-                      </span>
-                      {item.is_featured && <span className="content-card-icon-badge"><Star size={14} /></span>}
-                    </div>
-                    <div className="content-card-title-area">
-                      <h3 className="content-card-title" title={item.title}>{item.title}</h3>
-                      <div className="content-card-line"></div>
-                    </div>
+        resource === "projects" ? (
+          <div className="project-content-groups">
+            {projectGroups.map((group) => (
+              <section className={`project-content-group ${group.key}`} key={group.key}>
+                <div className="project-content-group-head">
+                  <div>
+                    <span>{group.eyebrow}</span>
+                    <h2>{group.title}</h2>
+                    <p>{group.copy}</p>
                   </div>
+                  <strong>{group.items.length}</strong>
                 </div>
-                <div className="content-card-body">
-                  <p className="content-card-summary">{item.summary || `Manage the ${item.title} content and configuration.`}</p>
-                </div>
-                <div className="content-card-foot">
-                  <div className="content-card-meta">
-                    <span className="slug">/{item.slug}</span>
-                    <span className="date">Updated {new Date(item.updated_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                {renderCards(group.items)}
+              </section>
+            ))}
+          </div>
+        ) : renderCards(visible)
       ) : <Empty copy={`No ${title.toLowerCase()} yet.`} />}
     </div>
   </>;
