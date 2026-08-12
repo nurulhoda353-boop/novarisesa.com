@@ -8,6 +8,17 @@
 **Stack (backend):** FastAPI · PostgreSQL · SQLAlchemy · Alembic · JWT cookie auth · RBAC
 **Stack (CMS):** Next.js (`dashboard/`, port 3001) → `my.novarisesa.com`
 **Repo:** https://github.com/nurulhoda353-boop/novarisesa.com  
+
+## Live Operating Protocol (from 2026-08-13)
+
+All future website, dashboard, API, schema, content, build, addition, and removal work follows this live workflow:
+
+1. Keep verification connected to the private production PostgreSQL environment through approved server/backend access. PostgreSQL remains private and is never exposed to the public internet.
+2. Before deployment, validate any database migration, content/data change, and production configuration against the live service contract; preserve data and take the existing backup/recovery path into account.
+3. Run relevant lint, build, test, and security checks for every affected service.
+4. Immediately commit and push the completed change to `main`; Coolify deploys the public site, API, and Dashboard from that branch.
+5. After every deploy, verify live health/readiness plus the affected public and dashboard routes. Record material results in this living report.
+
 **Live:** https://novarisesa.com · Coolify: https://coolify.novarisesa.com · Email: info@novarisesa.com
 
 ---
