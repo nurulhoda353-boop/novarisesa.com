@@ -6,7 +6,6 @@ import {
   BookOpen,
   BriefcaseBusiness,
   CalendarDays,
-  ChevronDown,
   ChevronRight,
   CircleGauge,
   FileText,
@@ -29,7 +28,6 @@ import {
   ShieldCheck,
   Star,
   Sun,
-  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -493,127 +491,6 @@ function replaceAtPath(
   });
   (cursor as Record<string | number, unknown>)[path[path.length - 1]] = value;
   return next;
-}
-
-// Slug -> i18n key for the 12 launch projects (en.json uses camelCase keys).
-const PROJECT_I18N_KEY: Record<string, string> = {
-  "neom": "neom",
-  "red-sea-global": "redSeaGlobal",
-  "amaala": "amaala",
-  "jafurah": "jafurah",
-  "afif": "afif",
-  "red-sea-aluminium": "redSeaAluminium",
-  "durma-pp12": "durma",
-  "taiba-1": "taiba1",
-  "rumah-1": "rumah1",
-  "qassim-1": "qassim1",
-  "nairiyah-1": "nairiyah1",
-  "yanbu-3": "yanbu3",
-};
-
-/** Like replaceAtPath but creates missing intermediate objects/arrays. */
-function setAtPath(document: Record<string, unknown>, path: Array<string | number>, value: unknown) {
-  let cursor = document as Record<string | number, unknown>;
-  for (let index = 0; index < path.length - 1; index += 1) {
-    const part = path[index];
-    const existing = cursor[part];
-    if (typeof existing !== "object" || existing === null) {
-      cursor[part] = typeof path[index + 1] === "number" ? [] : {};
-    }
-    cursor = cursor[part] as Record<string | number, unknown>;
-  }
-  cursor[path[path.length - 1]] = value;
-}
-
-/**
- * The public site reads the 6 launch services / 12 launch projects / 9 launch
- * posts through the i18n bundle first (that is what pen mode writes to), so a
- * dashboard-only save would silently not show up. Mirroring the saved fields
- * into the same translation paths keeps both editors in agreement.
- * Only non-empty values are mirrored, so an untouched blank field can never
- * wipe existing site copy.
- */
-function translationOverridesFor(
-  resource: string,
-  slug: string,
-  values: Record<string, unknown>,
-): Array<[Array<string | number>, unknown]> {
-  const out: Array<[Array<string | number>, unknown]> = [];
-  const put = (dotted: string, value: unknown) => {
-    if (typeof value === "string" && !value.trim()) return;
-    if (Array.isArray(value) && !value.length) return;
-    if (value === null || value === undefined) return;
-    out.push([dotted.split(".").map((part) => (/^\d+$/.test(part) ? Number(part) : part)), value]);
-  };
-  if (resource === "services") {
-    const base = `serviceDetails.${slug}`;
-    put(`${base}.title`, values.title);
-    put(`${base}.eyebrow`, values.eyebrow);
-    put(`${base}.tagline`, values.summary);
-    put(`${base}.lead`, values.lead);
-    put(`${base}.intro`, values.intro);
-    const stats = values.stats as Array<{ label?: string }> | undefined;
-    if (stats?.length) put(`${base}.statLabels`, stats.map((row) => row.label ?? ""));
-    const subs = values.subServices as Array<{ title?: string; desc?: string }> | undefined;
-    if (subs?.length) put(`${base}.subServices`, subs.map((row) => ({ title: row.title ?? "", desc: row.desc ?? "" })));
-    const caps = values.capabilities as Array<{ label?: string; value?: string }> | undefined;
-    if (caps?.length) put(`${base}.capabilities.rows`, caps.map((row) => ({ label: row.label ?? "", value: row.value ?? "" })));
-    const process = values.process as Array<{ title?: string; desc?: string }> | undefined;
-    if (process?.length) put(`${base}.process`, process.map((row) => ({ title: row.title ?? "", desc: row.desc ?? "" })));
-    put(`${base}.certifications`, values.certifications);
-    const faqs = values.faqs as Array<{ q?: string; a?: string }> | undefined;
-    if (faqs?.length) put(`${base}.faqs`, faqs.map((row) => ({ q: row.q ?? "", a: row.a ?? "" })));
-  } else if (resource === "projects") {
-    const key = PROJECT_I18N_KEY[slug] ?? slug;
-    put(`projects.items.${key}.title`, values.title);
-    put(`projects.items.${key}.sector`, values.sector);
-    put(`projects.items.${key}.client`, values.client);
-    put(`projects.items.${key}.location`, values.location);
-    put(`projects.items.${key}.value`, values.value);
-    put(`projects.items.${key}.duration`, values.duration);
-    put(`projects.items.${key}.scope`, values.summary);
-    put(`projects.content.${key}.long`, values.long);
-    put(`projects.content.${key}.highlights`, values.highlights);
-    const projectFaqs = values.projectFaqs as Array<{ q?: string; a?: string }> | undefined;
-    if (projectFaqs?.length) {
-      put(`projects.content.${key}.faqs`, projectFaqs.map((row) => ({ q: row.q ?? "", a: row.a ?? "" })));
-    }
-  } else if (resource === "posts") {
-    const base = `blogPage.posts.${slug}`;
-    put(`${base}.title`, values.title);
-    put(`${base}.excerpt`, values.summary);
-    put(`${base}.date`, values.date);
-    put(`${base}.paragraphs`, values.paragraphs);
-  }
-  return out;
-}
-
-/** Writes the mirrored translation paths into the stored translations document. */
-async function syncTranslationOverrides(
-  resource: string,
-  slug: string,
-  locale: string,
-  values: Record<string, unknown>,
-) {
-  const overrides = translationOverridesFor(resource, slug, values);
-  if (!overrides.length) return;
-  const response = await api<{ items: ManagedSetting[] }>("/cms/settings");
-  const stored = response.items.find(
-    (entry) => entry.group_name === "translations" && entry.key === locale,
-  );
-  const document = stored && typeof stored.value === "object" && stored.value !== null
-    ? cloneDocument(stored.value)
-    : {};
-  overrides.forEach(([path, value]) => setAtPath(document, path, value));
-  await api("/cms/settings", {
-    method: "PUT",
-    body: JSON.stringify({
-      group_name: "translations",
-      key: locale,
-      value: document,
-      is_public: true,
-    }),
-  });
 }
 
 function SiteContentPage({ user, onTopbarActions }: { user: User; onTopbarActions: (node: ReactNode) => void }) {

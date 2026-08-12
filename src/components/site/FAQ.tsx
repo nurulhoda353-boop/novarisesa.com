@@ -10,7 +10,6 @@ import {
   CONTACT_EMAIL,
   CONTACT_PHONE_DISPLAY,
   CONTACT_PHONE_TEL,
-  CONTACT_WHATSAPP,
 } from "@/lib/site";
 
 export function FAQ() {

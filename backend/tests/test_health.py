@@ -1,4 +1,6 @@
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.main import app
@@ -32,3 +34,37 @@ def test_internal_healthcheck_hosts_are_always_trusted() -> None:
         "127.0.0.1",
         "testserver",
     ]
+
+
+def test_production_rejects_default_secret() -> None:
+    with pytest.raises(ValidationError, match="non-default value"):
+        Settings(
+            APP_ENV="production",
+            APP_SECRET_KEY="development-only-change-me-please",
+            DATABASE_URL="postgresql+psycopg://novarise:password@database:5432/novarise",
+            CORS_ORIGINS=["https://novarisesa.com"],
+            MEDIA_PUBLIC_BASE_URL="https://api.novarisesa.com/media",
+        )
+
+
+def test_production_rejects_insecure_service_origins() -> None:
+    with pytest.raises(ValidationError, match="MEDIA_PUBLIC_BASE_URL"):
+        Settings(
+            APP_ENV="production",
+            APP_SECRET_KEY="production-secret-key-with-more-than-32-characters",
+            DATABASE_URL="postgresql+psycopg://novarise:password@database:5432/novarise",
+            CORS_ORIGINS=["https://novarisesa.com"],
+            MEDIA_PUBLIC_BASE_URL="http://api.novarisesa.com/media",
+        )
+
+
+def test_valid_production_configuration_is_accepted() -> None:
+    settings = Settings(
+        APP_ENV="production",
+        APP_SECRET_KEY="production-secret-key-with-more-than-32-characters",
+        DATABASE_URL="postgresql+psycopg://novarise:password@database:5432/novarise",
+        CORS_ORIGINS=["https://novarisesa.com", "https://my.novarisesa.com"],
+        MEDIA_PUBLIC_BASE_URL="https://api.novarisesa.com/media",
+    )
+
+    assert settings.is_production

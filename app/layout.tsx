@@ -1,22 +1,16 @@
 import type { Metadata } from "next";
-import { Poppins, Noto_Kufi_Arabic } from "next/font/google";
+import "@fontsource/poppins/300.css";
+import "@fontsource/poppins/400.css";
+import "@fontsource/poppins/500.css";
+import "@fontsource/poppins/600.css";
+import "@fontsource/poppins/700.css";
+import "@fontsource/poppins/800.css";
+import "@fontsource/noto-kufi-arabic/400.css";
+import "@fontsource/noto-kufi-arabic/600.css";
+import "@fontsource/noto-kufi-arabic/800.css";
 import { Providers } from "./providers";
 import { SITE_URL } from "@/lib/site";
 import "@/styles.css";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-poppins",
-  display: "swap",
-});
-
-const notoKufiArabic = Noto_Kufi_Arabic({
-  subsets: ["arabic"],
-  weight: ["400", "600", "800"],
-  variable: "--font-noto-kufi",
-  display: "swap",
-});
 
 const DESCRIPTION =
   "NOVARISE — Trading & Contracting Company delivering premium industrial solutions across Saudi Arabia.";
@@ -63,7 +57,7 @@ const organizationJsonLd = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${poppins.variable} ${notoKufiArabic.variable}`}>
+    <html lang="en">
       <head>
         <script
           type="application/ld+json"
