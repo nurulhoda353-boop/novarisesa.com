@@ -122,6 +122,32 @@ RESOURCE_CONFIG: dict[str, dict[str, Any]] = {
     },
 }
 
+# The six launch articles and six launch events already use these public-site
+# assets.  They remain the visible current image until an editor replaces one
+# through the media library, at which point featured_media_id takes priority.
+DEFAULT_CONTENT_IMAGES = {
+    "posts": {
+        "novarise-vision-2030-megaprojects": "/assets/news-energy.jpg",
+        "zero-harm-culture-aramco-sites": "/assets/news-safety.jpg",
+        "case-study-jubail-power-substation": "/assets/project-power.jpg",
+        "heavy-equipment-rental-trends-2026": "/assets/project-equipment.jpg",
+        "certified-manpower-mobilization-72-hours": "/assets/manpower.jpg",
+        "civil-construction-mega-foundations": "/assets/project-civil.jpg",
+    },
+    "events": {
+        "aramco-iktva-forum-2026": "/assets/vision-skyline.jpg",
+        "future-projects-and-industrial-delivery-forum": "/assets/hero-industrial.jpg",
+        "zero-harm-leadership-masterclass": "/assets/hse-safety.jpg",
+        "vision-2030-industrial-localization-webinar": "/assets/news-supply-chain.jpg",
+        "sabic-vendor-excellence-forum": "/assets/project-equipment.jpg",
+        "saudi-construction-tech-summit-2026": "/assets/vision-team.jpg",
+    },
+}
+
+
+def default_content_image(resource: str, slug: str) -> str | None:
+    return DEFAULT_CONTENT_IMAGES.get(resource, {}).get(slug)
+
 INBOX_CONFIG = {
     "contact": ContactSubmission,
     "rfq": RFQSubmission,
@@ -256,7 +282,11 @@ def serialize_content(
         "icon": getattr(item, "icon", None),
         "hero_media_id": str(hero_media_id) if hero_media_id else None,
         "featured_media_id": str(featured_media_id) if featured_media_id else None,
-        "thumbnail_url": media_urls.get(str(thumbnail_media_id)) if thumbnail_media_id else None,
+        "thumbnail_url": (
+            media_urls.get(str(thumbnail_media_id))
+            if thumbnail_media_id
+            else default_content_image(resource, identifier)
+        ),
     }
     if resource == "posts":
         extra["category_id"] = str(item.category_id) if item.category_id else None
@@ -1038,7 +1068,7 @@ def get_post_editor(
         "draft_updated_at": draft.updated_at.isoformat() if draft else None,
         "data": working,
         "preview": {
-            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else None,
+            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else default_content_image("posts", post.slug),
             "published_slug": post.slug,
         },
     }
@@ -1145,7 +1175,7 @@ def get_event_editor(
         "draft_updated_at": draft.updated_at.isoformat() if draft else None,
         "data": working,
         "preview": {
-            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else None,
+            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else default_content_image("events", event.slug),
             "published_slug": event.slug,
         },
     }
