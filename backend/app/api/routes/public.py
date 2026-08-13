@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
 from app.models import (
+    ApplicationActivity,
     ContactSubmission,
     Event,
     FaqItem,
@@ -354,10 +355,10 @@ def apply_for_requirement(
     requirement = db.scalar(
         select(Requirement).where(Requirement.code == code)
     )
-    if requirement is None:
+    if requirement is None or requirement.status not in (RequirementStatus.ACTIVE, RequirementStatus.URGENT):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Requirement not found",
+            detail="This requirement is not accepting applications",
         )
     experience_digits = "".join(character for character in payload.experience if character.isdigit())
     item = RequirementApplication(
@@ -370,5 +371,13 @@ def apply_for_requirement(
         message=payload.message,
     )
     db.add(item)
+    db.flush()
+    db.add(ApplicationActivity(
+        application_id=item.id,
+        actor_id=None,
+        action="application_submitted",
+        note="Application received from the public website.",
+        details={"source": "website", "requirement_code": requirement.code},
+    ))
     db.commit()
     return {"id": str(item.id), "status": "received"}

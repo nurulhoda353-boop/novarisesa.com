@@ -43,6 +43,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { api, SITE_URL } from "@/lib/api";
 import { ServiceEditor, type ServiceItem } from "./ServiceEditor";
 import { InsightsManager } from "./InsightsManager";
+import { RequirementsManager } from "./RequirementsManager";
+import { ApplicationsManager } from "./ApplicationsManager";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -341,10 +343,12 @@ export default function Dashboard({ route }: { route: string[] }) {
           {route[0] === "overview" && <OverviewPage user={user} />}
           {route[0] === "site-content" && <SiteContentPage user={user} onTopbarActions={setTopbarActions} />}
           {route[0] === "content" && route[1] === "insights" && <InsightsManager />}
-          {route[0] === "content" && route[1] !== "insights" && !hiddenContentResources.has(route[1] ?? "") && (
+          {route[0] === "content" && route[1] === "requirements" && <RequirementsManager />}
+          {route[0] === "content" && !["insights", "requirements"].includes(route[1] ?? "") && !hiddenContentResources.has(route[1] ?? "") && (
             <ContentPage resource={route[1] ?? "services"} />
           )}
-          {route[0] === "inbox" && <InboxPage inbox={route[1] ?? "contact"} />}
+          {route[0] === "inbox" && route[1] === "applications" && <ApplicationsManager />}
+          {route[0] === "inbox" && route[1] !== "applications" && <InboxPage inbox={route[1] ?? "contact"} />}
           {route[0] === "media" && <MediaPage user={user} />}
           {route[0] === "navigation" && <NavigationPage user={user} />}
           {route[0] === "taxonomy" && <TaxonomyPage user={user} />}

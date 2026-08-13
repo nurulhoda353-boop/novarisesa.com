@@ -14,6 +14,10 @@ SubmissionStatusValue = Literal[
     "closed",
     "spam",
 ]
+ApplicationStage = Literal[
+    "new", "under_review", "shortlisted", "contacted", "interview",
+    "documents_pending", "selected", "hired", "on_hold", "rejected", "withdrawn",
+]
 
 
 class RequirementContactInput(BaseModel):
@@ -179,6 +183,51 @@ class EventEditorPayload(BaseModel):
 
 class EventCreateRequest(BaseModel):
     is_featured: bool = False
+
+
+class RequirementEditorPayload(BaseModel):
+    code: str = Field(min_length=2, max_length=80, pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    position: str = Field(min_length=2, max_length=255)
+    status: Literal["draft", "active", "urgent", "closed"] = "active"
+    approval: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=3000)
+    headcount: int = Field(default=1, ge=1, le=100000)
+    project_name: str = Field(default="", max_length=255)
+    location: str = Field(default="", max_length=255)
+    rate_amount: Decimal | None = Field(default=None, ge=0)
+    rate_currency: str = Field(default="SAR", min_length=3, max_length=3)
+    rate_unit: str = Field(default="hour", max_length=40)
+    duration: str = Field(default="", max_length=120)
+    salary_cycle: str = Field(default="Monthly", max_length=120)
+    food: str = Field(default="", max_length=255)
+    accommodation: str = Field(default="", max_length=255)
+    documents: list[str] = Field(default_factory=list, max_length=6)
+    contacts: list[RequirementContactInput] = Field(default_factory=list, max_length=2)
+    opens_at: datetime | None = None
+    closes_at: datetime | None = None
+
+
+class RequirementCreateRequest(BaseModel):
+    target_status: Literal["active", "urgent"] = "active"
+
+
+class ApplicationDocumentInput(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    status: Literal["not_requested", "pending", "received", "verified", "rejected", "expired"] = "pending"
+
+
+class ApplicationWorkflowUpdate(BaseModel):
+    stage: ApplicationStage
+    internal_notes: str | None = Field(default=None, max_length=8000)
+    assigned_to_id: uuid.UUID | None = None
+    follow_up_at: datetime | None = None
+    interview_at: datetime | None = None
+    documents: list[ApplicationDocumentInput] = Field(default_factory=list, max_length=20)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ApplicationNoteCreate(BaseModel):
+    note: str = Field(min_length=1, max_length=2000)
 
 
 class ContentListResponse(BaseModel):

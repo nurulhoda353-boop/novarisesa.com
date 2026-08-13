@@ -513,6 +513,9 @@ class Requirement(UUIDMixin, TimestampMixin, Base):
     contacts: Mapped[list["RequirementContact"]] = relationship(
         back_populates="requirement", cascade="all, delete-orphan"
     )
+    applications: Mapped[list["RequirementApplication"]] = relationship(
+        back_populates="requirement"
+    )
 
 
 class RequirementTranslation(UUIDMixin, TimestampMixin, Base):
@@ -547,6 +550,16 @@ class RequirementContact(UUIDMixin, Base):
     has_whatsapp: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     requirement: Mapped[Requirement] = relationship(back_populates="contacts")
+
+
+class RequirementDraft(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "requirement_drafts"
+    __table_args__ = (UniqueConstraint("requirement_id", name="uq_requirement_draft_requirement"),)
+
+    requirement_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("requirements.id", ondelete="CASCADE"), nullable=False
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class ContactSubmission(UUIDMixin, TimestampMixin, Base):
@@ -635,6 +648,34 @@ class RequirementApplication(UUIDMixin, TimestampMixin, Base):
     assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
+    application_stage: Mapped[str] = mapped_column(String(40), default="new", index=True)
+    internal_notes: Mapped[str | None] = mapped_column(Text)
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    interview_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    documents: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    requirement: Mapped[Requirement] = relationship(back_populates="applications")
+    assigned_to: Mapped[User | None] = relationship(foreign_keys=[assigned_to_id])
+    activities: Mapped[list["ApplicationActivity"]] = relationship(
+        back_populates="application", cascade="all, delete-orphan"
+    )
+
+
+class ApplicationActivity(UUIDMixin, Base):
+    __tablename__ = "application_activities"
+
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("requirement_applications.id", ondelete="CASCADE"), index=True
+    )
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(80))
+    note: Mapped[str | None] = mapped_column(Text)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    application: Mapped[RequirementApplication] = relationship(back_populates="activities")
 
 
 class NewsletterSubscriber(UUIDMixin, TimestampMixin, Base):

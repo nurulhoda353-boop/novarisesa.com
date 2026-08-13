@@ -22,6 +22,7 @@ from app.core.security import hash_password
 from app.core.storage import delete_stored_file, save_upload
 from app.models import (
     AuditLog,
+    ApplicationActivity,
     Category,
     ContactSubmission,
     Event,
@@ -42,6 +43,8 @@ from app.models import (
     ProjectTranslation,
     Requirement,
     RequirementApplication,
+    RequirementContact,
+    RequirementDraft,
     RequirementTranslation,
     RFQSubmission,
     Role,
@@ -64,6 +67,10 @@ from app.schemas.cms import (
     PostEditorPayload,
     EventCreateRequest,
     EventEditorPayload,
+    RequirementCreateRequest,
+    RequirementEditorPayload,
+    ApplicationWorkflowUpdate,
+    ApplicationNoteCreate,
     ServiceEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
@@ -203,6 +210,8 @@ def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
             }
         )
     elif inbox == "applications":
+        requirement = getattr(row, "requirement", None)
+        assigned = getattr(row, "assigned_to", None)
         payload.update(
             {
                 "requirement_id": str(row.requirement_id),
@@ -213,6 +222,20 @@ def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
                 "resume_media_id": (
                     str(row.resume_media_id) if row.resume_media_id else None
                 ),
+                "stage": getattr(row, "application_stage", None) or enum_value(row.status),
+                "assigned_to_id": str(row.assigned_to_id) if row.assigned_to_id else None,
+                "assigned_to_name": assigned.full_name if assigned else None,
+                "follow_up_at": row.follow_up_at.isoformat() if row.follow_up_at else None,
+                "interview_at": row.interview_at.isoformat() if row.interview_at else None,
+                "documents": row.documents or [],
+                "requirement": {
+                    "id": str(requirement.id),
+                    "code": requirement.code,
+                    "position": (translation_for(requirement, "en").position if translation_for(requirement, "en") else requirement.code),
+                    "project_name": requirement.project_name,
+                    "location": requirement.location,
+                    "status": enum_value(requirement.status),
+                } if requirement else None,
             }
         )
     return payload
@@ -288,6 +311,14 @@ def serialize_content(
             else default_content_image(resource, identifier)
         ),
     }
+    if resource == "requirements":
+        extra.update({
+            "rate_amount": str(item.rate_amount) if item.rate_amount is not None else None,
+            "rate_currency": item.rate_currency,
+            "rate_unit": item.rate_unit,
+            "opens_at": item.opens_at.isoformat() if item.opens_at else None,
+            "closes_at": item.closes_at.isoformat() if item.closes_at else None,
+        })
     if resource == "posts":
         extra["category_id"] = str(item.category_id) if item.category_id else None
         extra["tag_ids"] = [str(tag.id) for tag in getattr(item, "tags", [])]
@@ -318,6 +349,69 @@ def media_url(db: Session, media_id: uuid.UUID | None) -> str | None:
     if media_id is None:
         return None
     return db.scalar(select(MediaAsset.public_url).where(MediaAsset.id == media_id))
+
+
+def requirement_editor_payload(requirement: Requirement, *, draft: RequirementDraft | None = None) -> dict[str, Any]:
+    if draft is not None and draft.payload:
+        return draft.payload
+    translation = translation_for(requirement, "en")
+    return {
+        "code": requirement.code,
+        "position": translation.position if translation else requirement.code,
+        "status": enum_value(requirement.status),
+        "approval": translation.approval or "" if translation else "",
+        "description": translation.description or "" if translation else "",
+        "headcount": requirement.headcount,
+        "project_name": requirement.project_name or "",
+        "location": requirement.location or "",
+        "rate_amount": str(requirement.rate_amount) if requirement.rate_amount is not None else None,
+        "rate_currency": requirement.rate_currency,
+        "rate_unit": requirement.rate_unit or "hour",
+        "duration": translation.duration or "" if translation else "",
+        "salary_cycle": translation.salary_cycle or "Monthly" if translation else "Monthly",
+        "food": translation.food or "" if translation else "",
+        "accommodation": translation.accommodation or "" if translation else "",
+        "documents": translation.documents or [] if translation else [],
+        "contacts": [
+            {"display": contact.display_phone, "raw": contact.phone_e164, "whatsapp": contact.has_whatsapp}
+            for contact in sorted(requirement.contacts, key=lambda row: row.sort_order)
+        ],
+        "opens_at": requirement.opens_at.isoformat() if requirement.opens_at else None,
+        "closes_at": requirement.closes_at.isoformat() if requirement.closes_at else None,
+    }
+
+
+def apply_requirement_payload(requirement: Requirement, payload: RequirementEditorPayload) -> None:
+    translation = translation_for(requirement, "en")
+    if translation is None:
+        translation = RequirementTranslation(requirement_id=requirement.id, locale="en", position=payload.position)
+        requirement.translations.append(translation)
+    translation.position = payload.position
+    translation.approval = payload.approval or None
+    translation.description = payload.description or None
+    translation.duration = payload.duration or None
+    translation.salary_cycle = payload.salary_cycle or None
+    translation.food = payload.food or None
+    translation.accommodation = payload.accommodation or None
+    translation.documents = [entry.strip() for entry in payload.documents if entry.strip()]
+    requirement.code = payload.code
+    requirement.status = payload.status
+    requirement.headcount = payload.headcount
+    requirement.project_name = payload.project_name or None
+    requirement.location = payload.location or None
+    requirement.rate_amount = payload.rate_amount
+    requirement.rate_currency = payload.rate_currency.upper()
+    requirement.rate_unit = payload.rate_unit or None
+    requirement.opens_at = payload.opens_at
+    requirement.closes_at = payload.closes_at
+    requirement.contacts.clear()
+    for index, contact in enumerate(payload.contacts):
+        requirement.contacts.append(RequirementContact(
+            display_phone=contact.display,
+            phone_e164=contact.raw.lstrip("+"),
+            has_whatsapp=contact.whatsapp,
+            sort_order=index,
+        ))
 
 
 def project_editor_payload(project: Project, *, draft: ProjectDraft | None = None) -> dict[str, Any]:
@@ -781,6 +875,14 @@ def list_content(
         ).all()
         media_urls = {str(media_id): url for media_id, url in rows}
     serialized = [serialize_content(resource, item, locale, media_urls) for item in items]
+    if resource == "requirements" and items:
+        application_counts = dict(db.execute(
+            select(RequirementApplication.requirement_id, func.count())
+            .where(RequirementApplication.requirement_id.in_([item.id for item in items]))
+            .group_by(RequirementApplication.requirement_id)
+        ).all())
+        for content, row in zip(serialized, items, strict=True):
+            content.extra["application_count"] = application_counts.get(row.id, 0)
     if search:
         needle = search.casefold()
         serialized = [
@@ -850,6 +952,32 @@ def get_service_editor(
             "hero_url": media_url(db, hero_id),
             "published_slug": published["slug"],
         },
+    }
+
+
+@router.get("/requirements/{requirement_id}/editor")
+def get_requirement_editor(
+    requirement_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    requirement = db.scalar(
+        select(Requirement)
+        .options(selectinload(Requirement.translations), selectinload(Requirement.contacts))
+        .where(Requirement.id == requirement_id)
+    )
+    if requirement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requirement not found")
+    draft = db.scalar(select(RequirementDraft).where(RequirementDraft.requirement_id == requirement.id))
+    return {
+        "requirement_id": str(requirement.id),
+        "status": enum_value(requirement.status),
+        "updated_at": requirement.updated_at.isoformat(),
+        "has_draft": draft is not None,
+        "draft_updated_at": draft.updated_at.isoformat() if draft else None,
+        "data": requirement_editor_payload(requirement, draft=draft),
+        "application_count": db.scalar(select(func.count()).select_from(RequirementApplication).where(RequirementApplication.requirement_id == requirement.id)) or 0,
     }
 
 
@@ -1264,6 +1392,112 @@ def delete_event(
     db.commit()
 
 
+@router.post("/requirements")
+def create_requirement(
+    payload: RequirementCreateRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    requirement = Requirement(
+        code=f"new-requirement-{uuid.uuid4().hex[:8]}",
+        status="draft",
+        headcount=1,
+        rate_currency="SAR",
+    )
+    requirement.translations.append(RequirementTranslation(locale="en", position=""))
+    db.add(requirement)
+    db.flush()
+    draft_payload = RequirementEditorPayload(
+        code=requirement.code,
+        position="New requirement",
+        status=payload.target_status,
+    ).model_dump(mode="json")
+    draft_payload["position"] = ""
+    db.add(RequirementDraft(requirement_id=requirement.id, payload=draft_payload))
+    audit(db, request, user, "cms.requirement_created", "requirements", requirement.id, after={"target_status": payload.target_status})
+    db.commit()
+    db.refresh(requirement)
+    return {"id": str(requirement.id), "code": requirement.code, "status": "draft", "updated_at": requirement.updated_at.isoformat()}
+
+
+@router.put("/requirements/{requirement_id}/draft")
+def save_requirement_draft(
+    requirement_id: uuid.UUID,
+    payload: RequirementEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    requirement = db.get(Requirement, requirement_id)
+    if requirement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requirement not found")
+    conflict = db.scalar(select(Requirement).where(Requirement.code == payload.code, Requirement.id != requirement.id))
+    if conflict is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That requirement code is already in use")
+    draft = db.scalar(select(RequirementDraft).where(RequirementDraft.requirement_id == requirement.id))
+    before = draft.payload if draft else None
+    if draft is None:
+        draft = RequirementDraft(requirement_id=requirement.id, payload=payload.model_dump(mode="json"))
+        db.add(draft)
+    else:
+        draft.payload = payload.model_dump(mode="json")
+    audit(db, request, user, "cms.requirement_draft_saved", "requirements", requirement.id, before=before, after=draft.payload)
+    db.commit()
+    db.refresh(draft)
+    return {"status": "draft_saved", "updated_at": draft.updated_at.isoformat()}
+
+
+@router.post("/requirements/{requirement_id}/publish")
+def publish_requirement(
+    requirement_id: uuid.UUID,
+    payload: RequirementEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.publish"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    requirement = db.scalar(
+        select(Requirement)
+        .options(selectinload(Requirement.translations), selectinload(Requirement.contacts))
+        .where(Requirement.id == requirement_id)
+    )
+    if requirement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requirement not found")
+    conflict = db.scalar(select(Requirement).where(Requirement.code == payload.code, Requirement.id != requirement.id))
+    if conflict is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That requirement code is already in use")
+    if payload.status == "draft":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose Active, Urgent or Closed before publishing")
+    before = requirement_editor_payload(requirement)
+    apply_requirement_payload(requirement, payload)
+    draft = db.scalar(select(RequirementDraft).where(RequirementDraft.requirement_id == requirement.id))
+    if draft is not None:
+        db.delete(draft)
+    audit(db, request, user, "cms.requirement_published", "requirements", requirement.id, before=before, after=payload.model_dump(mode="json"))
+    db.commit()
+    return {"status": enum_value(requirement.status), "code": requirement.code, "updated_at": requirement.updated_at.isoformat()}
+
+
+@router.delete("/requirements/{requirement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_requirement(
+    requirement_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> None:
+    requirement = db.scalar(
+        select(Requirement).options(selectinload(Requirement.translations), selectinload(Requirement.contacts)).where(Requirement.id == requirement_id)
+    )
+    if requirement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requirement not found")
+    application_count = db.scalar(select(func.count()).select_from(RequirementApplication).where(RequirementApplication.requirement_id == requirement.id)) or 0
+    if application_count:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This requirement has applications. Close it instead so candidate history remains intact.")
+    audit(db, request, user, "cms.requirement_deleted", "requirements", requirement.id, before=requirement_editor_payload(requirement))
+    db.delete(requirement)
+    db.commit()
+
+
 @router.get("/inbox/{inbox}")
 def list_inbox(
     inbox: InboxName,
@@ -1273,7 +1507,13 @@ def list_inbox(
 ) -> dict[str, Any]:
     _ = user
     model = INBOX_CONFIG[inbox]
-    rows = list(db.scalars(select(model).order_by(model.created_at.desc()).limit(limit)))
+    statement = select(model).order_by(model.created_at.desc()).limit(limit)
+    if inbox == "applications":
+        statement = statement.options(
+            selectinload(RequirementApplication.requirement).selectinload(Requirement.translations),
+            selectinload(RequirementApplication.assigned_to),
+        )
+    rows = list(db.scalars(statement))
     items = [serialize_inbox_item(inbox, row) for row in rows]
     return {"items": items, "total": len(items)}
 
@@ -1287,10 +1527,135 @@ def get_inbox_item(
 ) -> dict[str, Any]:
     _ = user
     model = INBOX_CONFIG[inbox]
-    row = db.get(model, item_id)
+    if inbox == "applications":
+        row = db.scalar(
+            select(RequirementApplication)
+            .options(
+                selectinload(RequirementApplication.requirement).selectinload(Requirement.translations),
+                selectinload(RequirementApplication.assigned_to),
+                selectinload(RequirementApplication.activities),
+            )
+            .where(RequirementApplication.id == item_id)
+        )
+    else:
+        row = db.get(model, item_id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
-    return serialize_inbox_item(inbox, row)
+    result = serialize_inbox_item(inbox, row)
+    if inbox == "applications":
+        result["activities"] = [
+            {
+                "id": str(activity.id),
+                "action": activity.action,
+                "note": activity.note,
+                "details": activity.details or {},
+                "created_at": activity.created_at.isoformat(),
+            }
+            for activity in sorted(row.activities, key=lambda item: item.created_at, reverse=True)
+        ]
+    return result
+
+
+@router.get("/applications/overview")
+def applications_overview(
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox", "cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    stages = dict(db.execute(select(RequirementApplication.application_stage, func.count()).group_by(RequirementApplication.application_stage)).all())
+    requirements = list(db.scalars(select(Requirement).options(selectinload(Requirement.translations)).order_by(Requirement.updated_at.desc())))
+    counts = dict(db.execute(select(RequirementApplication.requirement_id, func.count()).group_by(RequirementApplication.requirement_id)).all())
+    users = [
+        {"id": str(row.id), "name": row.full_name, "email": row.email}
+        for row in db.scalars(select(User).where(User.is_active.is_(True)).order_by(User.full_name))
+    ]
+    return {
+        "stages": {str(key): value for key, value in stages.items()},
+        "requirements": [
+            {
+                "id": str(row.id),
+                "code": row.code,
+                "position": translation_for(row, "en").position if translation_for(row, "en") else row.code,
+                "project_name": row.project_name,
+                "status": enum_value(row.status),
+                "applications": counts.get(row.id, 0),
+            }
+            for row in requirements
+        ],
+        "users": users,
+    }
+
+
+@router.patch("/applications/{application_id}/workflow")
+def update_application_workflow(
+    application_id: uuid.UUID,
+    payload: ApplicationWorkflowUpdate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    application = db.get(RequirementApplication, application_id)
+    if application is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+    if payload.assigned_to_id and db.get(User, payload.assigned_to_id) is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Assigned team member not found")
+    before = {
+        "stage": application.application_stage,
+        "assigned_to_id": str(application.assigned_to_id) if application.assigned_to_id else None,
+        "follow_up_at": application.follow_up_at.isoformat() if application.follow_up_at else None,
+        "interview_at": application.interview_at.isoformat() if application.interview_at else None,
+        "documents": application.documents or [],
+    }
+    application.application_stage = payload.stage
+    application.status = {
+        "new": SubmissionStatus.NEW,
+        "under_review": SubmissionStatus.IN_REVIEW,
+        "shortlisted": SubmissionStatus.QUALIFIED,
+        "contacted": SubmissionStatus.CONTACTED,
+        "interview": SubmissionStatus.IN_REVIEW,
+        "documents_pending": SubmissionStatus.IN_REVIEW,
+        "selected": SubmissionStatus.QUALIFIED,
+        "hired": SubmissionStatus.CLOSED,
+        "on_hold": SubmissionStatus.IN_REVIEW,
+        "rejected": SubmissionStatus.CLOSED,
+        "withdrawn": SubmissionStatus.CLOSED,
+    }[payload.stage]
+    application.internal_notes = payload.internal_notes
+    application.assigned_to_id = payload.assigned_to_id
+    application.follow_up_at = payload.follow_up_at
+    application.interview_at = payload.interview_at
+    application.documents = [entry.model_dump() for entry in payload.documents]
+    after = payload.model_dump(mode="json", exclude={"note"})
+    if before != after or payload.note:
+        db.add(ApplicationActivity(
+            application_id=application.id,
+            actor_id=user.id,
+            action="workflow_updated",
+            note=payload.note,
+            details={"before": before, "after": after},
+        ))
+    audit(db, request, user, "cms.application_workflow_updated", "applications", application.id, before=before, after=after)
+    db.commit()
+    return {"status": "saved", "stage": application.application_stage}
+
+
+@router.post("/applications/{application_id}/notes", status_code=status.HTTP_201_CREATED)
+def add_application_note(
+    application_id: uuid.UUID,
+    payload: ApplicationNoteCreate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    application = db.get(RequirementApplication, application_id)
+    if application is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+    activity = ApplicationActivity(application_id=application.id, actor_id=user.id, action="note_added", note=payload.note, details={})
+    db.add(activity)
+    audit(db, request, user, "cms.application_note_added", "applications", application.id, after={"note": payload.note})
+    db.commit()
+    db.refresh(activity)
+    return {"id": str(activity.id), "status": "created", "created_at": activity.created_at.isoformat()}
 
 
 @router.patch("/inbox/{inbox}/{item_id}")

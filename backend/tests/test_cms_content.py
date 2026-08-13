@@ -3,7 +3,12 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.cms import ContentUpsert, ServiceEditorPayload
+from app.schemas.cms import (
+    ApplicationWorkflowUpdate,
+    ContentUpsert,
+    RequirementEditorPayload,
+    ServiceEditorPayload,
+)
 
 
 def test_complete_service_payload_is_validated() -> None:
@@ -51,6 +56,38 @@ def test_requirement_contact_rejects_unsafe_phone_value() -> None:
             headcount=10,
             contacts=[{"display": "call us", "raw": "javascript:alert(1)"}],
         )
+
+
+def test_requirement_editor_validates_public_card_and_application_settings() -> None:
+    payload = RequirementEditorPayload(
+        code="aramco-rigger-01",
+        position="Aramco Rigger Level III",
+        status="urgent",
+        headcount=24,
+        rate_amount="28.50",
+        documents=["Valid Iqama", "Aramco certificate"],
+        contacts=[{"display": "+966 55 000 0000", "raw": "966550000000", "whatsapp": True}],
+    )
+
+    assert payload.status == "urgent"
+    assert payload.headcount == 24
+    assert payload.rate_amount == Decimal("28.50")
+
+
+def test_application_workflow_supports_full_recruitment_pipeline() -> None:
+    payload = ApplicationWorkflowUpdate(
+        stage="documents_pending",
+        documents=[{"name": "Passport", "status": "verified"}],
+        note="Passport verified by HR.",
+    )
+
+    assert payload.stage == "documents_pending"
+    assert payload.documents[0].status == "verified"
+
+
+def test_application_workflow_rejects_unknown_stage() -> None:
+    with pytest.raises(ValidationError):
+        ApplicationWorkflowUpdate(stage="maybe_hired")
 
 
 def test_service_editor_keeps_the_public_template_row_counts() -> None:
