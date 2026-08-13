@@ -977,7 +977,7 @@ function ContentPage({ resource }: { resource: string }) {
       eyebrow="Website content"
       title={title}
       copy={`Browse ${title.toLowerCase()} on the NOVARISE website.`}
-      action={resource === "projects" ? <button type="button" className="primary-button" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> New Project</button> : undefined}
+      action={resource === "projects" ? <button type="button" className="primary-button" onClick={() => { setProjectActionError(""); setNewProjectOpen(true); }}><Plus size={17} /> New Project</button> : undefined}
     />
     <div className="panel table-panel">
       <div className="table-tools">
@@ -1009,18 +1009,33 @@ function ContentPage({ resource }: { resource: string }) {
       ) : <Empty copy={`No ${title.toLowerCase()} yet.`} />}
     </div>
     {editingProject && <ProjectEditor item={editingProject} onClose={() => setEditingProject(null)} onPublished={load} />}
-    {newProjectOpen && <div className="modal-backdrop" onMouseDown={() => !creatingProject && setNewProjectOpen(false)}>
-      <section className="modal new-project-modal" onMouseDown={(event) => event.stopPropagation()} aria-label="Create a new project">
-        <header className="modal-head"><div><p className="eyebrow">New project</p><h2>Choose the public project type</h2><p>The same five-block editor opens next, ready for your project content.</p></div><button type="button" onClick={() => !creatingProject && setNewProjectOpen(false)} aria-label="Close"><X size={18} /></button></header>
-        <div className="new-project-options">
-          <button type="button" className={newProjectFeatured ? "selected" : ""} onClick={() => setNewProjectFeatured(true)}><Star size={20} fill={newProjectFeatured ? "currentColor" : "none"} /><strong>Featured Project</strong><span>Appears first in the Featured group, public Projects page, and homepage showcase after publishing.</span></button>
-          <button type="button" className={!newProjectFeatured ? "selected" : ""} onClick={() => setNewProjectFeatured(false)}><FolderKanban size={20} /><strong>Basic Project</strong><span>Appears first in the non-featured project grid after publishing.</span></button>
-        </div>
-        {projectActionError && <p className="new-project-error" role="alert">{projectActionError}</p>}
-        <footer className="modal-actions"><button type="button" onClick={() => setNewProjectOpen(false)} disabled={creatingProject}>Cancel</button><button type="button" className="primary-button" onClick={() => void createProject()} disabled={creatingProject}><Plus size={16} /> {creatingProject ? "Creating…" : "Create Project"}</button></footer>
-      </section>
-    </div>}
+    {newProjectOpen && <NewProjectModal featured={newProjectFeatured} creating={creatingProject} error={projectActionError} onFeaturedChange={setNewProjectFeatured} onClose={() => setNewProjectOpen(false)} onCreate={() => void createProject()} />}
   </>;
+}
+
+function NewProjectModal({ featured, creating, error, onFeaturedChange, onClose, onCreate }: { featured: boolean; creating: boolean; error: string; onFeaturedChange: (featured: boolean) => void; onClose: () => void; onCreate: () => void }) {
+  useEffect(() => {
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, []);
+  if (typeof document === "undefined") return null;
+  return createPortal(<div className="modal-backdrop" onMouseDown={() => !creating && onClose()}>
+    <section className="modal new-project-modal" onMouseDown={(event) => event.stopPropagation()} aria-label="Create a new project">
+      <header className="modal-head"><div><p className="eyebrow">New project</p><h2>Choose the public project type</h2><p>The same five-block editor opens next, ready for your project content.</p></div><button type="button" onClick={() => !creating && onClose()} aria-label="Close"><X size={18} /></button></header>
+      <div className="new-project-options">
+        <button type="button" className={featured ? "selected" : ""} onClick={() => onFeaturedChange(true)}><Star size={20} fill={featured ? "currentColor" : "none"} /><strong>Featured Project</strong><span>Appears first in the Featured group, public Projects page, and homepage showcase after publishing.</span></button>
+        <button type="button" className={!featured ? "selected" : ""} onClick={() => onFeaturedChange(false)}><FolderKanban size={20} /><strong>Basic Project</strong><span>Appears first in the non-featured project grid after publishing.</span></button>
+      </div>
+      {error && <p className="new-project-error" role="alert">{error}</p>}
+      <footer className="modal-actions"><button type="button" onClick={onClose} disabled={creating}>Cancel</button><button type="button" className="primary-button" onClick={onCreate} disabled={creating}><Plus size={16} /> {creating ? "Creating…" : "Create Project"}</button></footer>
+    </section>
+  </div>, document.body);
 }
 
 const editorTabs = [
