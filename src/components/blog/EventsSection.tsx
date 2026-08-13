@@ -1,104 +1,59 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Link } from "@/components/nav/AppLink";
-import { MapPin, ArrowUpRight, CalendarDays } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
+import { Link } from "@/components/nav/AppLink";
 import { useTranslatedEvents } from "@/i18n/use-translated-blog";
-import { useEditMode } from "@/components/cms/EditModeContext";
+import { selectEventPreview } from "@/lib/blog-data";
+import { EventCard } from "./EventCard";
 
-export function EventsSection() {
-  const { t } = useTranslation();
+export function EventsSection({ preview = false }: { preview?: boolean }) {
   const events = useTranslatedEvents();
-  const { editing } = useEditMode();
-  return (
-    <section id="events" className="relative py-20 lg:py-28 dark-premium text-white overflow-hidden">
-      <div className="pointer-events-none absolute -top-40 -left-32 h-[520px] w-[520px] rounded-full bg-gold/10 blur-[160px] anim-drift" />
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+  const visible = selectEventPreview(events, 3);
+  const hasUpcoming = visible.some((event) => event.status === "Upcoming");
 
+  return (
+    <section id="events" className="relative overflow-hidden bg-navy-deep py-20 text-white lg:py-28">
+      <div className="pointer-events-none absolute -left-32 -top-40 h-[520px] w-[520px] rounded-full bg-gold/10 blur-[160px]" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
       <div className="relative container-wide">
         <Reveal>
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-14">
+          <div className="mb-12 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
-                <span className="h-1.5 w-1.5 rounded-full bg-gold anim-breathe" />
-                <span data-cms-field="blogPage.events.eyebrow" suppressContentEditableWarning>{t("blogPage.events.eyebrow")}</span>
-              </div>
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold tracking-tight text-white leading-[1.05]">
-                <span data-cms-field="blogPage.events.titleA" suppressContentEditableWarning>{t("blogPage.events.titleA")}</span> <span className="text-gradient-gold" data-cms-field="blogPage.events.titleB" suppressContentEditableWarning>{t("blogPage.events.titleB")}</span>
+              <div className="mb-4 inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold"><CalendarDays className="h-4 w-4" /> Events & engagements</div>
+              <h2 className="text-3xl font-bold leading-[1.05] md:text-4xl lg:text-5xl">
+                {hasUpcoming ? "Where we will be next." : "Our latest industry engagements."}
               </h2>
-              <p className="mt-5 text-white/70 text-base md:text-lg leading-relaxed" data-cms-field="blogPage.events.sub">
-                {t("blogPage.events.sub")}
-              </p>
+              <p className="mt-5 max-w-xl text-base leading-relaxed text-white/65">Meet our leadership and delivery teams at the forums shaping Saudi Arabia&apos;s industrial future.</p>
             </div>
-
-            <Link
-              to="/contact"
-              className="self-start lg:self-end inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 backdrop-blur-md px-5 py-3 text-sm font-semibold text-white hover:bg-white hover:text-navy transition-colors"
-            >
-              <CalendarDays className="h-4 w-4" /> <span data-cms-field="blogPage.events.cta" suppressContentEditableWarning>{t("blogPage.events.cta")}</span>
+            <Link to="/events" className="inline-flex items-center gap-2 self-start rounded-full border border-white/20 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-navy">
+              Explore all events <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
         </Reveal>
 
-        <div className="grid gap-5">
-          {events.map((e, i) => (
-            <motion.div
-              key={e.title}
-              initial={editing ? false : { opacity: 0, y: 24 }}
-              whileInView={editing ? undefined : { opacity: 1, y: 0 }}
-              animate={editing ? { opacity: 1, y: 0 } : undefined}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.7, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-              className="group relative grid grid-cols-12 gap-5 lg:gap-8 items-center rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md p-5 lg:p-7 hover:border-gold/40 hover:bg-white/[0.06] transition-colors"
-            >
-              <div className="col-span-3 md:col-span-2">
-                <div className="relative rounded-xl border border-gold/30 bg-gold/10 px-3 py-4 text-center">
-                  <div className="text-3xl md:text-4xl font-display font-black text-gold tabular-nums leading-none">
-                    {e.dateShort.day}
-                  </div>
-                  <div className="mt-1 text-[10px] uppercase tracking-[0.25em] text-white/70">
-                    {e.dateShort.month}
-                  </div>
+        {visible.length > 0 ? (
+          <div className="grid gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-7"><EventCard event={visible[0]} featured /></div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+              {visible.slice(1, 3).map((event) => <EventCard key={event.slug} event={event} dark />)}
+              {visible.length === 1 && (
+                <div className="flex min-h-48 flex-col justify-center rounded-2xl border border-white/10 bg-white/[0.04] p-7">
+                  <span className="text-xs font-bold uppercase tracking-[0.25em] text-gold">Stay connected</span>
+                  <p className="mt-3 text-lg font-semibold">More NOVARISE engagements will be announced here.</p>
+                  <Link to="/events" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-gold">Explore events <ArrowUpRight className="h-4 w-4" /></Link>
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center">
+            <p className="text-xl font-semibold">New events will be announced soon.</p>
+            <Link to="/contact" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-gold">Stay connected <ArrowUpRight className="h-4 w-4" /></Link>
+          </div>
+        )}
 
-              <div className="col-span-9 md:col-span-7">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <span className="inline-flex items-center rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.22em] text-white/80" data-cms-field={`blogPage.events.types.${e.type}`} suppressContentEditableWarning>
-                    {e.type}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-gold/15 text-gold px-2.5 py-0.5 text-[10px] uppercase tracking-[0.22em]" data-cms-field={`blogPage.events.statuses.${e.status}`} suppressContentEditableWarning>
-                    {e.status}
-                  </span>
-                </div>
-                <h3 className="text-lg md:text-xl font-display font-semibold text-white leading-snug group-hover:text-gold transition-colors" data-cms-field={`blogPage.eventItems.${i}.title`}>
-                  {e.title}
-                </h3>
-                <p className="mt-2 text-sm text-white/65 leading-relaxed max-w-2xl" data-cms-field={`blogPage.eventItems.${i}.description`}>{e.description}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-white/60">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5 text-gold" /> <span data-cms-field={`blogPage.eventItems.${i}.date`} suppressContentEditableWarning>{e.date}</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-gold" /> <span data-cms-field={`blogPage.eventItems.${i}.location`} suppressContentEditableWarning>{e.location}</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="col-span-12 md:col-span-3 flex md:justify-end">
-                <Link
-                  to="/contact"
-                  className="group/btn inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-gold-foreground shadow-gold transition-transform hover:scale-[1.03]"
-                >
-                  <span data-cms-field="blogPage.events.register" suppressContentEditableWarning>{t("blogPage.events.register")}</span>
-                  <ArrowUpRight className="h-4 w-4 transition-transform group-hover/btn:rotate-45" />
-                </Link>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        {!preview && <p className="mt-8 text-center text-xs uppercase tracking-[0.2em] text-white/35">Upcoming events are prioritised automatically · Recent events fill any open positions</p>}
       </div>
     </section>
   );

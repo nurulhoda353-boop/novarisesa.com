@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BlogView } from "@/views/BlogView";
+import { BlogArchiveView } from "@/views/BlogArchiveView";
 import { cmsPageMetadata } from "@/lib/cms-metadata";
 
 const fallbackMetadata: Metadata = {
@@ -18,5 +18,5 @@ const fallbackMetadata: Metadata = {
 export const generateMetadata = () => cmsPageMetadata("blog", fallbackMetadata);
 
 export default function Page() {
-  return <BlogView />;
+  return <BlogArchiveView />;
 }

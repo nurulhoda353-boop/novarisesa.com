@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { API_URL } from "./site";
 
-type CollectionName = "services" | "projects" | "posts";
+type CollectionName = "services" | "projects" | "posts" | "events";
 
 type PublicItem = {
   slug: string;

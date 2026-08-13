@@ -19,6 +19,8 @@ import { FAQ } from "@/components/site/FAQ";
 import { Partners } from "@/components/site/Partners";
 import { CTA } from "@/components/site/CTA";
 import { SectionReveal } from "@/components/site/SectionReveal";
+import { HomeInsights } from "@/components/site/HomeInsights";
+import { HomeEvents } from "@/components/site/HomeEvents";
 
 export function HomeView() {
   return (
@@ -45,6 +47,8 @@ export function HomeView() {
         <SectionReveal><WhyChooseUs /></SectionReveal>
         <SectionReveal className="section-bright"><CareersTeaser /></SectionReveal>
         <SectionReveal><Partners /></SectionReveal>
+        <SectionReveal className="section-bright"><HomeInsights /></SectionReveal>
+        <SectionReveal><HomeEvents /></SectionReveal>
 
         {/* Closing pair — 2 light */}
         <SectionReveal><FAQ /></SectionReveal>

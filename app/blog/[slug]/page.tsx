@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { posts, featuredPost } from "@/lib/blog-data";
+import { blogPosts } from "@/lib/blog-data";
 import { absoluteUrl } from "@/lib/site";
 import { BlogPostDetailView } from "@/views/BlogPostDetailView";
 import { cmsDetailMetadata } from "@/lib/cms-detail-metadata";
 
-const allStaticPosts = [featuredPost, ...posts];
+const allStaticPosts = blogPosts;
 
 export function generateStaticParams() {
   return allStaticPosts.map((p) => ({ slug: p.slug }));

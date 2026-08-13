@@ -17,14 +17,14 @@ export function BlogHero() {
       icon={BookOpen}
       heroImage={managedHeroImg}
       assetKey="blog.hero"
-      title={t("blogPage.hero.title")}
+      title="Insights & Events"
       titleField="blogPage.hero.title"
-      description={t("blogPage.hero.description")}
+      description="Field-tested perspectives on megaproject delivery and the industry engagements where our team shares what works."
       descriptionField="blogPage.hero.description"
-      crumbs={[{ label: t("blogPage.hero.crumb") }]}
+      crumbs={[{ label: "Insights & Events" }]}
       ctas={[
-        { label: t("blogPage.hero.ctaPrimary"), href: "#latest", variant: "primary", icon: BookOpen },
-        { label: t("blogPage.hero.ctaSecondary"), href: "#events", variant: "ghost", icon: Calendar },
+        { label: "Read latest", href: "#latest", variant: "primary", icon: BookOpen },
+        { label: "Explore events", href: "#events", variant: "ghost", icon: Calendar },
       ]}
     />
   );

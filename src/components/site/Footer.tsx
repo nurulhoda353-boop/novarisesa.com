@@ -32,7 +32,7 @@ export function Footer() {
         { label: companyLabels.about, to: "/about" },
         { label: companyLabels.capabilities, to: "/capabilities" },
         { label: companyLabels.requirements, to: "/requirements" },
-        { label: companyLabels.blog, to: "/blog" },
+        { label: companyLabels.blog, to: "/insights" },
         { label: companyLabels.careers, to: "/careers" },
         { label: companyLabels.contact, to: "/contact" },
         { label: companyLabels.rfq, to: "/rfq" },

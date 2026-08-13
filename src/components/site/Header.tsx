@@ -66,7 +66,7 @@ const nav: NavItem[] = [
       { key: "careers", hash: "/careers", icon: Briefcase, labelKey: "nav.careers", descKey: "nav.careersDesc" },
     ],
   },
-  { key: "blog", hash: "/blog", icon: CalendarDays },
+  { key: "blog", hash: "/insights", icon: CalendarDays },
   { key: "contact", hash: "/contact", icon: Mail },
 ];
 

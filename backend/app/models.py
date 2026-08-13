@@ -427,6 +427,7 @@ class EventTranslation(UUIDMixin, TimestampMixin, Base):
     location: Mapped[str | None] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     date_display: Mapped[str | None] = mapped_column(String(120))
+    body: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     meta_title: Mapped[str | None] = mapped_column(String(255))
     meta_description: Mapped[str | None] = mapped_column(Text)
     event: Mapped[Event] = relationship(back_populates="translations")
