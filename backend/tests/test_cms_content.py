@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.schemas.cms import (
     ApplicationWorkflowUpdate,
+    ApplicationOperationalStatusUpdate,
     ContentUpsert,
     RequirementEditorPayload,
     ServiceEditorPayload,
@@ -88,6 +89,12 @@ def test_application_workflow_supports_full_recruitment_pipeline() -> None:
 def test_application_workflow_rejects_unknown_stage() -> None:
     with pytest.raises(ValidationError):
         ApplicationWorkflowUpdate(stage="maybe_hired")
+
+
+def test_application_operational_status_is_limited_to_hr_actions() -> None:
+    assert ApplicationOperationalStatusUpdate(status="confirmed").status == "confirmed"
+    with pytest.raises(ValidationError):
+        ApplicationOperationalStatusUpdate(status="emailed")
 
 
 def test_service_editor_keeps_the_public_template_row_counts() -> None:

@@ -230,6 +230,10 @@ class ApplicationNoteCreate(BaseModel):
     note: str = Field(min_length=1, max_length=2000)
 
 
+class ApplicationOperationalStatusUpdate(BaseModel):
+    status: Literal["pending", "confirmed", "completed", "cancelled"]
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

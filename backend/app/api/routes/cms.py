@@ -71,6 +71,7 @@ from app.schemas.cms import (
     RequirementEditorPayload,
     ApplicationWorkflowUpdate,
     ApplicationNoteCreate,
+    ApplicationOperationalStatusUpdate,
     ServiceEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
@@ -223,6 +224,9 @@ def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
                     str(row.resume_media_id) if row.resume_media_id else None
                 ),
                 "stage": getattr(row, "application_stage", None) or enum_value(row.status),
+                "operational_status": getattr(row, "operational_status", None) or "pending",
+                "notification_status": getattr(row, "notification_status", None) or "not_required",
+                "notification_requested_at": row.notification_requested_at.isoformat() if getattr(row, "notification_requested_at", None) else None,
                 "assigned_to_id": str(row.assigned_to_id) if row.assigned_to_id else None,
                 "assigned_to_name": assigned.full_name if assigned else None,
                 "follow_up_at": row.follow_up_at.isoformat() if row.follow_up_at else None,
@@ -1563,6 +1567,7 @@ def applications_overview(
 ) -> dict[str, Any]:
     _ = user
     stages = dict(db.execute(select(RequirementApplication.application_stage, func.count()).group_by(RequirementApplication.application_stage)).all())
+    operational = dict(db.execute(select(RequirementApplication.operational_status, func.count()).group_by(RequirementApplication.operational_status)).all())
     requirements = list(db.scalars(select(Requirement).options(selectinload(Requirement.translations)).order_by(Requirement.updated_at.desc())))
     counts = dict(db.execute(select(RequirementApplication.requirement_id, func.count()).group_by(RequirementApplication.requirement_id)).all())
     users = [
@@ -1571,6 +1576,7 @@ def applications_overview(
     ]
     return {
         "stages": {str(key): value for key, value in stages.items()},
+        "operational": {str(key): value for key, value in operational.items()},
         "requirements": [
             {
                 "id": str(row.id),
@@ -1637,6 +1643,68 @@ def update_application_workflow(
     audit(db, request, user, "cms.application_workflow_updated", "applications", application.id, before=before, after=after)
     db.commit()
     return {"status": "saved", "stage": application.application_stage}
+
+
+@router.patch("/applications/{application_id}/status")
+def update_application_operational_status(
+    application_id: uuid.UUID,
+    payload: ApplicationOperationalStatusUpdate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    application = db.get(RequirementApplication, application_id)
+    if application is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+    before = application.operational_status
+    application.operational_status = payload.status
+    stage_map = {
+        "pending": "new",
+        "confirmed": "contacted",
+        "completed": "hired",
+        "cancelled": "rejected",
+    }
+    application.application_stage = stage_map[payload.status]
+    application.status = {
+        "pending": SubmissionStatus.NEW,
+        "confirmed": SubmissionStatus.CONTACTED,
+        "completed": SubmissionStatus.CLOSED,
+        "cancelled": SubmissionStatus.CLOSED,
+    }[payload.status]
+    notification_requested = payload.status == "confirmed" and before != "confirmed"
+    if notification_requested:
+        application.notification_status = "awaiting_integration"
+        application.notification_requested_at = datetime.now(UTC)
+    elif payload.status == "pending":
+        application.notification_status = "not_required"
+        application.notification_requested_at = None
+    db.add(ApplicationActivity(
+        application_id=application.id,
+        actor_id=user.id,
+        action=f"status_{payload.status}",
+        note=(
+            "Confirmation notification queued for the future SMS/email integration."
+            if notification_requested else None
+        ),
+        details={"before": before, "after": payload.status, "notification_status": application.notification_status},
+    ))
+    audit(
+        db,
+        request,
+        user,
+        "cms.application_status_updated",
+        "applications",
+        application.id,
+        before={"status": before},
+        after={"status": payload.status, "notification_status": application.notification_status},
+    )
+    db.commit()
+    return {
+        "status": payload.status,
+        "stage": application.application_stage,
+        "notification_status": application.notification_status,
+        "notification_requested_at": application.notification_requested_at.isoformat() if application.notification_requested_at else None,
+    }
 
 
 @router.post("/applications/{application_id}/notes", status_code=status.HTTP_201_CREATED)
