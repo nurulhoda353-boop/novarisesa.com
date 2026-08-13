@@ -93,8 +93,10 @@ class ProjectEditorPayload(BaseModel):
     duration: str = Field(default="", max_length=160)
     started_on: date | None = None
     completed_on: date | None = None
-    overview: list[str] = Field(default_factory=list, max_length=8)
-    highlights: list[str] = Field(default_factory=list, max_length=12)
+    overview: list[str] = Field(default_factory=lambda: ["", ""], min_length=2, max_length=2)
+    highlights: list[str] = Field(
+        default_factory=lambda: ["", "", "", ""], min_length=4, max_length=4
+    )
     meta_title: str = Field(default="", max_length=255)
     meta_description: str = Field(default="", max_length=320)
 
