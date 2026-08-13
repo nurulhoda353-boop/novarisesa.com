@@ -38,6 +38,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, SITE_URL } from "@/lib/api";
 
@@ -964,6 +965,11 @@ const editorTabs = [
   { id: "overview", label: "Overview + Highlights", icon: FileText },
   { id: "seo", label: "SEO", icon: Search },
 ] as const;
+
+function publicProjectImage(slug: string): string | null {
+  const path = assetSlots.find(([key]) => key === `projects.${slug}.hero`)?.[2];
+  return path ? new URL(path, SITE_ORIGIN).toString() : null;
+}
 type EditorTab = typeof editorTabs[number]["id"];
 
 function projectEditorFallback(item: ContentItem): ProjectEditorData {
@@ -988,15 +994,30 @@ function fixedProjectTemplate(data: ProjectEditorData, slug: string): ProjectEdi
 }
 
 function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onClose: () => void; onPublished: () => void }) {
+  const publicImage = publicProjectImage(item.slug);
   const [tab, setTab] = useState<EditorTab>("thumbnail");
   const [form, setForm] = useState<ProjectEditorData>(() => projectEditorFallback(item));
-  const [preview, setPreview] = useState({ thumbnail_url: item.extra.thumbnail_url as string | null, hero_url: null as string | null });
+  const [preview, setPreview] = useState({
+    thumbnail_url: (item.extra.thumbnail_url as string | null) || publicImage,
+    hero_url: (item.extra.hero_url as string | null) || publicImage,
+  });
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
   const [notice, setNotice] = useState("");
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [mediaOpen, setMediaOpen] = useState<"thumbnail" | "hero" | null>(null);
   const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1006,12 +1027,15 @@ function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onCl
     ]).then(([editor, mediaResponse]) => {
       if (cancelled) return;
       setForm(fixedProjectTemplate(editor.data, item.slug));
-      setPreview({ thumbnail_url: editor.preview.thumbnail_url, hero_url: editor.preview.hero_url });
+      const thumbnailUrl = editor.preview.thumbnail_url || publicImage;
+      setPreview({ thumbnail_url: thumbnailUrl, hero_url: editor.preview.hero_url || thumbnailUrl });
       setMedia(mediaResponse.items.filter((asset) => asset.mime_type.startsWith("image/")));
       setNotice(editor.has_draft ? `Draft restored from ${new Date(editor.draft_updated_at ?? editor.updated_at).toLocaleString()}` : "Everything published is live on the public site.");
+    }).catch((error) => {
+      if (!cancelled) setNotice(error instanceof Error ? error.message : "Could not load the project editor.");
     }).finally(() => { if (!cancelled) setBusy(false); });
     return () => { cancelled = true; };
-  }, [item.id]);
+  }, [item.id, item.slug, publicImage]);
 
   function update<K extends keyof ProjectEditorData>(key: K, value: ProjectEditorData[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1055,7 +1079,8 @@ function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onCl
   const imageFor = mediaOpen === "thumbnail" ? preview.thumbnail_url : preview.hero_url;
   const seoTitle = form.meta_title || form.title;
   const seoDescription = form.meta_description || form.summary;
-  return <div className="modal-backdrop project-editor-backdrop" onMouseDown={close}>
+  if (typeof document === "undefined") return null;
+  return createPortal(<div className="modal-backdrop project-editor-backdrop" onMouseDown={close}>
     <section className="project-editor" onMouseDown={(event) => event.stopPropagation()} aria-label={`Edit ${item.title}`}>
       <header className="project-editor-head">
         <div><p className="eyebrow">Project editor</p><h2>{form.title || item.title}</h2><span className={`badge badge-${item.status}`}>{item.status}</span>{dirty && <em>Unsaved changes</em>}</div>
@@ -1099,16 +1124,34 @@ function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onCl
             <div className="seo-preview"><span>Google preview</span><strong>{seoTitle || "Project title"} | NOVARISE</strong><em>{SITE_ORIGIN}/projects/{form.slug || "project-url"}</em><p>{seoDescription || "Write a short project description so search visitors know what to expect."}</p></div>
           </>}
         </div>
-        <aside className="project-editor-preview"><span>Live block preview</span><EditorPreview tab={tab} form={form} thumbnail={preview.thumbnail_url} hero={preview.hero_url || preview.thumbnail_url} /></aside>
+        <aside className="project-editor-preview"><span>Live block preview · Desktop proportions</span><ScaledDesktopPreview tab={tab}><EditorPreview tab={tab} form={form} thumbnail={preview.thumbnail_url} hero={preview.hero_url || preview.thumbnail_url} /></ScaledDesktopPreview></aside>
       </div>}
       <footer className="project-editor-foot"><p>{notice || "Your changes are only public after Publish."}</p><div><button type="button" onClick={close}>Close</button><button type="button" className="editor-draft-button" onClick={() => void save("draft")} disabled={!!saving}>Save draft</button><button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>Publish</button></div></footer>
       {mediaOpen && <div className="media-picker-backdrop" onMouseDown={() => setMediaOpen(null)}><div className={`media-picker ${mediaOpen}`} onMouseDown={(event) => event.stopPropagation()}><div><p className="eyebrow">Choose image</p><h3>{mediaOpen === "thumbnail" ? "Thumbnail card · 16:10" : "Hero + project image · 21:9"}</h3></div><label className="primary-button compact upload-button"><Upload size={15} /> Upload new<input type="file" accept="image/*" hidden onChange={(event) => void uploadImage(event, mediaOpen)} /></label><button type="button" className="media-picker-close" onClick={() => setMediaOpen(null)}><X size={17} /></button><div className="media-picker-grid">{imageFor && <button type="button" className="media-option current" onClick={() => setMediaOpen(null)}><img src={imageFor} alt="Current selection" /><span>Current selection</span></button>}{media.map((asset) => <button type="button" className="media-option" key={asset.id} onClick={() => selectMedia(mediaOpen, asset)}><img src={asset.public_url} alt={asset.alt_text.en || asset.file_name} /><span>{asset.file_name}</span></button>)}</div></div></div>}
     </section>
-  </div>;
+  </div>, document.body);
 }
 
 function EditorSection({ title, copy }: { title: string; copy: string }) { return <div className="editor-section"><h3>{title}</h3><p>{copy}</p></div>; }
-function ImageField({ title, copy, ratio, image, onPick, onUpload }: { title: string; copy: string; ratio: "thumbnail" | "hero"; image: string | null; onPick: () => void; onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void }) { return <div className={`editor-image-field ${ratio}`}><div>{image ? <img src={image} alt="Selected project" /> : <ImageIcon size={30} />}<span>{title}</span></div><p>{copy}</p><div><button type="button" onClick={onPick}>Choose from library</button><label><Upload size={15} /> Upload new<input type="file" accept="image/*" hidden onChange={onUpload} /></label></div></div>; }
+function ImageField({ title, copy, ratio, image, onPick, onUpload }: { title: string; copy: string; ratio: "thumbnail" | "hero"; image: string | null; onPick: () => void; onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void }) { return <div className={`editor-image-field ${ratio}`}><div>{image ? <img src={image} alt="Current public project" /> : <ImageIcon size={30} />}<span>{image ? `Current public ${title.toLowerCase()}` : title}</span></div><p>{copy}</p><div><button type="button" onClick={onPick}>{image ? "Replace from library" : "Choose from library"}</button><label><Upload size={15} /> {image ? "Upload replacement" : "Upload new"}<input type="file" accept="image/*" hidden onChange={onUpload} /></label></div></div>; }
+
+const desktopPreviewHeights: Record<EditorTab, number> = { thumbnail: 780, hero: 560, stats: 330, overview: 590, seo: 340 };
+function ScaledDesktopPreview({ tab, children }: { tab: EditorTab; children: ReactNode }) {
+  const host = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(0.4);
+  const canvasWidth = 1280;
+  const canvasHeight = desktopPreviewHeights[tab];
+  useEffect(() => {
+    const element = host.current;
+    if (!element) return;
+    const fit = () => setScale(Math.min(1, element.clientWidth / canvasWidth));
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return <div className="desktop-preview-viewport" ref={host} style={{ height: canvasHeight * scale }}><div className={`desktop-preview-canvas preview-${tab}`} style={{ width: canvasWidth, height: canvasHeight, transform: `scale(${scale})` }}>{children}</div></div>;
+}
 function EditorPreview({ tab, form, thumbnail, hero }: { tab: EditorTab; form: ProjectEditorData; thumbnail: string | null; hero: string | null }) { if (tab === "thumbnail") return <div className="editor-preview-card">{thumbnail && <img src={thumbnail} alt="" />}<div><span>{form.is_featured ? "Featured project" : "Project"}</span><h3>{form.title || "Project title"}</h3><p>{form.summary || "Your concise project summary appears here."}</p></div></div>; if (tab === "hero") return <div className="editor-preview-hero">{hero && <img src={hero} alt="" />}<div><span>{form.sector || "Project sector"}</span><h2>{form.title || "Project title"}</h2><p>{form.summary || "Project introduction"}</p></div></div>; if (tab === "stats") return <div className="editor-preview-stats">{[["Client", form.client_name], ["Location", form.location], ["Value", form.value], ["Duration", form.duration]].map(([label, value]) => <div key={label}><span>{label}</span><b>{value || "—"}</b></div>)}</div>; if (tab === "overview") return <div className="editor-preview-public-overview"><div><span>Project Overview</span><h3>{form.title || "Project title"}</h3><p>{form.overview[0] || "Overview paragraph one"}</p><p>{form.overview[1] || "Overview paragraph two"}</p></div><aside><span>What We Deliver</span><h3>Project Highlights</h3>{form.highlights.map((entry, index) => <p key={index}><b>✓</b>{entry || `Highlight ${index + 1}`}</p>)}</aside></div>; return <div className="editor-preview-seo"><span>Search result</span><h3>{form.meta_title || form.title || "Project title"} | NOVARISE</h3><em>novarisesa.com/projects/{form.slug || "project-url"}</em><p>{form.meta_description || form.summary || "Project description"}</p></div>; }
 
 function MediaPage({ user }: { user: User }) {
