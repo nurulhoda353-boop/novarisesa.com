@@ -16,6 +16,7 @@ export function useManagedProjects(): Project[] {
         slug: item.slug,
         img:
           (typeof item.data.featured_media_url === "string" && item.data.featured_media_url) ||
+          (typeof item.data.hero_media_url === "string" && item.data.hero_media_url) ||
           fallback?.img ||
           "/assets/project-civil.jpg",
         rank: item.sort_order || index + 1,

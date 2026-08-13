@@ -6,6 +6,7 @@ export type TranslatedProject = {
   key: string;
   slug: string;
   img: string;
+  heroImg: string;
   rank: number;
   featured: boolean;
   sector: string;
@@ -65,6 +66,7 @@ export function useTranslatedProject(slug: string): TranslatedProject | undefine
     key,
     slug,
     img: str(data.featured_media_url, staticEntry?.img ?? "/assets/project-civil.jpg"),
+    heroImg: str(data.hero_media_url, str(data.featured_media_url, staticEntry?.img ?? "/assets/project-civil.jpg")),
     rank: managed?.sort_order || staticEntry?.rank || 0,
     featured: managed ? managed.is_featured : (staticEntry?.featured ?? false),
     sector: tField("sector", str(freeform.sector)),

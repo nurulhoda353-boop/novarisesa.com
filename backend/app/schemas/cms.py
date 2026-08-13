@@ -78,6 +78,27 @@ class ContentDetail(ContentItem):
     meta_description: str | None = None
 
 
+class ProjectEditorPayload(BaseModel):
+    slug: str = Field(min_length=2, max_length=180, pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    title: str = Field(min_length=2, max_length=255)
+    summary: str = Field(default="", max_length=1200)
+    is_featured: bool = False
+    sort_order: int = Field(default=0, ge=0, le=999)
+    thumbnail_media_id: uuid.UUID | None = None
+    hero_media_id: uuid.UUID | None = None
+    sector: str = Field(default="", max_length=120)
+    client_name: str = Field(default="", max_length=255)
+    location: str = Field(default="", max_length=255)
+    value: str = Field(default="", max_length=160)
+    duration: str = Field(default="", max_length=160)
+    started_on: date | None = None
+    completed_on: date | None = None
+    overview: list[str] = Field(default_factory=list, max_length=8)
+    highlights: list[str] = Field(default_factory=list, max_length=12)
+    meta_title: str = Field(default="", max_length=255)
+    meta_description: str = Field(default="", max_length=320)
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

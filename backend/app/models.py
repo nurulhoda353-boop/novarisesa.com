@@ -278,6 +278,9 @@ class Project(UUIDMixin, TimestampMixin, Base):
     featured_media_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("media_assets.id", ondelete="SET NULL")
     )
+    hero_media_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("media_assets.id", ondelete="SET NULL")
+    )
     facts: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     translations: Mapped[list["ProjectTranslation"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
@@ -306,6 +309,16 @@ class ProjectMedia(UUIDMixin, Base):
     project_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
     media_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("media_assets.id", ondelete="CASCADE"))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProjectDraft(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "project_drafts"
+    __table_args__ = (UniqueConstraint("project_id", name="uq_project_draft_project"),)
+
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class Category(UUIDMixin, TimestampMixin, Base):

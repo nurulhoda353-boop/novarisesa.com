@@ -35,6 +35,7 @@ from app.models import (
     Post,
     PostTranslation,
     Project,
+    ProjectDraft,
     ProjectTranslation,
     Requirement,
     RequirementApplication,
@@ -53,6 +54,7 @@ from app.schemas.cms import (
     ContentListResponse,
     MediaUpdate,
     NavigationUpsert,
+    ProjectEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
     TaxonomyUpsert,
@@ -233,7 +235,7 @@ def serialize_content(
     identifier = getattr(item, "slug", None) or item.code
     hero_media_id = getattr(item, "hero_media_id", None)
     featured_media_id = getattr(item, "featured_media_id", None)
-    thumbnail_media_id = hero_media_id or featured_media_id
+    thumbnail_media_id = featured_media_id or hero_media_id
     extra: dict[str, Any] = {
         "location": getattr(item, "location", None),
         "headcount": getattr(item, "headcount", None),
@@ -261,6 +263,76 @@ def serialize_content(
         updated_at=item.updated_at,
         extra=extra,
     )
+
+
+def media_url(db: Session, media_id: uuid.UUID | None) -> str | None:
+    if media_id is None:
+        return None
+    return db.scalar(select(MediaAsset.public_url).where(MediaAsset.id == media_id))
+
+
+def project_editor_payload(project: Project, *, draft: ProjectDraft | None = None) -> dict[str, Any]:
+    if draft is not None and draft.payload:
+        return draft.payload
+    translation = translation_for(project, "en")
+    body = translation.body if translation and isinstance(translation.body, dict) else {}
+    return {
+        "slug": project.slug,
+        "title": translation.title if translation else project.slug,
+        "summary": translation.summary or "" if translation else "",
+        "is_featured": project.is_featured,
+        "sort_order": project.sort_order,
+        "thumbnail_media_id": str(project.featured_media_id) if project.featured_media_id else None,
+        "hero_media_id": str(project.hero_media_id) if project.hero_media_id else None,
+        "sector": str(body.get("sector", "")),
+        "client_name": project.client_name or "",
+        "location": project.location or "",
+        "value": str(body.get("value", "")),
+        "duration": str(body.get("duration", "")),
+        "started_on": project.started_on.isoformat() if project.started_on else None,
+        "completed_on": project.completed_on.isoformat() if project.completed_on else None,
+        "overview": body.get("long", []) if isinstance(body.get("long"), list) else [],
+        "highlights": body.get("highlights", []) if isinstance(body.get("highlights"), list) else [],
+        "meta_title": translation.meta_title or "" if translation else "",
+        "meta_description": translation.meta_description or "" if translation else "",
+    }
+
+
+def validate_project_media(db: Session, media_id: uuid.UUID | None, label: str) -> None:
+    if media_id is not None and db.get(MediaAsset, media_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{label} image was not found",
+        )
+
+
+def apply_project_payload(project: Project, payload: ProjectEditorPayload) -> None:
+    translation = translation_for(project, "en")
+    if translation is None:
+        translation = ProjectTranslation(project_id=project.id, locale="en", title=payload.title)
+        project.translations.append(translation)
+    translation.title = payload.title
+    translation.summary = payload.summary or None
+    translation.scope = payload.summary or None
+    translation.body = {
+        **(translation.body if isinstance(translation.body, dict) else {}),
+        "sector": payload.sector,
+        "value": payload.value,
+        "duration": payload.duration,
+        "long": [entry.strip() for entry in payload.overview if entry.strip()],
+        "highlights": [entry.strip() for entry in payload.highlights if entry.strip()],
+    }
+    translation.meta_title = payload.meta_title or None
+    translation.meta_description = payload.meta_description or None
+    project.slug = payload.slug
+    project.is_featured = payload.is_featured
+    project.sort_order = payload.sort_order
+    project.featured_media_id = payload.thumbnail_media_id
+    project.hero_media_id = payload.hero_media_id
+    project.client_name = payload.client_name or None
+    project.location = payload.location or None
+    project.started_on = payload.started_on
+    project.completed_on = payload.completed_on
 
 
 def serialize_media(item: MediaAsset) -> dict[str, Any]:
@@ -511,6 +583,114 @@ def list_content(
             if needle in item.title.casefold() or needle in item.slug.casefold()
         ]
     return ContentListResponse(items=serialized, total=len(serialized))
+
+
+@router.get("/projects/{project_id}/editor")
+def get_project_editor(
+    project_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    project = db.scalar(
+        select(Project).options(selectinload(Project.translations)).where(Project.id == project_id)
+    )
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    draft = db.scalar(select(ProjectDraft).where(ProjectDraft.project_id == project.id))
+    published = project_editor_payload(project)
+    working = project_editor_payload(project, draft=draft)
+    thumbnail_id = uuid.UUID(working["thumbnail_media_id"]) if working.get("thumbnail_media_id") else None
+    hero_id = uuid.UUID(working["hero_media_id"]) if working.get("hero_media_id") else None
+    return {
+        "project_id": str(project.id),
+        "status": enum_value(project.status),
+        "updated_at": project.updated_at.isoformat(),
+        "has_draft": draft is not None,
+        "draft_updated_at": draft.updated_at.isoformat() if draft else None,
+        "data": working,
+        "preview": {
+            "thumbnail_url": media_url(db, thumbnail_id),
+            "hero_url": media_url(db, hero_id),
+            "published_slug": published["slug"],
+        },
+    }
+
+
+@router.put("/projects/{project_id}/draft")
+def save_project_draft(
+    project_id: uuid.UUID,
+    payload: ProjectEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    validate_project_media(db, payload.thumbnail_media_id, "Thumbnail")
+    validate_project_media(db, payload.hero_media_id, "Hero")
+    draft = db.scalar(select(ProjectDraft).where(ProjectDraft.project_id == project.id))
+    before = draft.payload if draft else None
+    if draft is None:
+        draft = ProjectDraft(project_id=project.id, payload=payload.model_dump(mode="json"))
+        db.add(draft)
+    else:
+        draft.payload = payload.model_dump(mode="json")
+    audit(
+        db,
+        request,
+        user,
+        "cms.project_draft_saved",
+        "projects",
+        project.id,
+        before=before,
+        after=draft.payload,
+    )
+    db.commit()
+    db.refresh(draft)
+    return {"status": "draft_saved", "updated_at": draft.updated_at.isoformat()}
+
+
+@router.post("/projects/{project_id}/publish")
+def publish_project(
+    project_id: uuid.UUID,
+    payload: ProjectEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.publish"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    project = db.scalar(
+        select(Project).options(selectinload(Project.translations)).where(Project.id == project_id)
+    )
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    conflict = db.scalar(select(Project).where(Project.slug == payload.slug, Project.id != project.id))
+    if conflict is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="That project URL is already in use",
+        )
+    validate_project_media(db, payload.thumbnail_media_id, "Thumbnail")
+    validate_project_media(db, payload.hero_media_id, "Hero")
+    before = project_editor_payload(project)
+    apply_project_payload(project, payload)
+    project.status = "published"
+    draft = db.scalar(select(ProjectDraft).where(ProjectDraft.project_id == project.id))
+    if draft is not None:
+        db.delete(draft)
+    audit(
+        db,
+        request,
+        user,
+        "cms.project_published",
+        "projects",
+        project.id,
+        before=before,
+        after=payload.model_dump(mode="json"),
+    )
+    db.commit()
+    return {"status": "published", "slug": project.slug, "updated_at": project.updated_at.isoformat()}
 
 
 @router.get("/inbox/{inbox}")

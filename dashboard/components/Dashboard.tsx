@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  BarChart3,
   Bell,
   BookOpen,
   BriefcaseBusiness,
@@ -14,6 +15,7 @@ import {
   Globe2,
   HelpCircle,
   ImageIcon,
+  ImagePlus,
   Inbox,
   LogOut,
   Menu,
@@ -24,11 +26,13 @@ import {
   Pencil,
   Plus,
   Search,
+  Save,
   Settings,
   ShieldCheck,
   Star,
   Sun,
   Users,
+  Upload,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -69,6 +73,35 @@ type ContentItem = {
   is_featured: boolean;
   updated_at: string;
   extra: Record<string, unknown>;
+};
+type ProjectEditorData = {
+  slug: string;
+  title: string;
+  summary: string;
+  is_featured: boolean;
+  sort_order: number;
+  thumbnail_media_id: string | null;
+  hero_media_id: string | null;
+  sector: string;
+  client_name: string;
+  location: string;
+  value: string;
+  duration: string;
+  started_on: string | null;
+  completed_on: string | null;
+  overview: string[];
+  highlights: string[];
+  meta_title: string;
+  meta_description: string;
+};
+type ProjectEditorResponse = {
+  project_id: string;
+  status: string;
+  updated_at: string;
+  has_draft: boolean;
+  draft_updated_at: string | null;
+  data: ProjectEditorData;
+  preview: { thumbnail_url: string | null; hero_url: string | null; published_slug: string };
 };
 type Overview = {
   counts: Record<string, number>;
@@ -772,6 +805,7 @@ function ContentPage({ resource }: { resource: string }) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [busy, setBusy] = useState(true);
   const [query, setQuery] = useState("");
+  const [editingProject, setEditingProject] = useState<ContentItem | null>(null);
   const title = contentNav.find(([key]) => key === resource)?.[1] ?? humanize(resource);
   const load = useCallback(() => {
     setBusy(true);
@@ -829,6 +863,16 @@ function ContentPage({ resource }: { resource: string }) {
                 <span className="slug">/{item.slug}</span>
                 <span className="date">Updated {new Date(item.updated_at).toLocaleDateString()}</span>
               </div>
+              {resource === "projects" && (
+                <div className="content-card-actions">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProject(item)}
+                    title={`Edit ${item.title}`}
+                    aria-label={`Edit ${item.title}`}
+                  ><Pencil size={15} /></button>
+                </div>
+              )}
             </div>
           </article>
         );
@@ -887,8 +931,152 @@ function ContentPage({ resource }: { resource: string }) {
         ) : renderCards(visible)
       ) : <Empty copy={`No ${title.toLowerCase()} yet.`} />}
     </div>
+    {editingProject && <ProjectEditor item={editingProject} onClose={() => setEditingProject(null)} onPublished={load} />}
   </>;
 }
+
+const editorTabs = [
+  { id: "thumbnail", label: "Thumbnail Card", icon: ImageIcon },
+  { id: "hero", label: "Hero + Project Image", icon: ImagePlus },
+  { id: "stats", label: "Project Info / Stats", icon: BarChart3 },
+  { id: "overview", label: "Overview + Highlights", icon: FileText },
+  { id: "seo", label: "SEO", icon: Search },
+] as const;
+type EditorTab = typeof editorTabs[number]["id"];
+
+function projectEditorFallback(item: ContentItem): ProjectEditorData {
+  return {
+    slug: item.slug, title: item.title, summary: item.summary ?? "", is_featured: item.is_featured,
+    sort_order: Number(item.extra.sort_order ?? 0), thumbnail_media_id: null, hero_media_id: null,
+    sector: "", client_name: "", location: "", value: "", duration: "", started_on: null, completed_on: null,
+    overview: [""], highlights: [""], meta_title: "", meta_description: "",
+  };
+}
+
+function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onClose: () => void; onPublished: () => void }) {
+  const [tab, setTab] = useState<EditorTab>("thumbnail");
+  const [form, setForm] = useState<ProjectEditorData>(() => projectEditorFallback(item));
+  const [preview, setPreview] = useState({ thumbnail_url: item.extra.thumbnail_url as string | null, hero_url: null as string | null });
+  const [busy, setBusy] = useState(true);
+  const [saving, setSaving] = useState<"draft" | "publish" | null>(null);
+  const [notice, setNotice] = useState("");
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [mediaOpen, setMediaOpen] = useState<"thumbnail" | "hero" | null>(null);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api<ProjectEditorResponse>(`/cms/projects/${item.id}/editor`),
+      api<{ items: MediaItem[] }>("/cms/media?limit=100"),
+    ]).then(([editor, mediaResponse]) => {
+      if (cancelled) return;
+      setForm(editor.data);
+      setPreview({ thumbnail_url: editor.preview.thumbnail_url, hero_url: editor.preview.hero_url });
+      setMedia(mediaResponse.items.filter((asset) => asset.mime_type.startsWith("image/")));
+      setNotice(editor.has_draft ? `Draft restored from ${new Date(editor.draft_updated_at ?? editor.updated_at).toLocaleString()}` : "Everything published is live on the public site.");
+    }).finally(() => { if (!cancelled) setBusy(false); });
+    return () => { cancelled = true; };
+  }, [item.id]);
+
+  function update<K extends keyof ProjectEditorData>(key: K, value: ProjectEditorData[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+    setDirty(true);
+  }
+  function updateList(key: "overview" | "highlights", index: number, value: string) {
+    const next = [...form[key]]; next[index] = value; update(key, next);
+  }
+  async function uploadImage(event: React.ChangeEvent<HTMLInputElement>, slot: "thumbnail" | "hero") {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const body = new FormData(); body.append("file", file); body.append("folder", "projects"); body.append("alt_en", form.title);
+    setSaving("draft");
+    try {
+      const asset = await api<MediaItem>("/cms/media", { method: "POST", body });
+      setMedia((current) => [asset, ...current]); selectMedia(slot, asset);
+      setNotice("Image uploaded and selected. Save draft or publish when ready.");
+    } finally { setSaving(null); event.target.value = ""; }
+  }
+  function selectMedia(slot: "thumbnail" | "hero", asset: MediaItem) {
+    update(slot === "thumbnail" ? "thumbnail_media_id" : "hero_media_id", asset.id);
+    setPreview((current) => ({ ...current, [slot === "thumbnail" ? "thumbnail_url" : "hero_url"]: asset.public_url }));
+    setMediaOpen(null);
+  }
+  async function save(mode: "draft" | "publish") {
+    setSaving(mode); setNotice("");
+    try {
+      const path = mode === "draft" ? `/cms/projects/${item.id}/draft` : `/cms/projects/${item.id}/publish`;
+      const response = await api<{ status: string; updated_at?: string }>(path, { method: mode === "draft" ? "PUT" : "POST", body: JSON.stringify(form) });
+      setDirty(false);
+      setNotice(mode === "draft" ? "Draft saved safely. It is not visible on the public site." : "Published successfully. The public project page now reflects these changes.");
+      if (mode === "publish") onPublished();
+      return response;
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save project changes.");
+    } finally { setSaving(null); }
+  }
+  function close() {
+    if (!dirty || window.confirm("You have unsaved changes. Close the editor anyway?")) onClose();
+  }
+  const imageFor = mediaOpen === "thumbnail" ? preview.thumbnail_url : preview.hero_url;
+  const seoTitle = form.meta_title || form.title;
+  const seoDescription = form.meta_description || form.summary;
+  return <div className="modal-backdrop project-editor-backdrop" onMouseDown={close}>
+    <section className="project-editor" onMouseDown={(event) => event.stopPropagation()} aria-label={`Edit ${item.title}`}>
+      <header className="project-editor-head">
+        <div><p className="eyebrow">Project editor</p><h2>{form.title || item.title}</h2><span className={`badge badge-${item.status}`}>{item.status}</span>{dirty && <em>Unsaved changes</em>}</div>
+        <div className="project-editor-actions">
+          <a href={`${SITE_ORIGIN}/projects/${item.slug}`} target="_blank" rel="noreferrer" className="editor-live-link"><Globe2 size={15} /> View live</a>
+          <button type="button" className="editor-draft-button" onClick={() => void save("draft")} disabled={!!saving}><Save size={16} /> {saving === "draft" ? "Saving…" : "Save draft"}</button>
+          <button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>{saving === "publish" ? "Publishing…" : "Publish"}</button>
+          <button type="button" className="editor-close" onClick={close} aria-label="Close editor"><X size={19} /></button>
+        </div>
+      </header>
+      <nav className="project-editor-tabs" aria-label="Project editor steps">{editorTabs.map(({ id, label, icon: Icon }, index) => <button type="button" key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}><span>{index + 1}</span><Icon size={16} />{label}</button>)}</nav>
+      {busy ? <div className="project-editor-loading"><Skeleton /></div> : <div className="project-editor-content">
+        <div className="project-editor-form">
+          {tab === "thumbnail" && <>
+            <EditorSection title="Public thumbnail card" copy="This is the image and copy visitors see first on the Projects page." />
+            <ImageField title="Thumbnail image" copy="Best: landscape image, at least 1600 × 1000 px." image={preview.thumbnail_url} onPick={() => setMediaOpen("thumbnail")} onUpload={(event) => void uploadImage(event, "thumbnail")} />
+            <label>Project title<input value={form.title} onChange={(event) => update("title", event.target.value)} maxLength={255} /></label>
+            <label>Short card description<textarea rows={4} value={form.summary} onChange={(event) => update("summary", event.target.value)} maxLength={1200} /><small>{form.summary.length}/1200 · Keep it short and clear.</small></label>
+            <div className="editor-two-cols"><label>Public URL<input value={form.slug} onChange={(event) => update("slug", slugify(event.target.value))} /><small>novarisesa.com/projects/{form.slug || "project-url"}</small></label><label>Display order<input type="number" min="0" value={form.sort_order} onChange={(event) => update("sort_order", Number(event.target.value))} /><small>Lower numbers appear first.</small></label></div>
+            <label className="editor-toggle"><input type="checkbox" checked={form.is_featured} onChange={(event) => update("is_featured", event.target.checked)} /><span><b>Show as Featured Project</b><small>Featured projects use the larger showcase layout on the public Projects page.</small></span></label>
+          </>}
+          {tab === "hero" && <>
+            <EditorSection title="Hero + project image" copy="The hero introduces the project, then this same image appears as the wide visual below it." />
+            <ImageField title="Hero / detail image" copy="Best: high-quality landscape image, at least 2000 × 1100 px." image={preview.hero_url || preview.thumbnail_url} onPick={() => setMediaOpen("hero")} onUpload={(event) => void uploadImage(event, "hero")} />
+            <label>Sector / category<input value={form.sector} onChange={(event) => update("sector", event.target.value)} placeholder="e.g. Energy & infrastructure" /></label>
+            <label>Hero introduction<textarea rows={5} value={form.summary} onChange={(event) => update("summary", event.target.value)} placeholder="A clear one-paragraph introduction to this project." /><small>This also appears on the thumbnail card, so write for both contexts.</small></label>
+          </>}
+          {tab === "stats" && <>
+            <EditorSection title="Project information" copy="These four simple facts appear as the Project Info / Stats cards on the detail page." />
+            <div className="editor-two-cols"><label>Client<input value={form.client_name} onChange={(event) => update("client_name", event.target.value)} placeholder="e.g. PIF / ACWA Power" /></label><label>Location<input value={form.location} onChange={(event) => update("location", event.target.value)} placeholder="e.g. Riyadh, Saudi Arabia" /></label><label>Project value / capacity<input value={form.value} onChange={(event) => update("value", event.target.value)} placeholder="e.g. 1,800 MW" /></label><label>Duration / status<input value={form.duration} onChange={(event) => update("duration", event.target.value)} placeholder="e.g. Completion 2028" /></label><label>Started on<input type="date" value={form.started_on ?? ""} onChange={(event) => update("started_on", event.target.value || null)} /></label><label>Completed on<input type="date" value={form.completed_on ?? ""} onChange={(event) => update("completed_on", event.target.value || null)} /></label></div>
+          </>}
+          {tab === "overview" && <>
+            <EditorSection title="Overview + highlights" copy="Use short, natural paragraphs and outcome-led bullet points. Visitors read this on the project detail page." />
+            <RepeatableText title="Overview paragraphs" copy="One idea per paragraph." values={form.overview} onChange={(index, value) => updateList("overview", index, value)} onAdd={() => update("overview", [...form.overview, ""])} onRemove={(index) => update("overview", form.overview.filter((_, row) => row !== index))} />
+            <RepeatableText title="Project highlights" copy="Key outcomes, capabilities or milestones." values={form.highlights} onChange={(index, value) => updateList("highlights", index, value)} onAdd={() => update("highlights", [...form.highlights, ""])} onRemove={(index) => update("highlights", form.highlights.filter((_, row) => row !== index))} />
+          </>}
+          {tab === "seo" && <>
+            <EditorSection title="Search and social sharing" copy="These fields help Google and social platforms understand the project. Plain language works best." />
+            <label>SEO page title<input value={form.meta_title} onChange={(event) => update("meta_title", event.target.value)} maxLength={255} placeholder={form.title} /><small>{form.meta_title.length}/60 recommended · Leave blank to use project title.</small></label>
+            <label>Meta description<textarea rows={4} value={form.meta_description} onChange={(event) => update("meta_description", event.target.value)} maxLength={320} placeholder={form.summary} /><small>{form.meta_description.length}/155 recommended · Leave blank to use the short card description.</small></label>
+            <div className="seo-preview"><span>Google preview</span><strong>{seoTitle || "Project title"} | NOVARISE</strong><em>{SITE_ORIGIN}/projects/{form.slug || "project-url"}</em><p>{seoDescription || "Write a short project description so search visitors know what to expect."}</p></div>
+          </>}
+        </div>
+        <aside className="project-editor-preview"><span>Live block preview</span><EditorPreview tab={tab} form={form} thumbnail={preview.thumbnail_url} hero={preview.hero_url || preview.thumbnail_url} /></aside>
+      </div>}
+      <footer className="project-editor-foot"><p>{notice || "Your changes are only public after Publish."}</p><div><button type="button" onClick={close}>Close</button><button type="button" className="editor-draft-button" onClick={() => void save("draft")} disabled={!!saving}>Save draft</button><button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>Publish</button></div></footer>
+      {mediaOpen && <div className="media-picker-backdrop" onMouseDown={() => setMediaOpen(null)}><div className="media-picker" onMouseDown={(event) => event.stopPropagation()}><div><p className="eyebrow">Choose image</p><h3>{mediaOpen === "thumbnail" ? "Thumbnail card" : "Hero + project image"}</h3></div><label className="primary-button compact upload-button"><Upload size={15} /> Upload new<input type="file" accept="image/*" hidden onChange={(event) => void uploadImage(event, mediaOpen)} /></label><button type="button" className="media-picker-close" onClick={() => setMediaOpen(null)}><X size={17} /></button><div className="media-picker-grid">{imageFor && <button type="button" className="media-option current" onClick={() => setMediaOpen(null)}><img src={imageFor} alt="Current selection" /><span>Current selection</span></button>}{media.map((asset) => <button type="button" className="media-option" key={asset.id} onClick={() => selectMedia(mediaOpen, asset)}><img src={asset.public_url} alt={asset.alt_text.en || asset.file_name} /><span>{asset.file_name}</span></button>)}</div></div></div>}
+    </section>
+  </div>;
+}
+
+function EditorSection({ title, copy }: { title: string; copy: string }) { return <div className="editor-section"><h3>{title}</h3><p>{copy}</p></div>; }
+function ImageField({ title, copy, image, onPick, onUpload }: { title: string; copy: string; image: string | null; onPick: () => void; onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void }) { return <div className="editor-image-field"><div>{image ? <img src={image} alt="Selected project" /> : <ImageIcon size={30} />}<span>{title}</span></div><p>{copy}</p><div><button type="button" onClick={onPick}>Choose from library</button><label><Upload size={15} /> Upload new<input type="file" accept="image/*" hidden onChange={onUpload} /></label></div></div>; }
+function RepeatableText({ title, copy, values, onChange, onAdd, onRemove }: { title: string; copy: string; values: string[]; onChange: (index: number, value: string) => void; onAdd: () => void; onRemove: (index: number) => void }) { return <section className="repeatable-text"><div><h4>{title}</h4><p>{copy}</p></div>{values.map((value, index) => <div className="repeatable-text-row" key={index}><textarea rows={3} value={value} onChange={(event) => onChange(index, event.target.value)} placeholder={title === "Overview paragraphs" ? "Describe the project outcome or scope…" : "Add a concise project highlight…"} /><button type="button" onClick={() => onRemove(index)} disabled={values.length === 1} aria-label="Remove item"><X size={16} /></button></div>)}<button type="button" className="add-row-button" onClick={onAdd}><Plus size={15} /> Add another</button></section>; }
+function EditorPreview({ tab, form, thumbnail, hero }: { tab: EditorTab; form: ProjectEditorData; thumbnail: string | null; hero: string | null }) { if (tab === "thumbnail") return <div className="editor-preview-card">{thumbnail && <img src={thumbnail} alt="" />}<div><span>{form.is_featured ? "Featured project" : "Project"}</span><h3>{form.title || "Project title"}</h3><p>{form.summary || "Your concise project summary appears here."}</p></div></div>; if (tab === "hero") return <div className="editor-preview-hero">{hero && <img src={hero} alt="" />}<div><span>{form.sector || "Project sector"}</span><h2>{form.title || "Project title"}</h2><p>{form.summary || "Project introduction"}</p></div></div>; if (tab === "stats") return <div className="editor-preview-stats">{[["Client", form.client_name], ["Location", form.location], ["Value", form.value], ["Duration", form.duration]].map(([label, value]) => <div key={label}><span>{label}</span><b>{value || "—"}</b></div>)}</div>; if (tab === "overview") return <div className="editor-preview-overview"><span>Overview</span><h3>{form.title || "Project title"}</h3>{form.overview.filter(Boolean).slice(0, 2).map((entry, index) => <p key={index}>{entry}</p>)}<strong>Highlights</strong><ul>{form.highlights.filter(Boolean).slice(0, 4).map((entry, index) => <li key={index}>{entry}</li>)}</ul></div>; return <div className="editor-preview-seo"><span>Search result</span><h3>{form.meta_title || form.title || "Project title"} | NOVARISE</h3><em>novarisesa.com/projects/{form.slug || "project-url"}</em><p>{form.meta_description || form.summary || "Project description"}</p></div>; }
 
 function MediaPage({ user }: { user: User }) {
   const [items, setItems] = useState<MediaItem[]>([]);

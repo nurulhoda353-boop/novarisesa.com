@@ -41,7 +41,10 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
   };
   const { t } = useTranslation();
   const k = project.key;
-  const heroImage = useCmsAsset(`projects.${project.slug}.hero`, project.img);
+  const heroImage = useCmsAsset(
+    `projects.${project.slug}.hero`,
+    ("heroImg" in project ? project.heroImg : project.img) || project.img,
+  );
 
   const longParagraphs = project.long;
   const highlights = project.highlights;
