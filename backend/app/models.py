@@ -233,6 +233,7 @@ class Service(UUIDMixin, TimestampMixin, Base):
     capabilities: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     process: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     certifications: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    portfolio: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     translations: Mapped[list["ServiceTranslation"]] = relationship(
         back_populates="service", cascade="all, delete-orphan"
     )
@@ -254,6 +255,16 @@ class ServiceTranslation(UUIDMixin, TimestampMixin, Base):
     sub_services: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
     faqs: Mapped[list[dict[str, str]]] = mapped_column(JSONB, default=list)
     service: Mapped[Service] = relationship(back_populates="translations")
+
+
+class ServiceDraft(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "service_drafts"
+    __table_args__ = (UniqueConstraint("service_id", name="uq_service_draft_service"),)
+
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("services.id", ondelete="CASCADE"), nullable=False
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class Project(UUIDMixin, TimestampMixin, Base):

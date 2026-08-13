@@ -116,6 +116,7 @@ def serialize_public_item(
             "capabilities": getattr(item, "capabilities", None),
             "process": getattr(item, "process", None),
             "certifications": getattr(item, "certifications", None),
+            "portfolio": getattr(item, "portfolio", None),
             "facts": getattr(item, "facts", None),
             "client_name": getattr(item, "client_name", None),
             "location": getattr(item, "location", None)

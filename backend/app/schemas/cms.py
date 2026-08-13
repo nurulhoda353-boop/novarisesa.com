@@ -107,6 +107,28 @@ class ProjectCreateRequest(BaseModel):
     is_featured: bool = False
 
 
+class ServiceEditorPayload(BaseModel):
+    slug: str = Field(min_length=2, max_length=180, pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    title: str = Field(min_length=2, max_length=255)
+    summary: str = Field(default="", max_length=1200)
+    number: str = Field(default="", max_length=20)
+    icon: str = Field(default="BriefcaseBusiness", max_length=80)
+    sort_order: int = Field(default=0, ge=0, le=999)
+    hero_media_id: uuid.UUID | None = None
+    eyebrow: str = Field(default="", max_length=255)
+    lead: str = Field(default="", max_length=3000)
+    intro: str = Field(default="", max_length=6000)
+    stats: list[dict[str, Any]] = Field(default_factory=list, min_length=4, max_length=4)
+    sub_services: list[dict[str, str]] = Field(default_factory=list, min_length=6, max_length=6)
+    capabilities: list[dict[str, str]] = Field(default_factory=list, min_length=6, max_length=6)
+    portfolio: list[dict[str, str]] = Field(default_factory=list, min_length=3, max_length=3)
+    process: list[dict[str, str]] = Field(default_factory=list, min_length=4, max_length=4)
+    certifications: list[str] = Field(default_factory=list, min_length=5, max_length=5)
+    faqs: list[dict[str, str]] = Field(default_factory=list, max_length=5)
+    meta_title: str = Field(default="", max_length=255)
+    meta_description: str = Field(default="", max_length=320)
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

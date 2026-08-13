@@ -110,6 +110,7 @@ function collectionTranslationOverrides(collections: CmsCollections) {
           : undefined,
         process: item.data.process,
         certifications: item.data.certifications,
+        portfolio: item.data.portfolio,
       }),
     ]),
   );

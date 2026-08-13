@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.cms import ContentUpsert
+from app.schemas.cms import ContentUpsert, ServiceEditorPayload
 
 
 def test_complete_service_payload_is_validated() -> None:
@@ -51,3 +51,25 @@ def test_requirement_contact_rejects_unsafe_phone_value() -> None:
             headcount=10,
             contacts=[{"display": "call us", "raw": "javascript:alert(1)"}],
         )
+
+
+def test_service_editor_keeps_the_public_template_row_counts() -> None:
+    payload = ServiceEditorPayload(
+        slug="civil",
+        title="Civil Construction",
+        stats=[{"value": 12, "suffix": "M+", "label": "Safe hours"}] * 4,
+        sub_services=[{"title": "Scope", "desc": "Description"}] * 6,
+        capabilities=[{"label": "Capacity", "value": "1,200"}] * 6,
+        portfolio=[{"name": "Project", "client": "Client", "scope": "Scope", "year": "2024", "image": "/image.jpg"}] * 3,
+        process=[{"num": "01", "title": "Step", "desc": "Description"}] * 4,
+        certifications=["ISO 9001"] * 5,
+        faqs=[{"q": "Question?", "a": "Answer."}] * 3,
+    )
+
+    assert len(payload.stats) == 4
+    assert len(payload.portfolio) == 3
+
+
+def test_service_editor_rejects_a_broken_fixed_template() -> None:
+    with pytest.raises(ValidationError):
+        ServiceEditorPayload(slug="civil", title="Civil Construction", stats=[])

@@ -43,6 +43,7 @@ from app.models import (
     RFQSubmission,
     Role,
     Service,
+    ServiceDraft,
     ServiceTranslation,
     SiteSetting,
     SubmissionStatus,
@@ -56,6 +57,7 @@ from app.schemas.cms import (
     NavigationUpsert,
     ProjectCreateRequest,
     ProjectEditorPayload,
+    ServiceEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
     TaxonomyUpsert,
@@ -334,6 +336,59 @@ def apply_project_payload(project: Project, payload: ProjectEditorPayload) -> No
     project.location = payload.location or None
     project.started_on = payload.started_on
     project.completed_on = payload.completed_on
+
+
+def service_editor_payload(service: Service, *, draft: ServiceDraft | None = None) -> dict[str, Any]:
+    if draft is not None and draft.payload:
+        return draft.payload
+    translation = translation_for(service, "en")
+    return {
+        "slug": service.slug,
+        "title": translation.title if translation else service.slug,
+        "summary": translation.tagline or "" if translation else "",
+        "number": service.number or "",
+        "icon": service.icon or "BriefcaseBusiness",
+        "sort_order": service.sort_order,
+        "hero_media_id": str(service.hero_media_id) if service.hero_media_id else None,
+        "eyebrow": translation.eyebrow or "" if translation else "",
+        "lead": translation.lead or "" if translation else "",
+        "intro": translation.intro or "" if translation else "",
+        "stats": service.stats or [],
+        "sub_services": translation.sub_services or [] if translation else [],
+        "capabilities": service.capabilities or [],
+        "portfolio": service.portfolio or [],
+        "process": service.process or [],
+        "certifications": service.certifications or [],
+        "faqs": translation.faqs or [] if translation else [],
+        "meta_title": translation.meta_title or "" if translation else "",
+        "meta_description": translation.meta_description or "" if translation else "",
+    }
+
+
+def apply_service_payload(service: Service, payload: ServiceEditorPayload) -> None:
+    translation = translation_for(service, "en")
+    if translation is None:
+        translation = ServiceTranslation(service_id=service.id, locale="en", title=payload.title)
+        service.translations.append(translation)
+    translation.title = payload.title
+    translation.tagline = payload.summary or None
+    translation.eyebrow = payload.eyebrow or None
+    translation.lead = payload.lead or None
+    translation.intro = payload.intro or None
+    translation.sub_services = payload.sub_services
+    translation.faqs = payload.faqs
+    translation.meta_title = payload.meta_title or None
+    translation.meta_description = payload.meta_description or None
+    service.slug = payload.slug
+    service.number = payload.number or None
+    service.icon = payload.icon or None
+    service.sort_order = payload.sort_order
+    service.hero_media_id = payload.hero_media_id
+    service.stats = payload.stats
+    service.capabilities = payload.capabilities
+    service.portfolio = payload.portfolio
+    service.process = payload.process
+    service.certifications = payload.certifications
 
 
 def serialize_media(item: MediaAsset) -> dict[str, Any]:
@@ -616,6 +671,89 @@ def get_project_editor(
             "published_slug": published["slug"],
         },
     }
+
+
+@router.get("/services/{service_id}/editor")
+def get_service_editor(
+    service_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    service = db.scalar(
+        select(Service).options(selectinload(Service.translations)).where(Service.id == service_id)
+    )
+    if service is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+    draft = db.scalar(select(ServiceDraft).where(ServiceDraft.service_id == service.id))
+    published = service_editor_payload(service)
+    working = service_editor_payload(service, draft=draft)
+    hero_id = uuid.UUID(working["hero_media_id"]) if working.get("hero_media_id") else None
+    return {
+        "service_id": str(service.id),
+        "status": enum_value(service.status),
+        "updated_at": service.updated_at.isoformat(),
+        "has_draft": draft is not None,
+        "draft_updated_at": draft.updated_at.isoformat() if draft else None,
+        "data": working,
+        "preview": {
+            "hero_url": media_url(db, hero_id),
+            "published_slug": published["slug"],
+        },
+    }
+
+
+@router.put("/services/{service_id}/draft")
+def save_service_draft(
+    service_id: uuid.UUID,
+    payload: ServiceEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    service = db.get(Service, service_id)
+    if service is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+    validate_project_media(db, payload.hero_media_id, "Hero")
+    draft = db.scalar(select(ServiceDraft).where(ServiceDraft.service_id == service.id))
+    before = draft.payload if draft else None
+    if draft is None:
+        draft = ServiceDraft(service_id=service.id, payload=payload.model_dump(mode="json"))
+        db.add(draft)
+    else:
+        draft.payload = payload.model_dump(mode="json")
+    audit(db, request, user, "cms.service_draft_saved", "services", service.id, before=before, after=draft.payload)
+    db.commit()
+    db.refresh(draft)
+    return {"status": "draft_saved", "updated_at": draft.updated_at.isoformat()}
+
+
+@router.post("/services/{service_id}/publish")
+def publish_service(
+    service_id: uuid.UUID,
+    payload: ServiceEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.publish"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    service = db.scalar(
+        select(Service).options(selectinload(Service.translations)).where(Service.id == service_id)
+    )
+    if service is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
+    conflict = db.scalar(select(Service).where(Service.slug == payload.slug, Service.id != service.id))
+    if conflict is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That service URL is already in use")
+    validate_project_media(db, payload.hero_media_id, "Hero")
+    before = service_editor_payload(service)
+    apply_service_payload(service, payload)
+    service.status = "published"
+    draft = db.scalar(select(ServiceDraft).where(ServiceDraft.service_id == service.id))
+    if draft is not None:
+        db.delete(draft)
+    audit(db, request, user, "cms.service_published", "services", service.id, before=before, after=payload.model_dump(mode="json"))
+    db.commit()
+    return {"status": "published", "slug": service.slug, "updated_at": service.updated_at.isoformat()}
 
 
 @router.post("/projects")

@@ -32,7 +32,7 @@ export function useTranslatedService(slug: string): ServicePage | undefined {
       (item) => ({ ...(item as { title: string; desc: string }), icon: resolveServiceIcon((item as { icon?: string }).icon) }),
     ),
     capabilities: { heading: managed.title, rows: managedCapabilities },
-    projects: [],
+    projects: Array.isArray(managed.data.portfolio) ? managed.data.portfolio as ServicePage["projects"] : [],
     process: Array.isArray(managed.data.process) ? managed.data.process as ServicePage["process"] : [],
     certifications: Array.isArray(managed.data.certifications) ? managed.data.certifications as string[] : [],
     faqs: Array.isArray(managed.data.faqs) ? managed.data.faqs as ServicePage["faqs"] : [],
@@ -47,6 +47,9 @@ export function useTranslatedService(slug: string): ServicePage | undefined {
     base.certifications = Array.isArray(managed.data.certifications)
       ? managed.data.certifications as string[]
       : base.certifications;
+    base.projects = Array.isArray(managed.data.portfolio)
+      ? managed.data.portfolio as ServicePage["projects"]
+      : base.projects;
   }
 
   const s = (key: string, fallback: string): string => {

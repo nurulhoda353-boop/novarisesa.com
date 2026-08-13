@@ -42,6 +42,7 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, SITE_URL } from "@/lib/api";
+import { ServiceEditor, type ServiceItem } from "./ServiceEditor";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -830,6 +831,7 @@ function ContentPage({ resource }: { resource: string }) {
   const [busy, setBusy] = useState(true);
   const [query, setQuery] = useState("");
   const [editingProject, setEditingProject] = useState<ContentItem | null>(null);
+  const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectFeatured, setNewProjectFeatured] = useState(true);
   const [creatingProject, setCreatingProject] = useState(false);
@@ -948,6 +950,11 @@ function ContentPage({ resource }: { resource: string }) {
                   ><Trash2 size={15} /></button>
                 </div>
               )}
+              {resource === "services" && (
+                <div className="content-card-actions">
+                  <button type="button" onClick={() => setEditingService(item)} title={`Edit ${item.title}`} aria-label={`Edit ${item.title}`}><Pencil size={15} /></button>
+                </div>
+              )}
             </div>
           </article>
         );
@@ -1009,6 +1016,7 @@ function ContentPage({ resource }: { resource: string }) {
       ) : <Empty copy={`No ${title.toLowerCase()} yet.`} />}
     </div>
     {editingProject && <ProjectEditor item={editingProject} onClose={() => setEditingProject(null)} onPublished={load} />}
+    {editingService && <ServiceEditor item={editingService} onClose={() => setEditingService(null)} onPublished={load} />}
     {newProjectOpen && <NewProjectModal featured={newProjectFeatured} creating={creatingProject} error={projectActionError} onFeaturedChange={setNewProjectFeatured} onClose={() => setNewProjectOpen(false)} onCreate={() => void createProject()} />}
   </>;
 }
