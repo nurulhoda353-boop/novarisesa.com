@@ -2277,6 +2277,22 @@ html.dark .content-card-actions > button { color: var(--ink); }
 .content-card-actions > button:hover { border-color: rgba(223,162,71,0.5); color: #b87922; }
 html.dark .content-card-actions > button:hover { color: var(--gold-light); }
 .content-card-actions > button:disabled { opacity: 0.3; }
+.content-card-actions > .project-delete-button { color:#b84444; }
+.content-card-actions > .project-delete-button:hover { border-color:rgba(184,68,68,.45); color:#a52e2e; background:rgba(184,68,68,.06); }
+.project-action-error { margin:0; padding:10px 20px; border-bottom:1px solid rgba(184,68,68,.2); color:#a52e2e; background:rgba(184,68,68,.06); font-size:12px; font-weight:600; }
+
+.new-project-modal { width:min(720px,100%); }
+.new-project-modal .modal-head { align-items:flex-start; }
+.new-project-modal .modal-head p:last-child { margin-top:7px; color:var(--muted); font-size:12px; line-height:1.5; }
+.new-project-options { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:24px 26px 12px; }
+.new-project-options button { display:grid; grid-template-columns:auto 1fr; gap:9px 12px; align-items:center; min-height:170px; padding:20px; border:1px solid var(--line); border-radius:var(--r-lg); color:var(--navy); text-align:left; background:var(--surface2); transition:border-color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast); }
+.new-project-options button svg { color:#b87922; }
+.new-project-options button strong { font-size:15px; }
+.new-project-options button span { grid-column:1 / -1; color:var(--muted); font-size:12px; line-height:1.55; }
+.new-project-options button:hover, .new-project-options button.selected { border-color:var(--gold); background:var(--gold-soft); box-shadow:0 0 0 3px rgba(223,162,71,.12); }
+.modal-actions { display:flex; justify-content:flex-end; gap:9px; padding:16px 26px 24px; }
+.modal-actions > button:first-child { padding:9px 12px; color:var(--muted); font-size:12px; font-weight:700; }
+.new-project-error { margin:0 26px 4px; color:#a52e2e; font-size:12px; font-weight:600; }
 
 /* ── PROJECT EDITOR ──────────────────────────────────────── */
 .project-editor-backdrop {
@@ -2417,6 +2433,7 @@ html.dark .media-picker h3 { color:var(--ink); }
   .project-editor-content { grid-template-columns:1fr; }
   .project-editor-preview { display:none; }
   .project-editor-form { padding:22px 18px 32px; }
+  .new-project-options { grid-template-columns:1fr; }
 }
 
 

@@ -101,6 +101,12 @@ class ProjectEditorPayload(BaseModel):
     meta_description: str = Field(default="", max_length=320)
 
 
+class ProjectCreateRequest(BaseModel):
+    """Creates the blank workspace that is completed in the project editor."""
+
+    is_featured: bool = False
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   Star,
   Sun,
+  Trash2,
   Users,
   Upload,
   X,
@@ -829,6 +830,10 @@ function ContentPage({ resource }: { resource: string }) {
   const [busy, setBusy] = useState(true);
   const [query, setQuery] = useState("");
   const [editingProject, setEditingProject] = useState<ContentItem | null>(null);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [newProjectFeatured, setNewProjectFeatured] = useState(true);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectActionError, setProjectActionError] = useState("");
   const title = contentNav.find(([key]) => key === resource)?.[1] ?? humanize(resource);
   const load = useCallback(() => {
     setBusy(true);
@@ -837,6 +842,46 @@ function ContentPage({ resource }: { resource: string }) {
       .finally(() => setBusy(false));
   }, [resource]);
   useEffect(load, [load]);
+
+  async function createProject() {
+    setCreatingProject(true);
+    setProjectActionError("");
+    try {
+      const project = await api<{ id: string; slug: string; status: string; is_featured: boolean; sort_order: number; updated_at: string }>("/cms/projects", {
+        method: "POST",
+        body: JSON.stringify({ is_featured: newProjectFeatured }),
+      });
+      setNewProjectOpen(false);
+      setEditingProject({
+        id: project.id,
+        slug: project.slug,
+        title: "",
+        status: project.status,
+        summary: "",
+        is_featured: project.is_featured,
+        updated_at: project.updated_at,
+        extra: { sort_order: project.sort_order },
+      });
+      void load();
+    } catch (error) {
+      setProjectActionError(error instanceof Error ? error.message : "Could not create the new project.");
+    } finally {
+      setCreatingProject(false);
+    }
+  }
+
+  async function deleteProject(item: ContentItem) {
+    const label = item.title || "this untitled project";
+    if (!window.confirm(`Delete “${label}”? This permanently removes its draft or published public page and cannot be undone.`)) return;
+    try {
+      setProjectActionError("");
+      await api(`/cms/projects/${item.id}`, { method: "DELETE" });
+      if (editingProject?.id === item.id) setEditingProject(null);
+      void load();
+    } catch (error) {
+      setProjectActionError(error instanceof Error ? error.message : "Could not delete the project.");
+    }
+  }
   const visible = useMemo(
     () => items
       .filter((item) => `${item.title} ${item.slug}`.toLowerCase().includes(query.toLowerCase()))
@@ -894,6 +939,13 @@ function ContentPage({ resource }: { resource: string }) {
                     title={`Edit ${item.title}`}
                     aria-label={`Edit ${item.title}`}
                   ><Pencil size={15} /></button>
+                  <button
+                    type="button"
+                    className="project-delete-button"
+                    onClick={() => void deleteProject(item)}
+                    title={`Delete ${item.title || "project"}`}
+                    aria-label={`Delete ${item.title || "project"}`}
+                  ><Trash2 size={15} /></button>
                 </div>
               )}
             </div>
@@ -925,6 +977,7 @@ function ContentPage({ resource }: { resource: string }) {
       eyebrow="Website content"
       title={title}
       copy={`Browse ${title.toLowerCase()} on the NOVARISE website.`}
+      action={resource === "projects" ? <button type="button" className="primary-button" onClick={() => setNewProjectOpen(true)}><Plus size={17} /> New Project</button> : undefined}
     />
     <div className="panel table-panel">
       <div className="table-tools">
@@ -934,6 +987,7 @@ function ContentPage({ resource }: { resource: string }) {
         </div>
         <span>{visible.length} items</span>
       </div>
+      {projectActionError && <p className="project-action-error" role="alert">{projectActionError}</p>}
       {busy ? <Skeleton /> : visible.length ? (
         resource === "projects" ? (
           <div className="project-content-groups">
@@ -955,6 +1009,17 @@ function ContentPage({ resource }: { resource: string }) {
       ) : <Empty copy={`No ${title.toLowerCase()} yet.`} />}
     </div>
     {editingProject && <ProjectEditor item={editingProject} onClose={() => setEditingProject(null)} onPublished={load} />}
+    {newProjectOpen && <div className="modal-backdrop" onMouseDown={() => !creatingProject && setNewProjectOpen(false)}>
+      <section className="modal new-project-modal" onMouseDown={(event) => event.stopPropagation()} aria-label="Create a new project">
+        <header className="modal-head"><div><p className="eyebrow">New project</p><h2>Choose the public project type</h2><p>The same five-block editor opens next, ready for your project content.</p></div><button type="button" onClick={() => !creatingProject && setNewProjectOpen(false)} aria-label="Close"><X size={18} /></button></header>
+        <div className="new-project-options">
+          <button type="button" className={newProjectFeatured ? "selected" : ""} onClick={() => setNewProjectFeatured(true)}><Star size={20} fill={newProjectFeatured ? "currentColor" : "none"} /><strong>Featured Project</strong><span>Appears first in the Featured group, public Projects page, and homepage showcase after publishing.</span></button>
+          <button type="button" className={!newProjectFeatured ? "selected" : ""} onClick={() => setNewProjectFeatured(false)}><FolderKanban size={20} /><strong>Basic Project</strong><span>Appears first in the non-featured project grid after publishing.</span></button>
+        </div>
+        {projectActionError && <p className="new-project-error" role="alert">{projectActionError}</p>}
+        <footer className="modal-actions"><button type="button" onClick={() => setNewProjectOpen(false)} disabled={creatingProject}>Cancel</button><button type="button" className="primary-button" onClick={() => void createProject()} disabled={creatingProject}><Plus size={16} /> {creatingProject ? "Creating…" : "Create Project"}</button></footer>
+      </section>
+    </div>}
   </>;
 }
 

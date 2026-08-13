@@ -12,7 +12,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import require_permission
@@ -54,6 +54,7 @@ from app.schemas.cms import (
     ContentListResponse,
     MediaUpdate,
     NavigationUpsert,
+    ProjectCreateRequest,
     ProjectEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
@@ -617,6 +618,52 @@ def get_project_editor(
     }
 
 
+@router.post("/projects")
+def create_project(
+    payload: ProjectCreateRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    """Reserve a draft project before its five editor blocks are completed."""
+    # Keep the latest project first within its own public group without affecting
+    # the order of Featured versus Basic projects.
+    db.execute(
+        update(Project)
+        .where(Project.is_featured.is_(payload.is_featured))
+        .values(sort_order=Project.sort_order + 1)
+    )
+    project = Project(
+        slug=f"new-project-{uuid.uuid4().hex[:8]}",
+        status="draft",
+        is_featured=payload.is_featured,
+        sort_order=0,
+    )
+    project.translations.append(ProjectTranslation(locale="en", title=""))
+    db.add(project)
+    db.flush()
+    audit(
+        db,
+        request,
+        user,
+        "cms.project_created",
+        "projects",
+        project.id,
+        before=None,
+        after={"is_featured": project.is_featured, "sort_order": project.sort_order},
+    )
+    db.commit()
+    db.refresh(project)
+    return {
+        "id": str(project.id),
+        "slug": project.slug,
+        "status": enum_value(project.status),
+        "is_featured": project.is_featured,
+        "sort_order": project.sort_order,
+        "updated_at": project.updated_at.isoformat(),
+    }
+
+
 @router.put("/projects/{project_id}/draft")
 def save_project_draft(
     project_id: uuid.UUID,
@@ -691,6 +738,24 @@ def publish_project(
     )
     db.commit()
     return {"status": "published", "slug": project.slug, "updated_at": project.updated_at.isoformat()}
+
+
+@router.delete("/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_project(
+    project_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> None:
+    project = db.scalar(
+        select(Project).options(selectinload(Project.translations)).where(Project.id == project_id)
+    )
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    before = project_editor_payload(project)
+    audit(db, request, user, "cms.project_deleted", "projects", project.id, before=before, after=None)
+    db.delete(project)
+    db.commit()
 
 
 @router.get("/inbox/{inbox}")
