@@ -6,7 +6,6 @@ import {
   Bell,
   BookOpen,
   BriefcaseBusiness,
-  CalendarDays,
   ChevronRight,
   CircleGauge,
   FileText,
@@ -43,6 +42,7 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, SITE_URL } from "@/lib/api";
 import { ServiceEditor, type ServiceItem } from "./ServiceEditor";
+import { InsightsManager } from "./InsightsManager";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -177,9 +177,8 @@ type TeamUser = {
 const contentNav = [
   ["services", "Services", BriefcaseBusiness],
   ["projects", "Projects", FolderKanban],
-  ["posts", "Insights", Newspaper],
+  ["insights", "Insights & Events", Newspaper],
   ["requirements", "Requirements", Users],
-  ["events", "Events", CalendarDays],
   ["faq", "FAQ", HelpCircle],
 ] as const;
 const hiddenContentResources = new Set(["pages"]);
@@ -341,7 +340,8 @@ export default function Dashboard({ route }: { route: string[] }) {
         <main className="content">
           {route[0] === "overview" && <OverviewPage user={user} />}
           {route[0] === "site-content" && <SiteContentPage user={user} onTopbarActions={setTopbarActions} />}
-          {route[0] === "content" && !hiddenContentResources.has(route[1] ?? "") && (
+          {route[0] === "content" && route[1] === "insights" && <InsightsManager />}
+          {route[0] === "content" && route[1] !== "insights" && !hiddenContentResources.has(route[1] ?? "") && (
             <ContentPage resource={route[1] ?? "services"} />
           )}
           {route[0] === "inbox" && <InboxPage inbox={route[1] ?? "contact"} />}

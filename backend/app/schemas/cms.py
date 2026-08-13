@@ -129,6 +129,58 @@ class ServiceEditorPayload(BaseModel):
     meta_description: str = Field(default="", max_length=320)
 
 
+class PostEditorPayload(BaseModel):
+    slug: str = Field(min_length=2, max_length=180, pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    title: str = Field(min_length=2, max_length=255)
+    excerpt: str = Field(default="", max_length=1200)
+    is_featured: bool = False
+    category: str = Field(default="Insights", max_length=120)
+    published_on: date | None = None
+    read_mins: int = Field(default=5, ge=1, le=120)
+    author: str = Field(default="NOVARISE Editorial Team", max_length=160)
+    author_role: str = Field(default="Editorial Team", max_length=160)
+    featured_media_id: uuid.UUID | None = None
+    paragraphs: list[str] = Field(default_factory=lambda: ["", "", "", ""], min_length=4, max_length=4)
+    pull_quote: str = Field(default="", max_length=1200)
+    key_takeaways: list[str] = Field(default_factory=lambda: ["", "", ""], min_length=3, max_length=3)
+    meta_title: str = Field(default="", max_length=255)
+    meta_description: str = Field(default="", max_length=320)
+
+
+class PostCreateRequest(BaseModel):
+    is_featured: bool = False
+
+
+class EventAgendaInput(BaseModel):
+    time: str = Field(default="", max_length=120)
+    title: str = Field(default="", max_length=255)
+    description: str = Field(default="", max_length=1200)
+
+
+class EventEditorPayload(BaseModel):
+    slug: str = Field(min_length=2, max_length=180, pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    title: str = Field(min_length=2, max_length=255)
+    description: str = Field(default="", max_length=1200)
+    is_featured: bool = False
+    event_type: str = Field(default="Conference", max_length=120)
+    starts_on: date | None = None
+    ends_on: date | None = None
+    time: str = Field(default="", max_length=160)
+    location: str = Field(default="", max_length=255)
+    venue: str = Field(default="", max_length=255)
+    date_display: str = Field(default="", max_length=120)
+    featured_media_id: uuid.UUID | None = None
+    overview: list[str] = Field(default_factory=lambda: ["", ""], min_length=2, max_length=2)
+    agenda: list[EventAgendaInput] = Field(default_factory=lambda: [EventAgendaInput(), EventAgendaInput(), EventAgendaInput()], min_length=3, max_length=3)
+    takeaways: list[str] = Field(default_factory=lambda: ["", "", ""], min_length=3, max_length=3)
+    meta_title: str = Field(default="", max_length=255)
+    meta_description: str = Field(default="", max_length=320)
+
+
+class EventCreateRequest(BaseModel):
+    is_featured: bool = False
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

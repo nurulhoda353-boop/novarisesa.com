@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from fastapi import (
@@ -24,6 +25,7 @@ from app.models import (
     Category,
     ContactSubmission,
     Event,
+    EventDraft,
     EventTranslation,
     FaqItem,
     FaqItemTranslation,
@@ -33,6 +35,7 @@ from app.models import (
     Page,
     PageTranslation,
     Post,
+    PostDraft,
     PostTranslation,
     Project,
     ProjectDraft,
@@ -57,6 +60,10 @@ from app.schemas.cms import (
     NavigationUpsert,
     ProjectCreateRequest,
     ProjectEditorPayload,
+    PostCreateRequest,
+    PostEditorPayload,
+    EventCreateRequest,
+    EventEditorPayload,
     ServiceEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
@@ -254,6 +261,15 @@ def serialize_content(
     if resource == "posts":
         extra["category_id"] = str(item.category_id) if item.category_id else None
         extra["tag_ids"] = [str(tag.id) for tag in getattr(item, "tags", [])]
+        body = translation.body if translation and isinstance(translation.body, dict) else {}
+        extra["category"] = (item.category.name.get("en") if item.category and item.category.name else body.get("category", "Insights"))
+        extra["author"] = body.get("author", "NOVARISE Editorial Team")
+        extra["read_mins"] = body.get("readMins", body.get("read_mins", 5))
+        extra["published_on"] = item.published_at.isoformat() if item.published_at else None
+    if resource == "events":
+        extra["event_type"] = getattr(translation, "event_type", None) or "Event"
+        extra["starts_on"] = item.starts_on.isoformat() if item.starts_on else None
+        extra["ends_on"] = item.ends_on.isoformat() if item.ends_on else None
     return ContentItem(
         id=item.id,
         resource=resource,
@@ -389,6 +405,110 @@ def apply_service_payload(service: Service, payload: ServiceEditorPayload) -> No
     service.portfolio = payload.portfolio
     service.process = payload.process
     service.certifications = payload.certifications
+
+
+def post_editor_payload(post: Post, *, draft: PostDraft | None = None) -> dict[str, Any]:
+    if draft is not None and draft.payload:
+        return draft.payload
+    translation = translation_for(post, "en")
+    body = translation.body if translation and isinstance(translation.body, dict) else {}
+    category = post.category.name.get("en") if post.category and post.category.name else body.get("category", "Insights")
+    return {
+        "slug": post.slug,
+        "title": translation.title if translation else post.slug,
+        "excerpt": translation.excerpt or "" if translation else "",
+        "is_featured": post.is_featured,
+        "category": str(category or "Insights"),
+        "published_on": post.published_at.date().isoformat() if post.published_at else None,
+        "read_mins": int(body.get("readMins", body.get("read_mins", 5)) or 5),
+        "author": str(body.get("author", "NOVARISE Editorial Team")),
+        "author_role": str(body.get("authorRole", body.get("author_role", "Editorial Team"))),
+        "featured_media_id": str(post.featured_media_id) if post.featured_media_id else None,
+        "paragraphs": body.get("paragraphs", []) if isinstance(body.get("paragraphs"), list) else [],
+        "pull_quote": str(body.get("pullQuote", body.get("pull_quote", "")) or ""),
+        "key_takeaways": body.get("keyTakeaways", body.get("key_takeaways", [])) if isinstance(body.get("keyTakeaways", body.get("key_takeaways", [])), list) else [],
+        "meta_title": translation.meta_title or "" if translation else "",
+        "meta_description": translation.meta_description or "" if translation else "",
+    }
+
+
+def event_editor_payload(event: Event, *, draft: EventDraft | None = None) -> dict[str, Any]:
+    if draft is not None and draft.payload:
+        return draft.payload
+    translation = translation_for(event, "en")
+    body = translation.body if translation and isinstance(translation.body, dict) else {}
+    agenda = body.get("agenda", []) if isinstance(body.get("agenda"), list) else []
+    return {
+        "slug": event.slug,
+        "title": translation.title if translation else event.slug,
+        "description": translation.description or "" if translation else "",
+        "is_featured": event.is_featured,
+        "event_type": translation.event_type or "Conference" if translation else "Conference",
+        "starts_on": event.starts_on.isoformat() if event.starts_on else None,
+        "ends_on": event.ends_on.isoformat() if event.ends_on else None,
+        "time": str(body.get("time", "")),
+        "location": translation.location or "" if translation else "",
+        "venue": str(body.get("venue", "")),
+        "date_display": translation.date_display or "" if translation else "",
+        "featured_media_id": str(event.featured_media_id) if event.featured_media_id else None,
+        "overview": body.get("overview", []) if isinstance(body.get("overview"), list) else [],
+        "agenda": agenda,
+        "takeaways": body.get("takeaways", []) if isinstance(body.get("takeaways"), list) else [],
+        "meta_title": translation.meta_title or "" if translation else "",
+        "meta_description": translation.meta_description or "" if translation else "",
+    }
+
+
+def apply_post_payload(post: Post, payload: PostEditorPayload) -> None:
+    translation = translation_for(post, "en")
+    if translation is None:
+        translation = PostTranslation(post_id=post.id, locale="en", title=payload.title)
+        post.translations.append(translation)
+    translation.title = payload.title
+    translation.excerpt = payload.excerpt or None
+    translation.body = {
+        **(translation.body if isinstance(translation.body, dict) else {}),
+        "category": payload.category,
+        "readMins": payload.read_mins,
+        "author": payload.author,
+        "authorRole": payload.author_role,
+        "paragraphs": [entry.strip() for entry in payload.paragraphs],
+        "pullQuote": payload.pull_quote.strip(),
+        "keyTakeaways": [entry.strip() for entry in payload.key_takeaways],
+    }
+    translation.meta_title = payload.meta_title or None
+    translation.meta_description = payload.meta_description or None
+    post.slug = payload.slug
+    post.is_featured = payload.is_featured
+    post.featured_media_id = payload.featured_media_id
+    post.published_at = datetime.combine(payload.published_on, datetime.min.time(), tzinfo=UTC) if payload.published_on else None
+
+
+def apply_event_payload(event: Event, payload: EventEditorPayload) -> None:
+    translation = translation_for(event, "en")
+    if translation is None:
+        translation = EventTranslation(event_id=event.id, locale="en", title=payload.title)
+        event.translations.append(translation)
+    translation.title = payload.title
+    translation.description = payload.description or None
+    translation.event_type = payload.event_type or None
+    translation.location = payload.location or None
+    translation.date_display = payload.date_display or None
+    translation.body = {
+        **(translation.body if isinstance(translation.body, dict) else {}),
+        "time": payload.time,
+        "venue": payload.venue,
+        "overview": [entry.strip() for entry in payload.overview],
+        "agenda": [entry.model_dump() for entry in payload.agenda],
+        "takeaways": [entry.strip() for entry in payload.takeaways],
+    }
+    translation.meta_title = payload.meta_title or None
+    translation.meta_description = payload.meta_description or None
+    event.slug = payload.slug
+    event.is_featured = payload.is_featured
+    event.featured_media_id = payload.featured_media_id
+    event.starts_on = payload.starts_on
+    event.ends_on = payload.ends_on or payload.starts_on
 
 
 def serialize_media(item: MediaAsset) -> dict[str, Any]:
@@ -893,6 +1013,224 @@ def delete_project(
     before = project_editor_payload(project)
     audit(db, request, user, "cms.project_deleted", "projects", project.id, before=before, after=None)
     db.delete(project)
+    db.commit()
+
+
+@router.get("/posts/{post_id}/editor")
+def get_post_editor(
+    post_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    post = db.scalar(
+        select(Post)
+        .options(selectinload(Post.translations), selectinload(Post.category))
+        .where(Post.id == post_id)
+    )
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    draft = db.scalar(select(PostDraft).where(PostDraft.post_id == post.id))
+    working = post_editor_payload(post, draft=draft)
+    return {
+        "post_id": str(post.id), "status": enum_value(post.status),
+        "updated_at": post.updated_at.isoformat(), "has_draft": draft is not None,
+        "draft_updated_at": draft.updated_at.isoformat() if draft else None,
+        "data": working,
+        "preview": {
+            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else None,
+            "published_slug": post.slug,
+        },
+    }
+
+
+@router.post("/posts")
+def create_post(
+    payload: PostCreateRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    post = Post(slug=f"new-article-{uuid.uuid4().hex[:8]}", status="draft", is_featured=payload.is_featured)
+    post.translations.append(PostTranslation(locale="en", title=""))
+    db.add(post)
+    db.flush()
+    audit(db, request, user, "cms.post_created", "posts", post.id, after={"is_featured": post.is_featured})
+    db.commit()
+    db.refresh(post)
+    return {"id": str(post.id), "slug": post.slug, "status": enum_value(post.status), "is_featured": post.is_featured, "updated_at": post.updated_at.isoformat()}
+
+
+@router.put("/posts/{post_id}/draft")
+def save_post_draft(
+    post_id: uuid.UUID,
+    payload: PostEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    post = db.get(Post, post_id)
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    validate_project_media(db, payload.featured_media_id, "Article image")
+    draft = db.scalar(select(PostDraft).where(PostDraft.post_id == post.id))
+    before = draft.payload if draft else None
+    if draft is None:
+        draft = PostDraft(post_id=post.id, payload=payload.model_dump(mode="json"))
+        db.add(draft)
+    else:
+        draft.payload = payload.model_dump(mode="json")
+    audit(db, request, user, "cms.post_draft_saved", "posts", post.id, before=before, after=draft.payload)
+    db.commit()
+    db.refresh(draft)
+    return {"status": "draft_saved", "updated_at": draft.updated_at.isoformat()}
+
+
+@router.post("/posts/{post_id}/publish")
+def publish_post(
+    post_id: uuid.UUID,
+    payload: PostEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.publish"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    post = db.scalar(select(Post).options(selectinload(Post.translations)).where(Post.id == post_id))
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    conflict = db.scalar(select(Post).where(Post.slug == payload.slug, Post.id != post.id))
+    if conflict is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That article URL is already in use")
+    validate_project_media(db, payload.featured_media_id, "Article image")
+    before = post_editor_payload(post)
+    apply_post_payload(post, payload)
+    post.status = "published"
+    draft = db.scalar(select(PostDraft).where(PostDraft.post_id == post.id))
+    if draft is not None:
+        db.delete(draft)
+    audit(db, request, user, "cms.post_published", "posts", post.id, before=before, after=payload.model_dump(mode="json"))
+    db.commit()
+    return {"status": "published", "slug": post.slug, "updated_at": post.updated_at.isoformat()}
+
+
+@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_post(
+    post_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> None:
+    post = db.scalar(select(Post).options(selectinload(Post.translations)).where(Post.id == post_id))
+    if post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")
+    audit(db, request, user, "cms.post_deleted", "posts", post.id, before=post_editor_payload(post), after=None)
+    db.delete(post)
+    db.commit()
+
+
+@router.get("/events/{event_id}/editor")
+def get_event_editor(
+    event_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    event = db.scalar(select(Event).options(selectinload(Event.translations)).where(Event.id == event_id))
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    draft = db.scalar(select(EventDraft).where(EventDraft.event_id == event.id))
+    working = event_editor_payload(event, draft=draft)
+    return {
+        "event_id": str(event.id), "status": enum_value(event.status),
+        "updated_at": event.updated_at.isoformat(), "has_draft": draft is not None,
+        "draft_updated_at": draft.updated_at.isoformat() if draft else None,
+        "data": working,
+        "preview": {
+            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else None,
+            "published_slug": event.slug,
+        },
+    }
+
+
+@router.post("/events")
+def create_event(
+    payload: EventCreateRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    event = Event(slug=f"new-event-{uuid.uuid4().hex[:8]}", status="draft", is_featured=payload.is_featured, sort_order=0)
+    event.translations.append(EventTranslation(locale="en", title=""))
+    db.add(event)
+    db.flush()
+    audit(db, request, user, "cms.event_created", "events", event.id, after={"is_featured": event.is_featured})
+    db.commit()
+    db.refresh(event)
+    return {"id": str(event.id), "slug": event.slug, "status": enum_value(event.status), "is_featured": event.is_featured, "updated_at": event.updated_at.isoformat()}
+
+
+@router.put("/events/{event_id}/draft")
+def save_event_draft(
+    event_id: uuid.UUID,
+    payload: EventEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    event = db.get(Event, event_id)
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    validate_project_media(db, payload.featured_media_id, "Event image")
+    draft = db.scalar(select(EventDraft).where(EventDraft.event_id == event.id))
+    before = draft.payload if draft else None
+    if draft is None:
+        draft = EventDraft(event_id=event.id, payload=payload.model_dump(mode="json"))
+        db.add(draft)
+    else:
+        draft.payload = payload.model_dump(mode="json")
+    audit(db, request, user, "cms.event_draft_saved", "events", event.id, before=before, after=draft.payload)
+    db.commit()
+    db.refresh(draft)
+    return {"status": "draft_saved", "updated_at": draft.updated_at.isoformat()}
+
+
+@router.post("/events/{event_id}/publish")
+def publish_event(
+    event_id: uuid.UUID,
+    payload: EventEditorPayload,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.publish"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    event = db.scalar(select(Event).options(selectinload(Event.translations)).where(Event.id == event_id))
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    conflict = db.scalar(select(Event).where(Event.slug == payload.slug, Event.id != event.id))
+    if conflict is not None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="That event URL is already in use")
+    validate_project_media(db, payload.featured_media_id, "Event image")
+    before = event_editor_payload(event)
+    apply_event_payload(event, payload)
+    event.status = "published"
+    draft = db.scalar(select(EventDraft).where(EventDraft.event_id == event.id))
+    if draft is not None:
+        db.delete(draft)
+    audit(db, request, user, "cms.event_published", "events", event.id, before=before, after=payload.model_dump(mode="json"))
+    db.commit()
+    return {"status": "published", "slug": event.slug, "updated_at": event.updated_at.isoformat()}
+
+
+@router.delete("/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_event(
+    event_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_content"))],
+    db: DBSession,
+) -> None:
+    event = db.scalar(select(Event).options(selectinload(Event.translations)).where(Event.id == event_id))
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+    audit(db, request, user, "cms.event_deleted", "events", event.id, before=event_editor_payload(event), after=None)
+    db.delete(event)
     db.commit()
 
 

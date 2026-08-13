@@ -391,6 +391,16 @@ class PostTranslation(UUIDMixin, TimestampMixin, Base):
     post: Mapped[Post] = relationship(back_populates="translations")
 
 
+class PostDraft(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "post_drafts"
+    __table_args__ = (UniqueConstraint("post_id", name="uq_post_draft_post"),)
+
+    post_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("posts.id", ondelete="CASCADE"), nullable=False
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
 class Event(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "events"
 
@@ -431,6 +441,16 @@ class EventTranslation(UUIDMixin, TimestampMixin, Base):
     meta_title: Mapped[str | None] = mapped_column(String(255))
     meta_description: Mapped[str | None] = mapped_column(Text)
     event: Mapped[Event] = relationship(back_populates="translations")
+
+
+class EventDraft(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "event_drafts"
+    __table_args__ = (UniqueConstraint("event_id", name="uq_event_draft_event"),)
+
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
 class FaqItem(UUIDMixin, TimestampMixin, Base):
