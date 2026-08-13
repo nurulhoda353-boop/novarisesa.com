@@ -9,20 +9,20 @@ export function EventCard({ event, featured = false, dark = false }: { event: Ev
   const past = event.status === "Past";
   if (featured) {
     return (
-      <Link to="/events/$slug" params={{ slug: event.slug }} className="group relative block min-h-[420px] overflow-hidden rounded-3xl border border-white/10 shadow-elegant">
+      <Link to="/events/$slug" params={{ slug: event.slug }} className="group relative block min-h-[330px] overflow-hidden rounded-2xl border border-white/10 shadow-elegant lg:min-h-[360px]">
         <Image src={event.image} alt={event.title} fill sizes="(max-width: 1024px) 100vw, 60vw" className="object-cover transition-transform duration-[1200ms] group-hover:scale-[1.05]" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy-deep via-navy-deep/60 to-navy-deep/5" />
-        <div className="absolute inset-x-0 bottom-0 p-7 md:p-9">
-          <div className="mb-5 flex flex-wrap items-center gap-2">
+        <div className="absolute inset-x-0 bottom-0 p-6 md:p-7">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-gold px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-navy">{past ? "Recent event" : "Next event"}</span>
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white">{event.type}</span>
           </div>
-          <h3 className="max-w-3xl text-2xl font-bold leading-tight text-white md:text-4xl">{event.title}</h3>
-          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/75">
+          <h3 className="max-w-3xl text-2xl font-bold leading-tight text-white md:text-3xl">{event.title}</h3>
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/75">
             <span className="inline-flex items-center gap-2"><CalendarDays className="h-4 w-4 text-gold" />{event.date}</span>
             <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4 text-gold" />{event.location}</span>
           </div>
-          <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-gold">{past ? "View event recap" : "View event"}<ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" /></span>
+          <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-gold">{past ? "View event recap" : "View event"}<ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" /></span>
         </div>
       </Link>
     );
