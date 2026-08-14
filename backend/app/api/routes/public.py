@@ -10,8 +10,10 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
+from app.core.content_images import default_content_image
 from app.core.rate_limit import enforce_rate_limit, rate_key, record_rate_event
 from app.core.request import client_ip
+from app.core.storage import stored_file_exists
 from app.models import (
     ApplicationActivity,
     ContactSubmission,
@@ -67,6 +69,7 @@ def serialize_public_item(
     *,
     contacts: list[dict[str, object]] | None = None,
     media_urls: dict[object, str] | None = None,
+    resource: str | None = None,
 ) -> dict[str, object]:
     translation = translation_for(item, locale)
     identifier = getattr(item, "slug", None) or getattr(item, "code", None)
@@ -163,10 +166,10 @@ def serialize_public_item(
             ),
             "hero_media_url": (
                 (media_urls or {}).get(getattr(item, "hero_media_id", None))
-            ),
+            ) or default_content_image(resource or "", str(identifier)),
             "featured_media_url": (
                 (media_urls or {}).get(getattr(item, "featured_media_id", None))
-            ),
+            ) or default_content_image(resource or "", str(identifier)),
         },
     }
 
@@ -259,6 +262,7 @@ def site_content(
             if media_ids
             else []
         )
+        if stored_file_exists(item.storage_key)
     }
 
     navigation = [
@@ -291,6 +295,7 @@ def site_content(
                     locale,
                     contacts=contacts_by_requirement.get(item.id) if key == "requirements" else None,
                     media_urls=media_urls,
+                    resource=key,
                 )
                 for item in (requirement_rows if key == "requirements" else rows)
             ]

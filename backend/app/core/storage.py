@@ -131,3 +131,9 @@ def delete_stored_file(storage_key: str) -> None:
         raise ValueError("Invalid storage key")
     if path.is_file():
         path.unlink()
+
+
+def stored_file_exists(storage_key: str) -> bool:
+    root = media_root().resolve()
+    path = (root / storage_key).resolve()
+    return root in path.parents and path.is_file()

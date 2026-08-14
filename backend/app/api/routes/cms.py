@@ -18,10 +18,11 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import require_permission
+from app.core.content_images import default_content_image
 from app.core.database import get_db
 from app.core.request import client_ip
 from app.core.security import hash_password
-from app.core.storage import delete_stored_file, save_upload
+from app.core.storage import delete_stored_file, save_upload, stored_file_exists
 from app.core.workflow import (
     application_stage_for_operational,
     operational_for_application_stage,
@@ -143,32 +144,6 @@ RESOURCE_CONFIG: dict[str, dict[str, Any]] = {
         "title_key": "question",
     },
 }
-
-# The six launch articles and six launch events already use these public-site
-# assets.  They remain the visible current image until an editor replaces one
-# through the media library, at which point featured_media_id takes priority.
-DEFAULT_CONTENT_IMAGES = {
-    "posts": {
-        "novarise-vision-2030-megaprojects": "/assets/news-energy.jpg",
-        "zero-harm-culture-aramco-sites": "/assets/news-safety.jpg",
-        "case-study-jubail-power-substation": "/assets/project-power.jpg",
-        "heavy-equipment-rental-trends-2026": "/assets/project-equipment.jpg",
-        "certified-manpower-mobilization-72-hours": "/assets/manpower.jpg",
-        "civil-construction-mega-foundations": "/assets/project-civil.jpg",
-    },
-    "events": {
-        "aramco-iktva-forum-2026": "/assets/vision-skyline.jpg",
-        "future-projects-and-industrial-delivery-forum": "/assets/hero-industrial.jpg",
-        "zero-harm-leadership-masterclass": "/assets/hse-safety.jpg",
-        "vision-2030-industrial-localization-webinar": "/assets/news-supply-chain.jpg",
-        "sabic-vendor-excellence-forum": "/assets/project-equipment.jpg",
-        "saudi-construction-tech-summit-2026": "/assets/vision-team.jpg",
-    },
-}
-
-
-def default_content_image(resource: str, slug: str) -> str | None:
-    return DEFAULT_CONTENT_IMAGES.get(resource, {}).get(slug)
 
 INBOX_CONFIG = {
     "contact": ContactSubmission,
@@ -346,10 +321,8 @@ def serialize_content(
         "hero_media_id": str(hero_media_id) if hero_media_id else None,
         "featured_media_id": str(featured_media_id) if featured_media_id else None,
         "thumbnail_url": (
-            media_urls.get(str(thumbnail_media_id))
-            if thumbnail_media_id
-            else default_content_image(resource, identifier)
-        ),
+            media_urls.get(str(thumbnail_media_id)) if thumbnail_media_id else None
+        ) or default_content_image(resource, identifier),
     }
     if resource == "requirements":
         extra.update({
@@ -388,7 +361,8 @@ def serialize_content(
 def media_url(db: Session, media_id: uuid.UUID | None) -> str | None:
     if media_id is None:
         return None
-    return db.scalar(select(MediaAsset.public_url).where(MediaAsset.id == media_id))
+    asset = db.get(MediaAsset, media_id)
+    return asset.public_url if asset and stored_file_exists(asset.storage_key) else None
 
 
 def requirement_editor_payload(requirement: Requirement, *, draft: RequirementDraft | None = None) -> dict[str, Any]:
@@ -910,10 +884,12 @@ def list_content(
     }
     media_urls: dict[str, str] = {}
     if media_ids:
-        rows = db.execute(
-            select(MediaAsset.id, MediaAsset.public_url).where(MediaAsset.id.in_(media_ids))
-        ).all()
-        media_urls = {str(media_id): url for media_id, url in rows}
+        rows = db.scalars(select(MediaAsset).where(MediaAsset.id.in_(media_ids)))
+        media_urls = {
+            str(asset.id): asset.public_url
+            for asset in rows
+            if stored_file_exists(asset.storage_key)
+        }
     serialized = [serialize_content(resource, item, locale, media_urls) for item in items]
     if resource == "requirements" and items:
         application_counts = dict(db.execute(
@@ -958,8 +934,10 @@ def get_project_editor(
         "draft_updated_at": draft.updated_at.isoformat() if draft else None,
         "data": working,
         "preview": {
-            "thumbnail_url": media_url(db, thumbnail_id),
-            "hero_url": media_url(db, hero_id),
+            "thumbnail_url": media_url(db, thumbnail_id)
+            or default_content_image("projects", project.slug),
+            "hero_url": media_url(db, hero_id)
+            or default_content_image("projects", project.slug),
             "published_slug": published["slug"],
         },
     }
@@ -989,7 +967,8 @@ def get_service_editor(
         "draft_updated_at": draft.updated_at.isoformat() if draft else None,
         "data": working,
         "preview": {
-            "hero_url": media_url(db, hero_id),
+            "hero_url": media_url(db, hero_id)
+            or default_content_image("services", service.slug),
             "published_slug": published["slug"],
         },
     }
@@ -1236,7 +1215,11 @@ def get_post_editor(
         "draft_updated_at": draft.updated_at.isoformat() if draft else None,
         "data": working,
         "preview": {
-            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else default_content_image("posts", post.slug),
+            "image_url": (
+                media_url(db, uuid.UUID(working["featured_media_id"]))
+                if working.get("featured_media_id")
+                else None
+            ) or default_content_image("posts", post.slug),
             "published_slug": post.slug,
         },
     }
@@ -1343,7 +1326,11 @@ def get_event_editor(
         "draft_updated_at": draft.updated_at.isoformat() if draft else None,
         "data": working,
         "preview": {
-            "image_url": media_url(db, uuid.UUID(working["featured_media_id"])) if working.get("featured_media_id") else default_content_image("events", event.slug),
+            "image_url": (
+                media_url(db, uuid.UUID(working["featured_media_id"]))
+                if working.get("featured_media_id")
+                else None
+            ) or default_content_image("events", event.slug),
             "published_slug": event.slug,
         },
     }
@@ -2123,7 +2110,11 @@ def list_media(
         statement = statement.where(MediaAsset.folder == folder)
     if search:
         statement = statement.where(MediaAsset.file_name.ilike(f"%{search}%"))
-    items = [serialize_media(item) for item in db.scalars(statement)]
+    items = [
+        serialize_media(item)
+        for item in db.scalars(statement)
+        if stored_file_exists(item.storage_key)
+    ]
     return {"items": items, "total": len(items)}
 
 

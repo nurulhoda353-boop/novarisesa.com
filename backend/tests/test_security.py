@@ -9,6 +9,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.content_images import default_content_image
 from app.core.storage import content_matches_mime
 from app.core.workflow import (
     application_stage_for_operational,
@@ -112,6 +113,8 @@ def test_media_signatures_reject_spoofed_content() -> None:
     assert content_matches_mime(b"\x00\x00\x00\x18ftypisom", "video/mp4")
     assert not content_matches_mime(b"<script>alert(1)</script>", "image/png")
     assert not content_matches_mime(b"%PDF-1.7", "image/jpeg")
+    assert default_content_image("projects", "neom") == "/assets/projects/neom.jpg"
+    assert default_content_image("services", "civil") == "/assets/project-civil.jpg"
 
 
 def test_operational_updates_preserve_advanced_workflow_stages() -> None:
