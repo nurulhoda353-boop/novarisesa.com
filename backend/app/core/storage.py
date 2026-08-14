@@ -18,15 +18,17 @@ ALLOWED_EXTENSIONS = {
     ".mp4",
     ".webm",
 }
-ALLOWED_MIME_TYPES = {
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/pdf",
-    "video/mp4",
-    "video/webm",
+EXTENSION_MIME_TYPES = {
+    ".jpg": {"image/jpeg"},
+    ".jpeg": {"image/jpeg"},
+    ".png": {"image/png"},
+    ".gif": {"image/gif"},
+    ".webp": {"image/webp"},
+    ".pdf": {"application/pdf"},
+    ".mp4": {"video/mp4"},
+    ".webm": {"video/webm"},
 }
+ALLOWED_MIME_TYPES = set().union(*EXTENSION_MIME_TYPES.values())
 
 
 def media_root() -> Path:
@@ -54,13 +56,33 @@ def public_url_for(storage_key: str) -> str:
     return f"{base}/{storage_key}"
 
 
+def content_matches_mime(content: bytes, mime: str) -> bool:
+    signatures = {
+        "image/jpeg": lambda value: value.startswith(b"\xff\xd8\xff"),
+        "image/png": lambda value: value.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/gif": lambda value: value.startswith((b"GIF87a", b"GIF89a")),
+        "image/webp": lambda value: len(value) >= 12
+        and value.startswith(b"RIFF")
+        and value[8:12] == b"WEBP",
+        "application/pdf": lambda value: value.startswith(b"%PDF-"),
+        "video/mp4": lambda value: len(value) >= 12 and value[4:8] == b"ftyp",
+        "video/webm": lambda value: value.startswith(b"\x1aE\xdf\xa3"),
+    }
+    validator = signatures.get(mime)
+    return bool(validator and validator(content))
+
+
 async def save_upload(file: UploadFile, *, folder: str | None = None) -> tuple[str, str, str, int]:
     if not file.filename:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File name is required")
 
     extension = Path(file.filename).suffix.lower()
     mime = file.content_type or "application/octet-stream"
-    if extension not in ALLOWED_EXTENSIONS or mime not in ALLOWED_MIME_TYPES:
+    if (
+        extension not in ALLOWED_EXTENSIONS
+        or mime not in ALLOWED_MIME_TYPES
+        or mime not in EXTENSION_MIME_TYPES.get(extension, set())
+    ):
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="Unsupported file type",
@@ -71,9 +93,17 @@ async def save_upload(file: UploadFile, *, folder: str | None = None) -> tuple[s
     destination = media_root() / storage_key
     destination.parent.mkdir(parents=True, exist_ok=True)
     size = 0
+    first_chunk = True
     try:
         with destination.open("xb") as output:
             while chunk := await file.read(1024 * 1024):
+                if first_chunk:
+                    first_chunk = False
+                    if not content_matches_mime(chunk, mime):
+                        raise HTTPException(
+                            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                            detail="File content does not match its declared type",
+                        )
                 size += len(chunk)
                 if size > max_bytes:
                     raise HTTPException(

@@ -205,6 +205,7 @@ async function loadCmsPayload(locale: string): Promise<CmsPayload> {
   const response = await fetch(`${API_URL}/public/site-content?locale=${locale}`, {
     credentials: "omit",
     cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     throw new Error("CMS content is unavailable");

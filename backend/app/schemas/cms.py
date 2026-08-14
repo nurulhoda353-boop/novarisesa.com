@@ -2,18 +2,11 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 ContentStatus = Literal["draft", "published", "archived", "active", "urgent", "closed"]
-SubmissionStatusValue = Literal[
-    "new",
-    "in_review",
-    "contacted",
-    "qualified",
-    "closed",
-    "spam",
-]
 ApplicationStage = Literal[
     "new", "under_review", "shortlisted", "contacted", "interview",
     "documents_pending", "selected", "hired", "on_hold", "rejected", "withdrawn",
@@ -274,6 +267,19 @@ class RFQProposalInput(BaseModel):
     status: Literal["not_started", "draft", "ready", "sent", "revised", "accepted", "declined"] = "not_started"
     file_url: str = Field(default="", max_length=1000)
 
+    @field_validator("file_url")
+    @classmethod
+    def safe_file_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            return value
+        if value.startswith("/") and not value.startswith("//"):
+            return value
+        parsed = urlsplit(value)
+        if parsed.scheme == "https" and parsed.netloc:
+            return value
+        raise ValueError("Proposal file URL must be an HTTPS or internal URL")
+
 
 class RFQWorkflowUpdate(BaseModel):
     commercial_stage: Literal[
@@ -292,11 +298,6 @@ class RFQWorkflowUpdate(BaseModel):
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int
-
-
-class SubmissionStatusUpdate(BaseModel):
-    status: SubmissionStatusValue
-    internal_notes: str | None = Field(default=None, max_length=5000)
 
 
 class SettingUpsert(BaseModel):
@@ -319,6 +320,21 @@ class NavigationUpsert(BaseModel):
     url: str = Field(min_length=1, max_length=500)
     sort_order: int = Field(default=0, ge=0)
     is_visible: bool = True
+
+    @field_validator("url")
+    @classmethod
+    def safe_navigation_url(cls, value: str) -> str:
+        value = value.strip()
+        if value.startswith("/") and not value.startswith("//"):
+            return value
+        if value.startswith("#") and "\n" not in value and "\r" not in value:
+            return value
+        parsed = urlsplit(value)
+        if parsed.scheme == "https" and parsed.netloc:
+            return value
+        if parsed.scheme in {"mailto", "tel"} and parsed.path:
+            return value
+        raise ValueError("Navigation URL must be internal or use a safe protocol")
 
 
 class TaxonomyUpsert(BaseModel):

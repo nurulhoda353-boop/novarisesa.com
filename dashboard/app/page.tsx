@@ -11,7 +11,7 @@ type User = { full_name: string; email: string };
 export default function Home() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
-  const [email, setEmail] = useState("info@novarisesa.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");

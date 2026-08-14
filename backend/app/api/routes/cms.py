@@ -19,8 +19,15 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.auth import require_permission
 from app.core.database import get_db
+from app.core.request import client_ip
 from app.core.security import hash_password
 from app.core.storage import delete_stored_file, save_upload
+from app.core.workflow import (
+    application_stage_for_operational,
+    operational_for_application_stage,
+    operational_for_rfq_stage,
+    rfq_stage_for_operational,
+)
 from app.models import (
     AuditLog,
     ApplicationActivity,
@@ -48,6 +55,7 @@ from app.models import (
     RequirementContact,
     RequirementDraft,
     RequirementTranslation,
+    RefreshToken,
     RFQSubmission,
     Role,
     Service,
@@ -81,7 +89,6 @@ from app.schemas.cms import (
     RFQWorkflowUpdate,
     ServiceEditorPayload,
     SettingUpsert,
-    SubmissionStatusUpdate,
     TaxonomyUpsert,
     UserCreate,
     UserUpdate,
@@ -293,7 +300,7 @@ def audit(
             entity_id=entity_id,
             before=before,
             after=after,
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
     )
@@ -1804,14 +1811,20 @@ def update_rfq_operational_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RFQ not found")
     before = rfq.operational_status
     rfq.operational_status = payload.status
-    stage_map = {"pending": "new", "confirmed": "qualified", "completed": "won", "cancelled": "lost"}
-    rfq.commercial_stage = stage_map[payload.status]
+    rfq.commercial_stage = rfq_stage_for_operational(
+        rfq.commercial_stage, payload.status
+    )
     rfq.status = {
-        "pending": SubmissionStatus.NEW,
-        "confirmed": SubmissionStatus.QUALIFIED,
-        "completed": SubmissionStatus.CLOSED,
-        "cancelled": SubmissionStatus.CLOSED,
-    }[payload.status]
+        "new": SubmissionStatus.NEW,
+        "under_review": SubmissionStatus.IN_REVIEW,
+        "qualified": SubmissionStatus.QUALIFIED,
+        "estimation": SubmissionStatus.QUALIFIED,
+        "proposal_ready": SubmissionStatus.QUALIFIED,
+        "proposal_sent": SubmissionStatus.QUALIFIED,
+        "negotiation": SubmissionStatus.QUALIFIED,
+        "won": SubmissionStatus.CLOSED,
+        "lost": SubmissionStatus.CLOSED,
+    }[rfq.commercial_stage]
     notification_requested = payload.status == "confirmed" and before != "confirmed"
     if notification_requested:
         rfq.notification_status = "awaiting_integration"
@@ -1854,14 +1867,15 @@ def update_rfq_workflow(
     rfq.internal_notes = payload.internal_notes
     rfq.qualification = payload.qualification.model_dump(mode="json")
     rfq.proposal = payload.proposal.model_dump(mode="json")
+    rfq.operational_status = operational_for_rfq_stage(
+        rfq.operational_status, payload.commercial_stage
+    )
     if payload.commercial_stage in ("qualified", "estimation", "proposal_ready", "proposal_sent", "negotiation"):
         rfq.status = SubmissionStatus.QUALIFIED
     elif payload.commercial_stage == "won":
         rfq.status = SubmissionStatus.CLOSED
-        rfq.operational_status = "completed"
     elif payload.commercial_stage == "lost":
         rfq.status = SubmissionStatus.CLOSED
-        rfq.operational_status = "cancelled"
     else:
         rfq.status = SubmissionStatus.IN_REVIEW if payload.commercial_stage == "under_review" else SubmissionStatus.NEW
     after = payload.model_dump(mode="json", exclude={"note"})
@@ -1925,6 +1939,9 @@ def update_application_workflow(
         "documents": application.documents or [],
     }
     application.application_stage = payload.stage
+    application.operational_status = operational_for_application_stage(
+        application.operational_status, payload.stage
+    )
     application.status = {
         "new": SubmissionStatus.NEW,
         "under_review": SubmissionStatus.IN_REVIEW,
@@ -1970,19 +1987,22 @@ def update_application_operational_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
     before = application.operational_status
     application.operational_status = payload.status
-    stage_map = {
-        "pending": "new",
-        "confirmed": "contacted",
-        "completed": "hired",
-        "cancelled": "rejected",
-    }
-    application.application_stage = stage_map[payload.status]
+    application.application_stage = application_stage_for_operational(
+        application.application_stage, payload.status
+    )
     application.status = {
-        "pending": SubmissionStatus.NEW,
-        "confirmed": SubmissionStatus.CONTACTED,
-        "completed": SubmissionStatus.CLOSED,
-        "cancelled": SubmissionStatus.CLOSED,
-    }[payload.status]
+        "new": SubmissionStatus.NEW,
+        "under_review": SubmissionStatus.IN_REVIEW,
+        "shortlisted": SubmissionStatus.QUALIFIED,
+        "contacted": SubmissionStatus.CONTACTED,
+        "interview": SubmissionStatus.IN_REVIEW,
+        "documents_pending": SubmissionStatus.IN_REVIEW,
+        "selected": SubmissionStatus.QUALIFIED,
+        "hired": SubmissionStatus.CLOSED,
+        "on_hold": SubmissionStatus.IN_REVIEW,
+        "rejected": SubmissionStatus.CLOSED,
+        "withdrawn": SubmissionStatus.CLOSED,
+    }[application.application_stage]
     notification_requested = payload.status == "confirmed" and before != "confirmed"
     if notification_requested:
         application.notification_status = "awaiting_integration"
@@ -2036,27 +2056,6 @@ def add_application_note(
     db.commit()
     db.refresh(activity)
     return {"id": str(activity.id), "status": "created", "created_at": activity.created_at.isoformat()}
-
-
-@router.patch("/inbox/{inbox}/{item_id}")
-def update_inbox_status(
-    inbox: InboxName,
-    item_id: uuid.UUID,
-    payload: SubmissionStatusUpdate,
-    request: Request,
-    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
-    db: DBSession,
-) -> dict[str, str]:
-    model = INBOX_CONFIG[inbox]
-    item = db.get(model, item_id)
-    if item is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
-    item.status = SubmissionStatus(payload.status)
-    if hasattr(item, "internal_notes"):
-        item.internal_notes = payload.internal_notes
-    audit(db, request, user, "cms.inbox_updated", inbox, item.id)
-    db.commit()
-    return {"status": payload.status}
 
 
 @router.get("/settings")
@@ -2150,19 +2149,24 @@ async def upload_media(
         folder=folder or "uploads",
         uploaded_by_id=user.id,
     )
-    db.add(item)
-    db.flush()
-    audit(
-        db,
-        request,
-        user,
-        "cms.media_uploaded",
-        "media",
-        item.id,
-        after={"file_name": item.file_name, "folder": item.folder},
-    )
-    db.commit()
-    db.refresh(item)
+    try:
+        db.add(item)
+        db.flush()
+        audit(
+            db,
+            request,
+            user,
+            "cms.media_uploaded",
+            "media",
+            item.id,
+            after={"file_name": item.file_name, "folder": item.folder},
+        )
+        db.commit()
+        db.refresh(item)
+    except Exception:
+        db.rollback()
+        delete_stored_file(storage_key)
+        raise
     return serialize_media(item)
 
 
@@ -2486,6 +2490,15 @@ def create_user(
     item.is_verified = True
     item.deleted_at = None
     item.roles = [role]
+    if existing is not None:
+        now = datetime.now(UTC)
+        for token in db.scalars(
+            select(RefreshToken).where(
+                RefreshToken.user_id == item.id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        ):
+            token.revoked_at = now
     db.add(item)
     db.flush()
     audit(
@@ -2527,6 +2540,24 @@ def update_user(
         "roles": [role.name for role in item.roles],
         "is_active": item.is_active,
     }
+    current_is_owner = any(role.name == "owner" for role in item.roles)
+    final_is_active = payload.is_active if payload.is_active is not None else item.is_active
+    final_is_owner = payload.role == "owner" if payload.role is not None else current_is_owner
+    if current_is_owner and (not final_is_owner or not final_is_active):
+        active_owner_count = db.scalar(
+            select(func.count(User.id))
+            .join(User.roles)
+            .where(
+                Role.name == "owner",
+                User.is_active.is_(True),
+                User.deleted_at.is_(None),
+            )
+        ) or 0
+        if active_owner_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="At least one active owner account is required",
+            )
     if payload.full_name is not None:
         item.full_name = payload.full_name
     if payload.is_active is not None:
@@ -2546,6 +2577,16 @@ def update_user(
         item.roles = [role]
     if payload.password:
         item.password_hash = hash_password(payload.password)
+
+    if payload.password or payload.is_active is not None:
+        now = datetime.now(UTC)
+        for token in db.scalars(
+            select(RefreshToken).where(
+                RefreshToken.user_id == item.id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        ):
+            token.revoked_at = now
 
     after = {
         "full_name": item.full_name,

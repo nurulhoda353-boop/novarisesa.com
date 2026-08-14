@@ -141,6 +141,20 @@ class RefreshToken(UUIDMixin, Base):
     user_agent: Mapped[str | None] = mapped_column(Text)
 
 
+class RateLimitEvent(UUIDMixin, Base):
+    __tablename__ = "rate_limit_events"
+    __table_args__ = (
+        Index("ix_rate_limit_events_lookup", "scope", "key_hash", "created_at"),
+        Index("ix_rate_limit_events_created_at", "created_at"),
+    )
+
+    scope: Mapped[str] = mapped_column(String(80))
+    key_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class MediaAsset(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "media_assets"
 

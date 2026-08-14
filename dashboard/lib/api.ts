@@ -13,9 +13,27 @@ export class ApiError extends Error {
 
 let refreshRequest: Promise<boolean> | null = null;
 
+async function timedFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20_000);
+  const abort = () => controller.abort();
+  init.signal?.addEventListener("abort", abort, { once: true });
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(408, "The request timed out. Please try again.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+    init.signal?.removeEventListener("abort", abort);
+  }
+}
+
 async function refreshSession(): Promise<boolean> {
   if (!refreshRequest) {
-    refreshRequest = fetch(`${API_URL}/auth/refresh`, {
+    refreshRequest = timedFetch(`${API_URL}/auth/refresh`, {
       method: "POST",
       credentials: "include",
     })
@@ -54,7 +72,7 @@ export async function api<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await timedFetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
     headers,

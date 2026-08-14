@@ -24,6 +24,7 @@ export async function cmsDetailMetadata(
   try {
     const response = await fetch(`${API_URL}/public/site-content?locale=${locale}`, {
       next: { revalidate: 60 },
+      signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) return fallback;
     const payload = (await response.json()) as {

@@ -1,12 +1,17 @@
 import secrets
+import re
 from datetime import UTC, datetime
+from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
+from app.core.rate_limit import enforce_rate_limit, rate_key, record_rate_event
+from app.core.request import client_ip
 from app.models import (
     ApplicationActivity,
     ContactSubmission,
@@ -39,17 +44,13 @@ router = APIRouter(prefix="/public")
 DBSession = Annotated[Session, Depends(get_db)]
 
 
-def client_ip(request: Request) -> str | None:
-    forwarded = request.headers.get("cf-connecting-ip") or request.headers.get(
-        "x-forwarded-for"
-    )
-    return (forwarded.split(",", 1)[0].strip() if forwarded else None) or (
-        request.client.host if request.client else None
-    )
-
-
 def enum_value(value: object) -> str:
     return value.value if hasattr(value, "value") else str(value)
+
+
+def parse_experience_years(value: str) -> int | None:
+    match = re.search(r"\d+", value)
+    return int(match.group()) if match else None
 
 
 def translation_for(item: object, locale: str) -> object | None:
@@ -173,8 +174,10 @@ def serialize_public_item(
 @router.get("/site-content")
 def site_content(
     db: DBSession,
+    response: Response,
     locale: Annotated[str, Query(pattern="^(en|ar)$")] = "en",
 ) -> dict[str, object]:
+    response.headers["Cache-Control"] = "public, max-age=60, stale-while-revalidate=300"
     settings: dict[str, dict[str, object]] = {}
     for item in db.scalars(select(SiteSetting).where(SiteSetting.is_public.is_(True))):
         settings.setdefault(item.group_name, {})[item.key] = item.value
@@ -300,8 +303,12 @@ def site_content(
 def submit_contact(
     payload: ContactCreate, request: Request, db: DBSession
 ) -> dict[str, str]:
+    key = rate_key("contact", client_ip(request))
+    enforce_rate_limit(db, scope="public.contact", key_hash=key, maximum=5, window=timedelta(hours=1))
+    record_rate_event(db, scope="public.contact", key_hash=key)
     item = ContactSubmission(
-        **payload.model_dump(exclude={"website"}),
+        **payload.model_dump(exclude={"website", "email"}),
+        email=str(payload.email).lower(),
         source="website",
         ip_address=client_ip(request),
     )
@@ -320,11 +327,15 @@ def submit_contact(
 
 
 @router.post("/rfq", status_code=status.HTTP_201_CREATED)
-def submit_rfq(payload: RFQCreate, db: DBSession) -> dict[str, str]:
+def submit_rfq(payload: RFQCreate, request: Request, db: DBSession) -> dict[str, str]:
+    key = rate_key("rfq", client_ip(request))
+    enforce_rate_limit(db, scope="public.rfq", key_hash=key, maximum=5, window=timedelta(hours=1))
+    record_rate_event(db, scope="public.rfq", key_hash=key)
     reference = (
         f"RFQ-{datetime.now(UTC):%Y%m%d}-{secrets.token_hex(3).upper()}"
     )
-    values = payload.model_dump(exclude={"website", "locale"})
+    values = payload.model_dump(exclude={"website", "locale", "email"})
+    values["email"] = str(payload.email).lower()
     item = RFQSubmission(reference=reference, **values)
     db.add(item)
     db.flush()
@@ -345,22 +356,24 @@ def subscribe(
     payload: NewsletterCreate, request: Request, db: DBSession
 ) -> dict[str, str]:
     normalized = str(payload.email).lower()
-    item = db.scalar(
-        select(NewsletterSubscriber).where(
-            NewsletterSubscriber.email == normalized
-        )
+    key = rate_key("newsletter", client_ip(request))
+    enforce_rate_limit(db, scope="public.newsletter", key_hash=key, maximum=5, window=timedelta(hours=1))
+    record_rate_event(db, scope="public.newsletter", key_hash=key)
+    statement = insert(NewsletterSubscriber).values(
+        email=normalized,
+        locale=payload.locale,
+        consent_ip=client_ip(request),
+        is_active=True,
+        unsubscribed_at=None,
+    ).on_conflict_do_update(
+        index_elements=[NewsletterSubscriber.email],
+        set_={
+            "locale": payload.locale,
+            "is_active": True,
+            "unsubscribed_at": None,
+        },
     )
-    if item is None:
-        item = NewsletterSubscriber(
-            email=normalized,
-            locale=payload.locale,
-            consent_ip=client_ip(request),
-        )
-        db.add(item)
-    else:
-        item.is_active = True
-        item.unsubscribed_at = None
-        item.locale = payload.locale
+    db.execute(statement)
     db.commit()
     return {"status": "subscribed"}
 
@@ -369,7 +382,7 @@ def subscribe(
     "/requirements/{code}/apply", status_code=status.HTTP_201_CREATED
 )
 def apply_for_requirement(
-    code: str, payload: RequirementApplicationCreate, db: DBSession
+    code: str, payload: RequirementApplicationCreate, request: Request, db: DBSession
 ) -> dict[str, str]:
     requirement = db.scalar(
         select(Requirement).where(Requirement.code == code)
@@ -379,14 +392,16 @@ def apply_for_requirement(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="This requirement is not accepting applications",
         )
-    experience_digits = "".join(character for character in payload.experience if character.isdigit())
+    key = rate_key("requirement", client_ip(request))
+    enforce_rate_limit(db, scope="public.requirement", key_hash=key, maximum=10, window=timedelta(hours=1))
+    record_rate_event(db, scope="public.requirement", key_hash=key)
     item = RequirementApplication(
         requirement_id=requirement.id,
         name=payload.name,
         email=str(payload.email).lower() if payload.email else None,
         phone=payload.phone,
         iqama_number=payload.iqama_number,
-        years_experience=int(experience_digits[:2]) if experience_digits else None,
+        years_experience=parse_experience_years(payload.experience),
         message=payload.message,
     )
     db.add(item)

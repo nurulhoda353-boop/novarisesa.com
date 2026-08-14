@@ -11,6 +11,8 @@ from app.schemas.cms import (
     ContactWorkflowUpdate,
     ContentUpsert,
     RequirementEditorPayload,
+    NavigationUpsert,
+    RFQProposalInput,
     RFQOperationalStatusUpdate,
     RFQWorkflowUpdate,
     ServiceEditorPayload,
@@ -100,6 +102,17 @@ def test_application_operational_status_is_limited_to_hr_actions() -> None:
     assert ApplicationOperationalStatusUpdate(status="confirmed").status == "confirmed"
     with pytest.raises(ValidationError):
         ApplicationOperationalStatusUpdate(status="emailed")
+
+
+def test_saved_urls_reject_executable_or_protocol_relative_values() -> None:
+    assert NavigationUpsert(label_en="Home", url="/").url == "/"
+    assert RFQProposalInput(file_url="https://files.example.com/proposal.pdf").file_url
+    with pytest.raises(ValidationError):
+        NavigationUpsert(label_en="Unsafe", url="javascript:alert(1)")
+    with pytest.raises(ValidationError):
+        NavigationUpsert(label_en="Unsafe", url="//attacker.example")
+    with pytest.raises(ValidationError):
+        RFQProposalInput(file_url="javascript:alert(1)")
 
 
 def test_contact_workflow_supports_resolution_and_rfq_conversion() -> None:

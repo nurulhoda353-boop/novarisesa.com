@@ -1,7 +1,5 @@
 import uuid
-from collections import defaultdict
 from datetime import UTC, datetime, timedelta
-from threading import Lock
 from typing import Annotated
 
 import jwt
@@ -12,6 +10,14 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.auth import CurrentUser, user_permission_codes
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import (
+    clear_rate_events,
+    enforce_rate_limit,
+    prune_rate_events,
+    rate_key,
+    record_rate_event,
+)
+from app.core.request import client_ip
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -30,33 +36,27 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth")
 DBSession = Annotated[Session, Depends(get_db)]
-_login_attempts: dict[str, list[datetime]] = defaultdict(list)
-_login_attempts_lock = Lock()
+def login_keys(request: Request, email: str) -> tuple[str, str]:
+    address = client_ip(request)
+    return rate_key("login", address, email), rate_key("login", address)
 
 
-def login_key(request: Request, email: str) -> str:
-    client = request.client.host if request.client else "unknown"
-    return f"{client}:{email.casefold()}"
-
-
-def check_login_rate_limit(request: Request, email: str) -> str:
-    key = login_key(request, email)
-    cutoff = datetime.now(UTC) - timedelta(minutes=settings.LOGIN_WINDOW_MINUTES)
-    with _login_attempts_lock:
-        recent = [attempt for attempt in _login_attempts[key] if attempt >= cutoff]
-        _login_attempts[key] = recent
-        if len(recent) >= settings.LOGIN_MAX_ATTEMPTS:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many sign-in attempts. Please try again later.",
-                headers={"Retry-After": str(settings.LOGIN_WINDOW_MINUTES * 60)},
-            )
-    return key
-
-
-def record_failed_login(key: str) -> None:
-    with _login_attempts_lock:
-        _login_attempts[key].append(datetime.now(UTC))
+def check_login_rate_limit(db: Session, identity_key: str, ip_key: str) -> None:
+    window = timedelta(minutes=settings.LOGIN_WINDOW_MINUTES)
+    enforce_rate_limit(
+        db,
+        scope="auth.login.identity",
+        key_hash=identity_key,
+        maximum=settings.LOGIN_MAX_ATTEMPTS,
+        window=window,
+    )
+    enforce_rate_limit(
+        db,
+        scope="auth.login.ip",
+        key_hash=ip_key,
+        maximum=settings.LOGIN_MAX_ATTEMPTS * 4,
+        window=window,
+    )
 
 
 def user_response(user: User) -> UserResponse:
@@ -122,7 +122,7 @@ def issue_session(db: Session, user: User, request: Request, response: Response)
             user_id=user.id,
             token_hash=digest_token(refresh_token),
             expires_at=datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_DAYS),
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
     )
@@ -136,7 +136,8 @@ def login(
     response: Response,
     db: DBSession,
 ) -> SessionResponse:
-    attempt_key = check_login_rate_limit(request, payload.email)
+    identity_key, ip_key = login_keys(request, payload.email)
+    check_login_rate_limit(db, identity_key, ip_key)
     user = db.scalar(
         select(User)
         .options(selectinload(User.roles).selectinload(Role.permissions))
@@ -148,14 +149,17 @@ def login(
         or user.deleted_at is not None
         or not verify_password(payload.password, user.password_hash)
     ):
-        record_failed_login(attempt_key)
+        record_rate_event(db, scope="auth.login.identity", key_hash=identity_key)
+        record_rate_event(db, scope="auth.login.ip", key_hash=ip_key)
+        db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    with _login_attempts_lock:
-        _login_attempts.pop(attempt_key, None)
+    clear_rate_events(db, scope="auth.login.identity", key_hash=identity_key)
+    clear_rate_events(db, scope="auth.login.ip", key_hash=ip_key)
+    prune_rate_events(db)
     user.last_login_at = datetime.now(UTC)
     issue_session(db, user, request, response)
     db.add(
@@ -164,7 +168,7 @@ def login(
             action="auth.login",
             entity_type="user",
             entity_id=user.id,
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
     )
@@ -284,7 +288,7 @@ def change_password(
             action="auth.password_changed",
             entity_type="user",
             entity_id=user.id,
-            ip_address=request.client.host if request.client else None,
+            ip_address=client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
     )
