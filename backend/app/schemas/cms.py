@@ -234,6 +234,61 @@ class ApplicationOperationalStatusUpdate(BaseModel):
     status: Literal["pending", "confirmed", "completed", "cancelled"]
 
 
+class ContactOperationalStatusUpdate(BaseModel):
+    status: Literal["pending", "contacted", "resolved", "spam"]
+
+
+class ContactWorkflowUpdate(BaseModel):
+    assigned_to_id: uuid.UUID | None = None
+    follow_up_at: datetime | None = None
+    internal_notes: str | None = Field(default=None, max_length=8000)
+    response_summary: str | None = Field(default=None, max_length=4000)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ContactConvertToRFQ(BaseModel):
+    company: str = Field(default="Individual enquiry", min_length=2, max_length=255)
+    service: str = Field(min_length=2, max_length=180)
+    location: str | None = Field(default=None, max_length=255)
+    budget: str | None = Field(default=None, max_length=120)
+    timeline: str | None = Field(default=None, max_length=120)
+
+
+class RFQOperationalStatusUpdate(BaseModel):
+    status: Literal["pending", "confirmed", "completed", "cancelled"]
+
+
+class RFQQualificationInput(BaseModel):
+    decision_maker: bool = False
+    budget_verified: bool = False
+    scope_verified: bool = False
+    site_visit_required: bool = False
+    technical_clarification: str = Field(default="", max_length=4000)
+
+
+class RFQProposalInput(BaseModel):
+    number: str = Field(default="", max_length=80)
+    amount: Decimal | None = Field(default=None, ge=0)
+    currency: str = Field(default="SAR", min_length=3, max_length=3)
+    valid_until: date | None = None
+    status: Literal["not_started", "draft", "ready", "sent", "revised", "accepted", "declined"] = "not_started"
+    file_url: str = Field(default="", max_length=1000)
+
+
+class RFQWorkflowUpdate(BaseModel):
+    commercial_stage: Literal[
+        "new", "under_review", "qualified", "estimation", "proposal_ready",
+        "proposal_sent", "negotiation", "won", "lost",
+    ]
+    assigned_to_id: uuid.UUID | None = None
+    follow_up_at: datetime | None = None
+    meeting_at: datetime | None = None
+    internal_notes: str | None = Field(default=None, max_length=8000)
+    qualification: RFQQualificationInput = Field(default_factory=RFQQualificationInput)
+    proposal: RFQProposalInput = Field(default_factory=RFQProposalInput)
+    note: str | None = Field(default=None, max_length=2000)
+
+
 class ContentListResponse(BaseModel):
     items: list[ContentItem]
     total: int

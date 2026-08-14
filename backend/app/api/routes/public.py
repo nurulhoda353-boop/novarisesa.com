@@ -23,6 +23,7 @@ from app.models import (
     RequirementApplication,
     RequirementContact,
     RequirementStatus,
+    InboxActivity,
     RFQSubmission,
     Service,
     SiteSetting,
@@ -305,6 +306,15 @@ def submit_contact(
         ip_address=client_ip(request),
     )
     db.add(item)
+    db.flush()
+    db.add(InboxActivity(
+        entity_type="contact",
+        entity_id=item.id,
+        actor_id=None,
+        action="contact_submitted",
+        note="Contact enquiry received from the public website.",
+        details={"source": "website"},
+    ))
     db.commit()
     return {"id": str(item.id), "status": "received"}
 
@@ -317,6 +327,15 @@ def submit_rfq(payload: RFQCreate, db: DBSession) -> dict[str, str]:
     values = payload.model_dump(exclude={"website", "locale"})
     item = RFQSubmission(reference=reference, **values)
     db.add(item)
+    db.flush()
+    db.add(InboxActivity(
+        entity_type="rfq",
+        entity_id=item.id,
+        actor_id=None,
+        action="rfq_submitted",
+        note="RFQ received from the public website.",
+        details={"source": "website", "reference": reference},
+    ))
     db.commit()
     return {"id": str(item.id), "reference": reference, "status": "received"}
 

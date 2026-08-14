@@ -8,7 +8,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.models import Post, RequirementApplication, RFQSubmission
+from app.models import ContactSubmission, InboxActivity, Post, RequirementApplication, RFQSubmission
 from app.schemas.public import ContactCreate, RFQCreate
 
 
@@ -60,3 +60,11 @@ def test_shared_postgres_enums_use_lowercase_database_values() -> None:
         "published",
         "archived",
     ]
+
+
+def test_contact_and_rfq_models_expose_management_state() -> None:
+    assert "operational_status" in ContactSubmission.__table__.c
+    assert "converted_rfq_id" in ContactSubmission.__table__.c
+    assert "commercial_stage" in RFQSubmission.__table__.c
+    assert "proposal" in RFQSubmission.__table__.c
+    assert {"entity_type", "entity_id", "action", "details"}.issubset(InboxActivity.__table__.c.keys())

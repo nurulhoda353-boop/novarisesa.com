@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
@@ -25,6 +26,7 @@ from app.models import (
     ApplicationActivity,
     Category,
     ContactSubmission,
+    InboxActivity,
     Event,
     EventDraft,
     EventTranslation,
@@ -72,6 +74,11 @@ from app.schemas.cms import (
     ApplicationWorkflowUpdate,
     ApplicationNoteCreate,
     ApplicationOperationalStatusUpdate,
+    ContactConvertToRFQ,
+    ContactOperationalStatusUpdate,
+    ContactWorkflowUpdate,
+    RFQOperationalStatusUpdate,
+    RFQWorkflowUpdate,
     ServiceEditorPayload,
     SettingUpsert,
     SubmissionStatusUpdate,
@@ -190,15 +197,27 @@ def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
         "internal_notes": getattr(row, "internal_notes", None),
     }
     if inbox == "contact":
+        assigned = getattr(row, "assigned_to", None)
+        converted = getattr(row, "converted_rfq", None)
         payload.update(
             {
                 "subject": row.subject,
                 "message": row.message,
                 "locale": row.locale,
                 "source": row.source,
+                "operational_status": row.operational_status or "pending",
+                "notification_status": row.notification_status or "not_required",
+                "notification_requested_at": row.notification_requested_at.isoformat() if row.notification_requested_at else None,
+                "assigned_to_id": str(row.assigned_to_id) if row.assigned_to_id else None,
+                "assigned_to_name": assigned.full_name if assigned else None,
+                "follow_up_at": row.follow_up_at.isoformat() if row.follow_up_at else None,
+                "response_summary": row.response_summary,
+                "converted_rfq_id": str(row.converted_rfq_id) if row.converted_rfq_id else None,
+                "converted_rfq_reference": converted.reference if converted else None,
             }
         )
     elif inbox == "rfq":
+        assigned = getattr(row, "assigned_to", None)
         payload.update(
             {
                 "reference": row.reference,
@@ -208,6 +227,16 @@ def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
                 "timeline": row.timeline,
                 "scope": row.scope,
                 "attachments": row.attachments or [],
+                "operational_status": row.operational_status or "pending",
+                "commercial_stage": row.commercial_stage or "new",
+                "notification_status": row.notification_status or "not_required",
+                "notification_requested_at": row.notification_requested_at.isoformat() if row.notification_requested_at else None,
+                "assigned_to_id": str(row.assigned_to_id) if row.assigned_to_id else None,
+                "assigned_to_name": assigned.full_name if assigned else None,
+                "follow_up_at": row.follow_up_at.isoformat() if row.follow_up_at else None,
+                "meeting_at": row.meeting_at.isoformat() if row.meeting_at else None,
+                "qualification": row.qualification or {},
+                "proposal": row.proposal or {},
             }
         )
     elif inbox == "applications":
@@ -1517,6 +1546,13 @@ def list_inbox(
             selectinload(RequirementApplication.requirement).selectinload(Requirement.translations),
             selectinload(RequirementApplication.assigned_to),
         )
+    elif inbox == "contact":
+        statement = statement.options(
+            selectinload(ContactSubmission.assigned_to),
+            selectinload(ContactSubmission.converted_rfq),
+        )
+    elif inbox == "rfq":
+        statement = statement.options(selectinload(RFQSubmission.assigned_to))
     rows = list(db.scalars(statement))
     items = [serialize_inbox_item(inbox, row) for row in rows]
     return {"items": items, "total": len(items)}
@@ -1541,8 +1577,21 @@ def get_inbox_item(
             )
             .where(RequirementApplication.id == item_id)
         )
+    elif inbox == "contact":
+        row = db.scalar(
+            select(ContactSubmission)
+            .options(
+                selectinload(ContactSubmission.assigned_to),
+                selectinload(ContactSubmission.converted_rfq),
+            )
+            .where(ContactSubmission.id == item_id)
+        )
     else:
-        row = db.get(model, item_id)
+        row = db.scalar(
+            select(RFQSubmission)
+            .options(selectinload(RFQSubmission.assigned_to))
+            .where(RFQSubmission.id == item_id)
+        )
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Submission not found")
     result = serialize_inbox_item(inbox, row)
@@ -1557,7 +1606,270 @@ def get_inbox_item(
             }
             for activity in sorted(row.activities, key=lambda item: item.created_at, reverse=True)
         ]
+    elif inbox in ("contact", "rfq"):
+        activities = list(db.scalars(
+            select(InboxActivity)
+            .where(InboxActivity.entity_type == inbox, InboxActivity.entity_id == item_id)
+            .order_by(InboxActivity.created_at.desc())
+        ))
+        result["activities"] = [
+            {
+                "id": str(activity.id),
+                "action": activity.action,
+                "note": activity.note,
+                "details": activity.details or {},
+                "created_at": activity.created_at.isoformat(),
+            }
+            for activity in activities
+        ]
     return result
+
+
+def active_team_users(db: Session) -> list[dict[str, str]]:
+    return [
+        {"id": str(row.id), "name": row.full_name, "email": row.email}
+        for row in db.scalars(select(User).where(User.is_active.is_(True)).order_by(User.full_name))
+    ]
+
+
+def add_inbox_activity(
+    db: Session,
+    entity_type: Literal["contact", "rfq"],
+    entity_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    action: str,
+    *,
+    note: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    db.add(InboxActivity(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        actor_id=actor_id,
+        action=action,
+        note=note,
+        details=details or {},
+    ))
+
+
+@router.get("/contacts/overview")
+def contacts_overview(
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox", "cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    operational = dict(db.execute(
+        select(ContactSubmission.operational_status, func.count()).group_by(ContactSubmission.operational_status)
+    ).all())
+    return {"operational": operational, "users": active_team_users(db)}
+
+
+@router.patch("/contacts/{contact_id}/status")
+def update_contact_operational_status(
+    contact_id: uuid.UUID,
+    payload: ContactOperationalStatusUpdate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    contact = db.get(ContactSubmission, contact_id)
+    if contact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact enquiry not found")
+    before = contact.operational_status
+    contact.operational_status = payload.status
+    contact.status = {
+        "pending": SubmissionStatus.NEW,
+        "contacted": SubmissionStatus.CONTACTED,
+        "resolved": SubmissionStatus.CLOSED,
+        "spam": SubmissionStatus.SPAM,
+    }[payload.status]
+    notification_requested = payload.status == "contacted" and before != "contacted"
+    if notification_requested:
+        contact.notification_status = "awaiting_integration"
+        contact.notification_requested_at = datetime.now(UTC)
+    elif payload.status == "pending":
+        contact.notification_status = "not_required"
+        contact.notification_requested_at = None
+    add_inbox_activity(
+        db, "contact", contact.id, user.id, f"status_{payload.status}",
+        note="Contact acknowledgement queued for the future email/SMS integration." if notification_requested else None,
+        details={"before": before, "after": payload.status, "notification_status": contact.notification_status},
+    )
+    audit(db, request, user, "cms.contact_status_updated", "contact", contact.id, before={"status": before}, after={"status": payload.status, "notification_status": contact.notification_status})
+    db.commit()
+    return {
+        "status": payload.status,
+        "notification_status": contact.notification_status,
+        "notification_requested_at": contact.notification_requested_at.isoformat() if contact.notification_requested_at else None,
+    }
+
+
+@router.patch("/contacts/{contact_id}/workflow")
+def update_contact_workflow(
+    contact_id: uuid.UUID,
+    payload: ContactWorkflowUpdate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, str]:
+    contact = db.get(ContactSubmission, contact_id)
+    if contact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact enquiry not found")
+    if payload.assigned_to_id and db.get(User, payload.assigned_to_id) is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Assigned team member not found")
+    before = {
+        "assigned_to_id": str(contact.assigned_to_id) if contact.assigned_to_id else None,
+        "follow_up_at": contact.follow_up_at.isoformat() if contact.follow_up_at else None,
+        "internal_notes": contact.internal_notes,
+        "response_summary": contact.response_summary,
+    }
+    contact.assigned_to_id = payload.assigned_to_id
+    contact.follow_up_at = payload.follow_up_at
+    contact.internal_notes = payload.internal_notes
+    contact.response_summary = payload.response_summary
+    after = payload.model_dump(mode="json", exclude={"note"})
+    if before != after or payload.note:
+        add_inbox_activity(db, "contact", contact.id, user.id, "workflow_updated", note=payload.note, details={"before": before, "after": after})
+    audit(db, request, user, "cms.contact_workflow_updated", "contact", contact.id, before=before, after=after)
+    db.commit()
+    return {"status": "saved"}
+
+
+@router.post("/contacts/{contact_id}/convert-to-rfq", status_code=status.HTTP_201_CREATED)
+def convert_contact_to_rfq(
+    contact_id: uuid.UUID,
+    payload: ContactConvertToRFQ,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, str]:
+    contact = db.get(ContactSubmission, contact_id)
+    if contact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact enquiry not found")
+    if contact.converted_rfq_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This enquiry is already linked to an RFQ")
+    reference = f"RFQ-{datetime.now(UTC):%Y%m%d}-{secrets.token_hex(3).upper()}"
+    rfq = RFQSubmission(
+        reference=reference,
+        name=contact.name,
+        email=contact.email,
+        company=payload.company,
+        phone=contact.phone,
+        service=payload.service,
+        location=payload.location,
+        budget=payload.budget,
+        timeline=payload.timeline,
+        scope=contact.message,
+        assigned_to_id=contact.assigned_to_id,
+        internal_notes=f"Converted from contact enquiry {contact.id}.",
+    )
+    db.add(rfq)
+    db.flush()
+    contact.converted_rfq_id = rfq.id
+    contact.operational_status = "resolved"
+    contact.status = SubmissionStatus.CLOSED
+    add_inbox_activity(db, "contact", contact.id, user.id, "converted_to_rfq", note=f"Created {reference}.", details={"rfq_id": str(rfq.id), "reference": reference})
+    add_inbox_activity(db, "rfq", rfq.id, user.id, "created_from_contact", note=f"Converted from {contact.name}'s contact enquiry.", details={"contact_id": str(contact.id)})
+    audit(db, request, user, "cms.contact_converted_to_rfq", "contact", contact.id, after={"rfq_id": str(rfq.id), "reference": reference})
+    db.commit()
+    return {"id": str(rfq.id), "reference": reference, "status": "created"}
+
+
+@router.get("/rfqs/overview")
+def rfqs_overview(
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox", "cms.view"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    operational = dict(db.execute(
+        select(RFQSubmission.operational_status, func.count()).group_by(RFQSubmission.operational_status)
+    ).all())
+    stages = dict(db.execute(
+        select(RFQSubmission.commercial_stage, func.count()).group_by(RFQSubmission.commercial_stage)
+    ).all())
+    services = [value for value in db.scalars(select(RFQSubmission.service).distinct().order_by(RFQSubmission.service)) if value]
+    return {"operational": operational, "stages": stages, "services": services, "users": active_team_users(db)}
+
+
+@router.patch("/rfqs/{rfq_id}/status")
+def update_rfq_operational_status(
+    rfq_id: uuid.UUID,
+    payload: RFQOperationalStatusUpdate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    rfq = db.get(RFQSubmission, rfq_id)
+    if rfq is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RFQ not found")
+    before = rfq.operational_status
+    rfq.operational_status = payload.status
+    stage_map = {"pending": "new", "confirmed": "qualified", "completed": "won", "cancelled": "lost"}
+    rfq.commercial_stage = stage_map[payload.status]
+    rfq.status = {
+        "pending": SubmissionStatus.NEW,
+        "confirmed": SubmissionStatus.QUALIFIED,
+        "completed": SubmissionStatus.CLOSED,
+        "cancelled": SubmissionStatus.CLOSED,
+    }[payload.status]
+    notification_requested = payload.status == "confirmed" and before != "confirmed"
+    if notification_requested:
+        rfq.notification_status = "awaiting_integration"
+        rfq.notification_requested_at = datetime.now(UTC)
+    elif payload.status == "pending":
+        rfq.notification_status = "not_required"
+        rfq.notification_requested_at = None
+    add_inbox_activity(db, "rfq", rfq.id, user.id, f"status_{payload.status}", note="RFQ confirmation queued for the future email/SMS integration." if notification_requested else None, details={"before": before, "after": payload.status, "stage": rfq.commercial_stage, "notification_status": rfq.notification_status})
+    audit(db, request, user, "cms.rfq_status_updated", "rfq", rfq.id, before={"status": before}, after={"status": payload.status, "stage": rfq.commercial_stage})
+    db.commit()
+    return {"status": payload.status, "commercial_stage": rfq.commercial_stage, "notification_status": rfq.notification_status, "notification_requested_at": rfq.notification_requested_at.isoformat() if rfq.notification_requested_at else None}
+
+
+@router.patch("/rfqs/{rfq_id}/workflow")
+def update_rfq_workflow(
+    rfq_id: uuid.UUID,
+    payload: RFQWorkflowUpdate,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, str]:
+    rfq = db.get(RFQSubmission, rfq_id)
+    if rfq is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RFQ not found")
+    if payload.assigned_to_id and db.get(User, payload.assigned_to_id) is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Assigned team member not found")
+    before = {
+        "commercial_stage": rfq.commercial_stage,
+        "assigned_to_id": str(rfq.assigned_to_id) if rfq.assigned_to_id else None,
+        "follow_up_at": rfq.follow_up_at.isoformat() if rfq.follow_up_at else None,
+        "meeting_at": rfq.meeting_at.isoformat() if rfq.meeting_at else None,
+        "qualification": rfq.qualification or {},
+        "proposal": rfq.proposal or {},
+        "internal_notes": rfq.internal_notes,
+    }
+    rfq.commercial_stage = payload.commercial_stage
+    rfq.assigned_to_id = payload.assigned_to_id
+    rfq.follow_up_at = payload.follow_up_at
+    rfq.meeting_at = payload.meeting_at
+    rfq.internal_notes = payload.internal_notes
+    rfq.qualification = payload.qualification.model_dump(mode="json")
+    rfq.proposal = payload.proposal.model_dump(mode="json")
+    if payload.commercial_stage in ("qualified", "estimation", "proposal_ready", "proposal_sent", "negotiation"):
+        rfq.status = SubmissionStatus.QUALIFIED
+    elif payload.commercial_stage == "won":
+        rfq.status = SubmissionStatus.CLOSED
+        rfq.operational_status = "completed"
+    elif payload.commercial_stage == "lost":
+        rfq.status = SubmissionStatus.CLOSED
+        rfq.operational_status = "cancelled"
+    else:
+        rfq.status = SubmissionStatus.IN_REVIEW if payload.commercial_stage == "under_review" else SubmissionStatus.NEW
+    after = payload.model_dump(mode="json", exclude={"note"})
+    if before != after or payload.note:
+        add_inbox_activity(db, "rfq", rfq.id, user.id, "workflow_updated", note=payload.note, details={"before": before, "after": after})
+    audit(db, request, user, "cms.rfq_workflow_updated", "rfq", rfq.id, before=before, after=after)
+    db.commit()
+    return {"status": "saved", "commercial_stage": rfq.commercial_stage}
 
 
 @router.get("/applications/overview")

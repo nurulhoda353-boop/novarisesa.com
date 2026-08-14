@@ -6,8 +6,13 @@ from pydantic import ValidationError
 from app.schemas.cms import (
     ApplicationWorkflowUpdate,
     ApplicationOperationalStatusUpdate,
+    ContactConvertToRFQ,
+    ContactOperationalStatusUpdate,
+    ContactWorkflowUpdate,
     ContentUpsert,
     RequirementEditorPayload,
+    RFQOperationalStatusUpdate,
+    RFQWorkflowUpdate,
     ServiceEditorPayload,
 )
 
@@ -95,6 +100,44 @@ def test_application_operational_status_is_limited_to_hr_actions() -> None:
     assert ApplicationOperationalStatusUpdate(status="confirmed").status == "confirmed"
     with pytest.raises(ValidationError):
         ApplicationOperationalStatusUpdate(status="emailed")
+
+
+def test_contact_workflow_supports_resolution_and_rfq_conversion() -> None:
+    workflow = ContactWorkflowUpdate(
+        response_summary="Customer asked for a manpower proposal.",
+        note="Commercial opportunity identified.",
+    )
+    conversion = ContactConvertToRFQ(
+        company="Example Industrial Co",
+        service="Industrial manpower",
+        budget="SAR 1M–2M",
+    )
+
+    assert workflow.response_summary.startswith("Customer")
+    assert conversion.service == "Industrial manpower"
+    assert ContactOperationalStatusUpdate(status="resolved").status == "resolved"
+    with pytest.raises(ValidationError):
+        ContactOperationalStatusUpdate(status="qualified")
+
+
+def test_rfq_workflow_validates_commercial_and_proposal_controls() -> None:
+    payload = RFQWorkflowUpdate(
+        commercial_stage="proposal_sent",
+        qualification={"budget_verified": True, "scope_verified": True},
+        proposal={
+            "number": "NR-Q-2026-001",
+            "amount": "125000.00",
+            "currency": "SAR",
+            "status": "sent",
+        },
+        note="Proposal issued to the client.",
+    )
+
+    assert payload.proposal.amount == Decimal("125000.00")
+    assert payload.qualification.scope_verified is True
+    assert RFQOperationalStatusUpdate(status="confirmed").status == "confirmed"
+    with pytest.raises(ValidationError):
+        RFQWorkflowUpdate(commercial_stage="maybe_won")
 
 
 def test_service_editor_keeps_the_public_template_row_counts() -> None:

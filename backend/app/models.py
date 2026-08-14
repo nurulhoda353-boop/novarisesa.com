@@ -585,8 +585,18 @@ class ContactSubmission(UUIDMixin, TimestampMixin, Base):
     assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
+    operational_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    notification_status: Mapped[str] = mapped_column(String(32), default="not_required")
+    notification_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    response_summary: Mapped[str | None] = mapped_column(Text)
+    converted_rfq_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("rfq_submissions.id", ondelete="SET NULL"), index=True
+    )
     internal_notes: Mapped[str | None] = mapped_column(Text)
     ip_address: Mapped[str | None] = mapped_column(INET)
+    assigned_to: Mapped[User | None] = relationship(foreign_keys=[assigned_to_id])
+    converted_rfq: Mapped["RFQSubmission | None"] = relationship(foreign_keys=[converted_rfq_id])
 
 
 class RFQSubmission(UUIDMixin, TimestampMixin, Base):
@@ -616,7 +626,33 @@ class RFQSubmission(UUIDMixin, TimestampMixin, Base):
     assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
+    operational_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    commercial_stage: Mapped[str] = mapped_column(String(32), default="new", index=True)
+    notification_status: Mapped[str] = mapped_column(String(32), default="not_required")
+    notification_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    follow_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    meeting_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    qualification: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    proposal: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     internal_notes: Mapped[str | None] = mapped_column(Text)
+    assigned_to: Mapped[User | None] = relationship(foreign_keys=[assigned_to_id])
+
+
+class InboxActivity(UUIDMixin, Base):
+    __tablename__ = "inbox_activities"
+    __table_args__ = (Index("ix_inbox_activities_entity", "entity_type", "entity_id"),)
+
+    entity_type: Mapped[str] = mapped_column(String(24))
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(80))
+    note: Mapped[str | None] = mapped_column(Text)
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class RequirementApplication(UUIDMixin, TimestampMixin, Base):

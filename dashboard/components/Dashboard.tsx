@@ -45,6 +45,7 @@ import { ServiceEditor, type ServiceItem } from "./ServiceEditor";
 import { InsightsManager } from "./InsightsManager";
 import { RequirementsManager } from "./RequirementsManager";
 import { ApplicationsManager } from "./ApplicationsManager";
+import { ContactManager, RFQManager } from "./InquiryManagers";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -348,7 +349,8 @@ export default function Dashboard({ route }: { route: string[] }) {
             <ContentPage resource={route[1] ?? "services"} />
           )}
           {route[0] === "inbox" && route[1] === "applications" && <ApplicationsManager />}
-          {route[0] === "inbox" && route[1] !== "applications" && <InboxPage inbox={route[1] ?? "contact"} />}
+          {route[0] === "inbox" && route[1] === "contact" && <ContactManager />}
+          {route[0] === "inbox" && route[1] === "rfq" && <RFQManager />}
           {route[0] === "media" && <MediaPage user={user} />}
           {route[0] === "navigation" && <NavigationPage user={user} />}
           {route[0] === "taxonomy" && <TaxonomyPage user={user} />}
