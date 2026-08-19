@@ -3102,6 +3102,8 @@ textarea:focus-visible, select:focus-visible {
   background: #2ea67c;
   box-shadow: 0 0 0 4px rgba(46, 166, 124, .12);
 }
+.workspace-state.checking > i { background: var(--gold); box-shadow: 0 0 0 4px rgba(223, 162, 71, .14); }
+.workspace-state.offline > i { background: var(--red); box-shadow: 0 0 0 4px rgba(192, 57, 43, .12); }
 .workspace-state span, .workspace-state b, .workspace-state small { display: block; }
 .workspace-state b { color: var(--ink2); font-size: 10.5px; line-height: 1.2; }
 .workspace-state small { margin-top: 2px; color: var(--muted); font-size: 9px; }

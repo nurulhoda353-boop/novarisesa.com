@@ -241,6 +241,7 @@ export default function Dashboard({ route }: { route: string[] }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [inboxNew, setInboxNew] = useState(0);
   const [topbarActions, setTopbarActions] = useState<ReactNode>(null);
+  const [platformReady, setPlatformReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     api<User>("/auth/me")
@@ -287,6 +288,18 @@ export default function Dashboard({ route }: { route: string[] }) {
     if (route[0] !== "site-content") setTopbarActions(null);
   }, [route]);
 
+  useEffect(() => {
+    let mounted = true;
+    const checkPlatform = () => {
+      api<{ status: string; database: string }>("/ready")
+        .then((result) => { if (mounted) setPlatformReady(result.status === "ready" && result.database === "connected"); })
+        .catch(() => { if (mounted) setPlatformReady(false); });
+    };
+    checkPlatform();
+    const timer = window.setInterval(checkPlatform, 60_000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, []);
+
   async function logout() {
     await api("/auth/logout", { method: "POST" });
     router.replace("/");
@@ -331,9 +344,9 @@ export default function Dashboard({ route }: { route: string[] }) {
           <button className="global-search" onClick={() => setSearchOpen(true)}>
             <Search size={17} /><span>Search workspace</span><kbd>⌘ K</kbd>
           </button>
-          <div className="workspace-state" aria-label="Production workspace online">
+          <div className={`workspace-state ${platformReady === false ? "offline" : platformReady === null ? "checking" : ""}`} aria-label={`Production workspace ${platformReady === false ? "needs attention" : platformReady === null ? "is checking connectivity" : "is online"}`}>
             <i />
-            <span><b>Production</b><small>PostgreSQL connected</small></span>
+            <span><b>Production</b><small>{platformReady === false ? "Connection needs attention" : platformReady === null ? "Checking connectivity" : "PostgreSQL connected"}</small></span>
           </div>
           {topbarActions && <div className="topbar-page-actions">{topbarActions}</div>}
           <a className="site-link" href="https://novarisesa.com" target="_blank"><Globe2 size={16} /><span>View website</span></a>
