@@ -6,7 +6,8 @@ import Image from "next/image";
 import { api, ApiError } from "@/lib/api";
 import { Eye, EyeOff, LockKeyhole, LoaderCircle, Mail } from "lucide-react";
 
-type User = { full_name: string; email: string };
+type User = { full_name: string; email: string; must_change_password?: boolean };
+type Session = { user: User; expires_in: number };
 
 export default function Home() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function Home() {
 
   useEffect(() => {
     api<User>("/auth/me")
-      .then(() => router.replace("/overview"))
+      .then((user) => router.replace(user.must_change_password ? "/change-password" : "/overview"))
       .catch(() => setChecking(false));
   }, [router]);
 
@@ -28,11 +29,11 @@ export default function Home() {
     setBusy(true);
     setError("");
     try {
-      await api("/auth/login", {
+      const session = await api<Session>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.replace("/overview");
+      router.replace(session.user.must_change_password ? "/change-password" : "/overview");
     } catch (reason) {
       setError(reason instanceof ApiError ? reason.message : "Unable to sign in");
       setBusy(false);

@@ -22,6 +22,31 @@ CMS_PERMISSIONS = {
     "cms.manage_inbox": "Manage contact, RFQ, and application submissions",
     "cms.manage_settings": "Manage website configuration",
     "cms.manage_users": "Manage dashboard users and roles",
+    "cms.manage_security": "Reset passwords and revoke dashboard sessions",
+    "cms.view_audit": "View security and account activity logs",
+}
+
+ROLE_PERMISSIONS = {
+    "super_admin": set(CMS_PERMISSIONS),
+    "admin": {
+        "cms.view",
+        "cms.publish",
+        "cms.manage_content",
+        "cms.manage_media",
+        "cms.manage_inbox",
+        "cms.manage_settings",
+    },
+    "editor": {
+        "cms.view",
+        "cms.manage_content",
+        "cms.manage_media",
+    },
+}
+
+ROLE_DESCRIPTIONS = {
+    "super_admin": "Full developer-level access, security and team administration",
+    "admin": "Publish content, manage enquiries and control website settings",
+    "editor": "Create and edit website content and media without publishing",
 }
 
 INITIAL_REQUIREMENTS = [
@@ -108,34 +133,25 @@ def bootstrap() -> None:
                 db.flush()
             permissions.append(permission)
 
-        owner = db.scalar(select(Role).where(Role.name == "owner"))
-        if owner is None:
-            owner = Role(
-                name="owner",
-                description="Full access to the NOVARISE website CMS",
-                is_system=True,
-            )
-            db.add(owner)
-            db.flush()
-        owner.permissions = permissions
+        legacy_owner = db.scalar(select(Role).where(Role.name == "owner"))
+        super_admin = db.scalar(select(Role).where(Role.name == "super_admin"))
+        if legacy_owner is not None and super_admin is None:
+            legacy_owner.name = "super_admin"
+            super_admin = legacy_owner
 
-        editor = db.scalar(select(Role).where(Role.name == "editor"))
-        if editor is None:
-            editor = Role(
-                name="editor",
-                description="Create and publish website content and media",
-                is_system=True,
-            )
-            db.add(editor)
-            db.flush()
-        editor_codes = {
-            "cms.view",
-            "cms.publish",
-            "cms.manage_content",
-            "cms.manage_media",
-            "cms.manage_inbox",
-        }
-        editor.permissions = [item for item in permissions if item.code in editor_codes]
+        roles: dict[str, Role] = {}
+        for role_name, description in ROLE_DESCRIPTIONS.items():
+            role = db.scalar(select(Role).where(Role.name == role_name))
+            if role is None:
+                role = Role(name=role_name, description=description, is_system=True)
+                db.add(role)
+                db.flush()
+            role.description = description
+            role.is_system = True
+            role.permissions = [
+                item for item in permissions if item.code in ROLE_PERMISSIONS[role_name]
+            ]
+            roles[role_name] = role
         seed_requirements(db)
 
         if not settings.INITIAL_ADMIN_EMAIL or not settings.INITIAL_ADMIN_PASSWORD:
@@ -154,8 +170,8 @@ def bootstrap() -> None:
             )
             db.add(admin)
             db.flush()
-        if owner not in admin.roles:
-            admin.roles.append(owner)
+        if roles["super_admin"] not in admin.roles:
+            admin.roles = [roles["super_admin"]]
 
 
 if __name__ == "__main__":

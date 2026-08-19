@@ -67,6 +67,7 @@ def user_response(user: User) -> UserResponse:
         roles=[role.name for role in user.roles],
         permissions=sorted(user_permission_codes(user)),
         last_login_at=user.last_login_at,
+        must_change_password=user.must_change_password,
     )
 
 
@@ -255,13 +256,14 @@ def me(user: CurrentUser) -> UserResponse:
     return user_response(user)
 
 
-@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/change-password", response_model=SessionResponse)
 def change_password(
     payload: ChangePasswordRequest,
     request: Request,
+    response: Response,
     user: CurrentUser,
     db: DBSession,
-) -> None:
+) -> SessionResponse:
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -275,6 +277,8 @@ def change_password(
 
     user.password_hash = hash_password(payload.new_password)
     now = datetime.now(UTC)
+    user.must_change_password = False
+    user.password_changed_at = now
     for token in db.scalars(
         select(RefreshToken).where(
             RefreshToken.user_id == user.id,
@@ -282,6 +286,7 @@ def change_password(
         )
     ):
         token.revoked_at = now
+    issue_session(db, user, request, response)
     db.add(
         AuditLog(
             actor_id=user.id,
@@ -293,3 +298,7 @@ def change_password(
         )
     )
     db.commit()
+    return SessionResponse(
+        user=user_response(user),
+        expires_in=settings.ACCESS_TOKEN_MINUTES * 60,
+    )

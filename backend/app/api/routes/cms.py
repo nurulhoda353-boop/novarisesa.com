@@ -21,7 +21,7 @@ from app.core.auth import require_permission
 from app.core.content_images import default_content_image
 from app.core.database import get_db
 from app.core.request import client_ip
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.core.storage import delete_stored_file, save_upload, stored_file_exists
 from app.core.workflow import (
     application_stage_for_operational,
@@ -30,16 +30,16 @@ from app.core.workflow import (
     rfq_stage_for_operational,
 )
 from app.models import (
-    AuditLog,
     ApplicationActivity,
+    AuditLog,
     Category,
     ContactSubmission,
-    InboxActivity,
     Event,
     EventDraft,
     EventTranslation,
     FaqItem,
     FaqItemTranslation,
+    InboxActivity,
     MediaAsset,
     NavigationItem,
     NewsletterSubscriber,
@@ -51,12 +51,12 @@ from app.models import (
     Project,
     ProjectDraft,
     ProjectTranslation,
+    RefreshToken,
     Requirement,
     RequirementApplication,
     RequirementContact,
     RequirementDraft,
     RequirementTranslation,
-    RefreshToken,
     RFQSubmission,
     Role,
     Service,
@@ -68,30 +68,32 @@ from app.models import (
     User,
 )
 from app.schemas.cms import (
-    ContentItem,
-    ContentListResponse,
-    MediaUpdate,
-    NavigationUpsert,
-    ProjectCreateRequest,
-    ProjectEditorPayload,
-    PostCreateRequest,
-    PostEditorPayload,
-    EventCreateRequest,
-    EventEditorPayload,
-    RequirementCreateRequest,
-    RequirementEditorPayload,
-    ApplicationWorkflowUpdate,
     ApplicationNoteCreate,
     ApplicationOperationalStatusUpdate,
+    ApplicationWorkflowUpdate,
     ContactConvertToRFQ,
     ContactOperationalStatusUpdate,
     ContactWorkflowUpdate,
+    ContentItem,
+    ContentListResponse,
+    EventCreateRequest,
+    EventEditorPayload,
+    MediaUpdate,
+    NavigationUpsert,
+    PostCreateRequest,
+    PostEditorPayload,
+    ProjectCreateRequest,
+    ProjectEditorPayload,
+    RequirementCreateRequest,
+    RequirementEditorPayload,
     RFQOperationalStatusUpdate,
     RFQWorkflowUpdate,
+    SensitiveActionRequest,
     ServiceEditorPayload,
     SettingUpsert,
     TaxonomyUpsert,
     UserCreate,
+    UserPasswordReset,
     UserUpdate,
 )
 
@@ -1560,7 +1562,6 @@ def get_inbox_item(
     db: DBSession,
 ) -> dict[str, Any]:
     _ = user
-    model = INBOX_CONFIG[inbox]
     if inbox == "applications":
         row = db.scalar(
             select(RequirementApplication)
@@ -1859,9 +1860,7 @@ def update_rfq_workflow(
     )
     if payload.commercial_stage in ("qualified", "estimation", "proposal_ready", "proposal_sent", "negotiation"):
         rfq.status = SubmissionStatus.QUALIFIED
-    elif payload.commercial_stage == "won":
-        rfq.status = SubmissionStatus.CLOSED
-    elif payload.commercial_stage == "lost":
+    elif payload.commercial_stage in ("won", "lost"):
         rfq.status = SubmissionStatus.CLOSED
     else:
         rfq.status = SubmissionStatus.IN_REVIEW if payload.commercial_stage == "under_review" else SubmissionStatus.NEW
@@ -2410,53 +2409,219 @@ def delete_taxonomy(
     db.commit()
 
 
+TEAM_ROLE_NAMES = {"super_admin", "admin", "editor"}
+
+
+def team_role_label(name: str) -> str:
+    return {
+        "super_admin": "Super Admin / Developer",
+        "admin": "Admin",
+        "editor": "Editor",
+    }.get(name, name.replace("_", " ").title())
+
+
+def revoke_user_sessions(db: Session, user_id: uuid.UUID) -> int:
+    now = datetime.now(UTC)
+    tokens = list(
+        db.scalars(
+            select(RefreshToken).where(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        )
+    )
+    for token in tokens:
+        token.revoked_at = now
+    return len(tokens)
+
+
+def active_super_admin_count(db: Session) -> int:
+    return db.scalar(
+        select(func.count(User.id))
+        .join(User.roles)
+        .where(
+            Role.name == "super_admin",
+            User.is_active.is_(True),
+            User.deleted_at.is_(None),
+        )
+    ) or 0
+
+
+def ensure_super_admin_remains(
+    db: Session, item: User, *, final_role: str, final_active: bool, deleting: bool = False
+) -> None:
+    is_super = any(role.name == "super_admin" for role in item.roles)
+    if (
+        is_super
+        and (final_role != "super_admin" or not final_active or deleting)
+        and active_super_admin_count(db) <= 1
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="At least one active Super Admin / Developer account is required",
+        )
+
+
+def serialize_team_user(item: User, active_sessions: int = 0) -> dict[str, Any]:
+    role_names = [role.name for role in item.roles]
+    status_name = "deleted" if item.deleted_at else (
+        "suspended" if not item.is_active else (
+            "password_change_required" if item.must_change_password else "active"
+        )
+    )
+    return {
+        "id": str(item.id),
+        "email": item.email,
+        "full_name": item.full_name,
+        "roles": role_names,
+        "role_label": team_role_label(role_names[0]) if role_names else "No role",
+        "permissions": sorted(
+            {permission.code for role in item.roles for permission in role.permissions}
+        ),
+        "status": status_name,
+        "is_active": item.is_active,
+        "must_change_password": item.must_change_password,
+        "last_login_at": item.last_login_at.isoformat() if item.last_login_at else None,
+        "password_changed_at": (
+            item.password_changed_at.isoformat() if item.password_changed_at else None
+        ),
+        "suspended_at": item.suspended_at.isoformat() if item.suspended_at else None,
+        "created_at": item.created_at.isoformat(),
+        "deleted_at": item.deleted_at.isoformat() if item.deleted_at else None,
+        "active_sessions": active_sessions,
+    }
+
+
 @router.get("/roles")
 def list_roles(
-    user: Annotated[User, Depends(require_permission("cms.manage_users", "cms.view"))],
+    user: Annotated[User, Depends(require_permission("cms.manage_users"))],
     db: DBSession,
 ) -> dict[str, Any]:
     _ = user
-    items = [
-        {
-            "id": str(role.id),
-            "name": role.name,
-            "description": role.description,
-            "permissions": [permission.code for permission in role.permissions],
-        }
-        for role in db.scalars(
-            select(Role).options(selectinload(Role.permissions)).order_by(Role.name)
+    roles = list(
+        db.scalars(
+            select(Role)
+            .options(selectinload(Role.permissions))
+            .where(Role.name.in_(TEAM_ROLE_NAMES))
         )
-    ]
-    return {"items": items}
+    )
+    order = {"super_admin": 0, "admin": 1, "editor": 2}
+    return {
+        "items": [
+            {
+                "id": str(role.id),
+                "name": role.name,
+                "label": team_role_label(role.name),
+                "description": role.description,
+                "permissions": sorted(permission.code for permission in role.permissions),
+            }
+            for role in sorted(roles, key=lambda role: order.get(role.name, 99))
+        ]
+    }
 
 
 @router.get("/users")
 def list_users(
-    user: Annotated[User, Depends(require_permission("cms.manage_users", "cms.view"))],
+    user: Annotated[User, Depends(require_permission("cms.manage_users"))],
     db: DBSession,
 ) -> dict[str, Any]:
     _ = user
     users = list(
         db.scalars(
-            select(User).options(selectinload(User.roles)).order_by(User.created_at)
+            select(User)
+            .options(selectinload(User.roles).selectinload(Role.permissions))
+            .order_by(User.created_at.desc())
         )
     )
+    session_counts = dict(
+        db.execute(
+            select(RefreshToken.user_id, func.count(RefreshToken.id))
+            .where(
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > datetime.now(UTC),
+            )
+            .group_by(RefreshToken.user_id)
+        ).all()
+    )
+    items = [serialize_team_user(item, session_counts.get(item.id, 0)) for item in users]
     return {
-        "items": [
-            {
-                "id": str(item.id),
-                "email": item.email,
-                "full_name": item.full_name,
-                "roles": [role.name for role in item.roles],
-                "is_active": item.is_active,
-                "last_login_at": item.last_login_at.isoformat()
-                if item.last_login_at
-                else None,
-            }
-            for item in users
-            if item.deleted_at is None
-        ]
+        "items": items,
+        "summary": {
+            "total": len([item for item in users if item.deleted_at is None]),
+            "active": len([item for item in users if item.deleted_at is None and item.is_active]),
+            "suspended": len([item for item in users if item.deleted_at is None and not item.is_active]),
+            "super_admins": len([
+                item for item in users
+                if item.deleted_at is None
+                and any(role.name == "super_admin" for role in item.roles)
+            ]),
+        },
     }
+
+
+@router.get("/users/{item_id}")
+def get_user_detail(
+    item_id: uuid.UUID,
+    user: Annotated[User, Depends(require_permission("cms.manage_users"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    _ = user
+    item = db.scalar(
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.id == item_id)
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    now = datetime.now(UTC)
+    sessions = list(
+        db.scalars(
+            select(RefreshToken)
+            .where(
+                RefreshToken.user_id == item.id,
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > now,
+            )
+            .order_by(RefreshToken.created_at.desc())
+        )
+    )
+    activity = list(
+        db.scalars(
+            select(AuditLog)
+            .where(or_(AuditLog.actor_id == item.id, AuditLog.entity_id == item.id))
+            .order_by(AuditLog.created_at.desc())
+            .limit(80)
+        )
+    )
+    actor_ids = {entry.actor_id for entry in activity if entry.actor_id}
+    actor_names = {
+        actor.id: actor.full_name
+        for actor in db.scalars(select(User).where(User.id.in_(actor_ids)))
+    } if actor_ids else {}
+    payload = serialize_team_user(item, len(sessions))
+    payload["sessions"] = [
+        {
+            "id": str(session.id),
+            "created_at": session.created_at.isoformat(),
+            "expires_at": session.expires_at.isoformat(),
+            "ip_address": str(session.ip_address) if session.ip_address else None,
+            "user_agent": session.user_agent,
+        }
+        for session in sessions
+    ]
+    payload["activity"] = [
+        {
+            "id": str(entry.id),
+            "action": entry.action,
+            "entity_type": entry.entity_type,
+            "actor_name": actor_names.get(entry.actor_id, "System"),
+            "created_at": entry.created_at.isoformat(),
+            "before": entry.before,
+            "after": entry.after,
+        }
+        for entry in activity
+    ]
+    return payload
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
@@ -2466,10 +2631,15 @@ def create_user(
     user: Annotated[User, Depends(require_permission("cms.manage_users"))],
     db: DBSession,
 ) -> dict[str, Any]:
-    existing = db.scalar(select(User).where(User.email == payload.email.lower()))
+    existing = db.scalar(
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.email == payload.email.lower())
+    )
     if existing is not None and existing.deleted_at is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
+    if payload.role not in TEAM_ROLE_NAMES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
     role = db.scalar(select(Role).where(Role.name == payload.role))
     if role is None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
@@ -2479,37 +2649,23 @@ def create_user(
     item.full_name = payload.full_name
     item.is_active = payload.is_active
     item.is_verified = True
+    item.must_change_password = payload.require_password_change
+    item.password_changed_at = None
+    item.suspended_at = None if payload.is_active else datetime.now(UTC)
+    item.created_by_id = user.id
     item.deleted_at = None
     item.roles = [role]
     if existing is not None:
-        now = datetime.now(UTC)
-        for token in db.scalars(
-            select(RefreshToken).where(
-                RefreshToken.user_id == item.id,
-                RefreshToken.revoked_at.is_(None),
-            )
-        ):
-            token.revoked_at = now
+        revoke_user_sessions(db, item.id)
     db.add(item)
     db.flush()
     audit(
-        db,
-        request,
-        user,
-        "cms.user_created",
-        "users",
-        item.id,
-        after={"email": item.email, "role": role.name},
+        db, request, user, "cms.user_created", "users", item.id,
+        after={"email": item.email, "role": role.name, "is_active": item.is_active},
     )
     db.commit()
-    return {
-        "id": str(item.id),
-        "email": item.email,
-        "full_name": item.full_name,
-        "roles": [role.name],
-        "is_active": item.is_active,
-        "last_login_at": None,
-    }
+    db.refresh(item)
+    return serialize_team_user(item)
 
 
 @router.patch("/users/{item_id}")
@@ -2521,76 +2677,160 @@ def update_user(
     db: DBSession,
 ) -> dict[str, Any]:
     item = db.scalar(
-        select(User).options(selectinload(User.roles)).where(User.id == item_id)
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.id == item_id)
     )
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
+    current_role = item.roles[0].name if item.roles else "editor"
+    final_role = payload.role or current_role
+    final_active = payload.is_active if payload.is_active is not None else item.is_active
+    if final_role not in TEAM_ROLE_NAMES:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
+    if item.id == user.id and (not final_active or final_role != current_role):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot change your own role or suspend your own account",
+        )
+    ensure_super_admin_remains(
+        db, item, final_role=final_role, final_active=final_active
+    )
     before = {
         "full_name": item.full_name,
-        "roles": [role.name for role in item.roles],
+        "role": current_role,
         "is_active": item.is_active,
     }
-    current_is_owner = any(role.name == "owner" for role in item.roles)
-    final_is_active = payload.is_active if payload.is_active is not None else item.is_active
-    final_is_owner = payload.role == "owner" if payload.role is not None else current_is_owner
-    if current_is_owner and (not final_is_owner or not final_is_active):
-        active_owner_count = db.scalar(
-            select(func.count(User.id))
-            .join(User.roles)
-            .where(
-                Role.name == "owner",
-                User.is_active.is_(True),
-                User.deleted_at.is_(None),
-            )
-        ) or 0
-        if active_owner_count <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="At least one active owner account is required",
-            )
     if payload.full_name is not None:
         item.full_name = payload.full_name
     if payload.is_active is not None:
-        if item.id == user.id and payload.is_active is False:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="You cannot deactivate your own account",
-            )
         item.is_active = payload.is_active
-    if payload.role is not None:
+        item.suspended_at = None if payload.is_active else datetime.now(UTC)
+    if payload.role is not None and payload.role != current_role:
         role = db.scalar(select(Role).where(Role.name == payload.role))
         if role is None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Unknown role",
-            )
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
         item.roles = [role]
-    if payload.password:
-        item.password_hash = hash_password(payload.password)
-
-    if payload.password or payload.is_active is not None:
-        now = datetime.now(UTC)
-        for token in db.scalars(
-            select(RefreshToken).where(
-                RefreshToken.user_id == item.id,
-                RefreshToken.revoked_at.is_(None),
-            )
-        ):
-            token.revoked_at = now
-
+    if payload.is_active is not None or payload.role is not None:
+        revoke_user_sessions(db, item.id)
     after = {
         "full_name": item.full_name,
-        "roles": [role.name for role in item.roles],
+        "role": final_role,
         "is_active": item.is_active,
     }
     audit(db, request, user, "cms.user_updated", "users", item.id, before=before, after=after)
     db.commit()
-    return {
-        "id": str(item.id),
-        "email": item.email,
-        "full_name": item.full_name,
-        "roles": [role.name for role in item.roles],
-        "is_active": item.is_active,
-        "last_login_at": item.last_login_at.isoformat() if item.last_login_at else None,
-    }
+    return serialize_team_user(item)
+
+
+@router.post("/users/{item_id}/reset-password")
+def reset_user_password(
+    item_id: uuid.UUID,
+    payload: UserPasswordReset,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_security"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Your password is incorrect")
+    if item_id == user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Use your own password-change screen to change your password",
+        )
+    item = db.scalar(
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.id == item_id, User.deleted_at.is_(None))
+    )
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if verify_password(payload.new_password, item.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be different")
+    item.password_hash = hash_password(payload.new_password)
+    item.must_change_password = payload.require_password_change
+    item.password_changed_at = None if payload.require_password_change else datetime.now(UTC)
+    revoked = revoke_user_sessions(db, item.id)
+    audit(
+        db, request, user, "cms.user_password_reset", "users", item.id,
+        after={"require_password_change": payload.require_password_change, "sessions_revoked": revoked},
+    )
+    db.commit()
+    return {"ok": True, "sessions_revoked": revoked}
+
+
+@router.post("/users/{item_id}/revoke-sessions")
+def revoke_sessions(
+    item_id: uuid.UUID,
+    payload: SensitiveActionRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_security"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Your password is incorrect")
+    item = db.get(User, item_id)
+    if item is None or item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    revoked = revoke_user_sessions(db, item.id)
+    audit(
+        db, request, user, "cms.user_sessions_revoked", "users", item.id,
+        after={"sessions_revoked": revoked},
+    )
+    db.commit()
+    return {"ok": True, "sessions_revoked": revoked}
+
+
+@router.delete("/users/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    item_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_users"))],
+    db: DBSession,
+) -> None:
+    item = db.scalar(select(User).options(selectinload(User.roles)).where(User.id == item_id))
+    if item is None or item.deleted_at is not None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if item.id == user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot delete your own account",
+        )
+    current_role = item.roles[0].name if item.roles else "editor"
+    ensure_super_admin_remains(
+        db, item, final_role=current_role, final_active=False, deleting=True
+    )
+    before = {"email": item.email, "role": current_role, "is_active": item.is_active}
+    item.deleted_at = datetime.now(UTC)
+    item.is_active = False
+    item.suspended_at = item.deleted_at
+    revoke_user_sessions(db, item.id)
+    audit(db, request, user, "cms.user_deleted", "users", item.id, before=before)
+    db.commit()
+
+
+@router.post("/users/{item_id}/restore")
+def restore_user(
+    item_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_users"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    item = db.scalar(
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.id == item_id)
+    )
+    if item is None or item.deleted_at is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted user not found")
+    item.deleted_at = None
+    item.is_active = False
+    item.suspended_at = datetime.now(UTC)
+    item.must_change_password = True
+    revoke_user_sessions(db, item.id)
+    audit(
+        db, request, user, "cms.user_restored", "users", item.id,
+        after={"is_active": False, "must_change_password": True},
+    )
+    db.commit()
+    return serialize_team_user(item)

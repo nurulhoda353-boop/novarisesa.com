@@ -349,10 +349,20 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=12, max_length=128)
     role: str = Field(default="editor", min_length=2, max_length=80)
     is_active: bool = True
+    require_password_change: bool = True
 
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=160)
     role: str | None = Field(default=None, min_length=2, max_length=80)
     is_active: bool | None = None
-    password: str | None = Field(default=None, min_length=12, max_length=128)
+
+
+class UserPasswordReset(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
+    require_password_change: bool = True
+
+
+class SensitiveActionRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)

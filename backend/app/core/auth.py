@@ -57,6 +57,11 @@ def require_permission(*codes: str) -> Callable[[User], User]:
     """Require the current user to hold at least one of the given permission codes."""
 
     def dependency(user: CurrentUser) -> User:
+        if getattr(user, "must_change_password", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password change required before using the dashboard",
+            )
         held = user_permission_codes(user)
         if not held.intersection(codes):
             raise HTTPException(

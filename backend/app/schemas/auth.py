@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     roles: list[str]
     permissions: list[str] = []
     last_login_at: datetime | None
+    must_change_password: bool = False
 
 
 class SessionResponse(BaseModel):

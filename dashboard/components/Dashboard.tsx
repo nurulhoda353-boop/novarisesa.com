@@ -46,6 +46,7 @@ import { InsightsManager } from "./InsightsManager";
 import { RequirementsManager } from "./RequirementsManager";
 import { ApplicationsManager } from "./ApplicationsManager";
 import { ContactManager, RFQManager } from "./InquiryManagers";
+import { TeamAccessManager } from "./TeamAccessManager";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -65,10 +66,12 @@ function useTheme() {
 const SITE_ORIGIN = new URL(SITE_URL).origin;
 
 type User = {
+  id: string;
   full_name: string;
   email: string;
   roles: string[];
   permissions?: string[];
+  must_change_password?: boolean;
 };
 type ContentItem = {
   id: string;
@@ -168,15 +171,6 @@ type TaxonomyItem = {
   slug: string;
   name: Record<string, string>;
 };
-type TeamUser = {
-  id: string;
-  full_name: string;
-  email: string;
-  roles: string[];
-  is_active: boolean;
-  last_login_at?: string;
-};
-
 const contentNav = [
   ["services", "Services", BriefcaseBusiness],
   ["projects", "Projects", FolderKanban],
@@ -234,7 +228,7 @@ const assetSlots = [
 ] as const;
 
 function can(user: User, code: string) {
-  return (user.permissions ?? []).includes(code) || user.roles.includes("owner");
+  return (user.permissions ?? []).includes(code) || user.roles.includes("super_admin");
 }
 
 export default function Dashboard({ route }: { route: string[] }) {
@@ -249,7 +243,13 @@ export default function Dashboard({ route }: { route: string[] }) {
 
   useEffect(() => {
     api<User>("/auth/me")
-      .then(setUser)
+      .then((currentUser) => {
+        if (currentUser.must_change_password) {
+          router.replace("/change-password");
+          return;
+        }
+        setUser(currentUser);
+      })
       .catch(() => router.replace("/"))
       .finally(() => setLoading(false));
   }, [router]);
@@ -304,19 +304,19 @@ export default function Dashboard({ route }: { route: string[] }) {
         <p className="nav-label">Workspace</p>
         <Nav href="/overview" icon={CircleGauge} label="Overview" active={active === "overview"} />
         <p className="nav-label">Website</p>
-        <Nav href="/site-content" icon={FilePenLine} label="Site content" active={active === "site-content"} />
+        {can(user, "cms.manage_settings") && <Nav href="/site-content" icon={FilePenLine} label="Site content" active={active === "site-content"} />}
         {contentNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/content/${key}`} icon={Icon} label={label} active={active === `content/${key}`} />
         ))}
         <Nav href="/media" icon={ImageIcon} label="Media library" active={active === "media"} />
         <Nav href="/taxonomy" icon={BookOpen} label="Categories & tags" active={active === "taxonomy"} />
-        <p className="nav-label">Inbox</p>
-        {inboxNav.map(([key, label, Icon]) => (
+        {can(user, "cms.manage_inbox") && <p className="nav-label">Inbox</p>}
+        {can(user, "cms.manage_inbox") && inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
         ))}
         <p className="nav-label">Administration</p>
-        <Nav href="/settings" icon={Settings} label="Site settings" active={active === "settings"} />
-        <Nav href="/users" icon={ShieldCheck} label="Team & access" active={active === "users"} />
+        {can(user, "cms.manage_settings") && <Nav href="/settings" icon={Settings} label="Site settings" active={active === "settings"} />}
+        {can(user, "cms.manage_users") && <Nav href="/users" icon={ShieldCheck} label="Team & access" active={active === "users"} />}
         <div className="sidebar-user">
           <div className="avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
           <div><strong>{user.full_name}</strong><span>{user.email}</span></div>
@@ -335,18 +335,18 @@ export default function Dashboard({ route }: { route: string[] }) {
           <button className="theme-toggle" onClick={toggleTheme} title={dark ? "Switch to light mode" : "Switch to dark mode"} aria-label="Toggle theme">
             {dark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-          <Link className="icon-button" href="/inbox/contact" title={`${inboxNew} new inbox items`}>
+          {can(user, "cms.manage_inbox") && <Link className="icon-button" href="/inbox/contact" title={`${inboxNew} new inbox items`}>
             <Bell size={18} />
             {inboxNew > 0 && <i />}
-          </Link>
+          </Link>}
         </header>
         <main className="content">
           {route[0] === "overview" && <OverviewPage user={user} />}
           {route[0] === "site-content" && <SiteContentPage user={user} onTopbarActions={setTopbarActions} />}
-          {route[0] === "content" && route[1] === "insights" && <InsightsManager />}
-          {route[0] === "content" && route[1] === "requirements" && <RequirementsManager />}
+          {route[0] === "content" && route[1] === "insights" && <InsightsManager canPublish={can(user, "cms.publish")} />}
+          {route[0] === "content" && route[1] === "requirements" && <RequirementsManager canPublish={can(user, "cms.publish")} />}
           {route[0] === "content" && !["insights", "requirements"].includes(route[1] ?? "") && !hiddenContentResources.has(route[1] ?? "") && (
-            <ContentPage resource={route[1] ?? "services"} />
+            <ContentPage resource={route[1] ?? "services"} user={user} />
           )}
           {route[0] === "inbox" && route[1] === "applications" && <ApplicationsManager />}
           {route[0] === "inbox" && route[1] === "contact" && <ContactManager />}
@@ -355,7 +355,8 @@ export default function Dashboard({ route }: { route: string[] }) {
           {route[0] === "navigation" && <NavigationPage user={user} />}
           {route[0] === "taxonomy" && <TaxonomyPage user={user} />}
           {route[0] === "settings" && <SettingsPage user={user} />}
-          {route[0] === "users" && <UsersPage user={user} />}
+          {route[0] === "users" && can(user, "cms.manage_users") && <TeamAccessManager currentUser={user} />}
+          {route[0] === "users" && !can(user, "cms.manage_users") && <div className="panel"><Empty copy="Only a Super Admin / Developer can manage team access." /></div>}
         </main>
       </div>
       {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} />}
@@ -832,7 +833,7 @@ function AssetPreview({ src, label, compact }: { src: string; label: string; com
   );
 }
 
-function ContentPage({ resource }: { resource: string }) {
+function ContentPage({ resource, user }: { resource: string; user: User }) {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [busy, setBusy] = useState(true);
   const [query, setQuery] = useState("");
@@ -1021,8 +1022,8 @@ function ContentPage({ resource }: { resource: string }) {
         ) : renderCards(visible)
       ) : <Empty copy={`No ${title.toLowerCase()} yet.`} />}
     </div>
-    {editingProject && <ProjectEditor item={editingProject} onClose={() => setEditingProject(null)} onPublished={load} />}
-    {editingService && <ServiceEditor item={editingService} onClose={() => setEditingService(null)} onPublished={load} />}
+    {editingProject && <ProjectEditor item={editingProject} canPublish={can(user, "cms.publish")} onClose={() => setEditingProject(null)} onPublished={load} />}
+    {editingService && <ServiceEditor item={editingService} canPublish={can(user, "cms.publish")} onClose={() => setEditingService(null)} onPublished={load} />}
     {newProjectOpen && <NewProjectModal featured={newProjectFeatured} creating={creatingProject} error={projectActionError} onFeaturedChange={setNewProjectFeatured} onClose={() => setNewProjectOpen(false)} onCreate={() => void createProject()} />}
   </>;
 }
@@ -1087,7 +1088,7 @@ function fixedProjectTemplate(data: ProjectEditorData, slug: string): ProjectEdi
   return { ...data, overview: fixed(data.overview ?? [], template.long ?? [], 2), highlights: fixed(data.highlights ?? [], template.highlights ?? [], 4) };
 }
 
-function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onClose: () => void; onPublished: () => void }) {
+function ProjectEditor({ item, canPublish, onClose, onPublished }: { item: ContentItem; canPublish: boolean; onClose: () => void; onPublished: () => void }) {
   const publicImage = publicProjectImage(item.slug);
   const [tab, setTab] = useState<EditorTab>("thumbnail");
   const [form, setForm] = useState<ProjectEditorData>(() => projectEditorFallback(item));
@@ -1181,7 +1182,7 @@ function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onCl
         <div className="project-editor-actions">
           <a href={`${SITE_ORIGIN}/projects/${item.slug}`} target="_blank" rel="noreferrer" className="editor-live-link"><Globe2 size={15} /> View live</a>
           <button type="button" className="editor-draft-button" onClick={() => void save("draft")} disabled={!!saving}><Save size={16} /> {saving === "draft" ? "Saving…" : "Save draft"}</button>
-          <button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>{saving === "publish" ? "Publishing…" : "Publish"}</button>
+          {canPublish && <button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>{saving === "publish" ? "Publishing…" : "Publish"}</button>}
           <button type="button" className="editor-close" onClick={close} aria-label="Close editor"><X size={19} /></button>
         </div>
       </header>
@@ -1220,7 +1221,7 @@ function ProjectEditor({ item, onClose, onPublished }: { item: ContentItem; onCl
         </div>
         <aside className="project-editor-preview"><span>Live block preview · Desktop proportions</span><ScaledDesktopPreview tab={tab}><EditorPreview tab={tab} form={form} thumbnail={preview.thumbnail_url} hero={preview.hero_url || preview.thumbnail_url} /></ScaledDesktopPreview></aside>
       </div>}
-      <footer className="project-editor-foot"><p>{notice || "Your changes are only public after Publish."}</p><div><button type="button" onClick={close}>Close</button><button type="button" className="editor-draft-button" onClick={() => void save("draft")} disabled={!!saving}>Save draft</button><button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>Publish</button></div></footer>
+      <footer className="project-editor-foot"><p>{notice || (canPublish ? "Your changes are only public after Publish." : "Save your work as a draft for an Admin to publish.")}</p><div><button type="button" onClick={close}>Close</button><button type="button" className="editor-draft-button" onClick={() => void save("draft")} disabled={!!saving}>Save draft</button>{canPublish && <button type="button" className="primary-button compact" onClick={() => void save("publish")} disabled={!!saving}>Publish</button>}</div></footer>
       {mediaOpen && <div className="media-picker-backdrop" onMouseDown={() => setMediaOpen(null)}><div className={`media-picker ${mediaOpen}`} onMouseDown={(event) => event.stopPropagation()}><div><p className="eyebrow">Choose image</p><h3>{mediaOpen === "thumbnail" ? "Thumbnail card · 16:10" : "Hero + project image · 21:9"}</h3></div><label className="primary-button compact upload-button"><Upload size={15} /> Upload new<input type="file" accept="image/*" hidden onChange={(event) => void uploadImage(event, mediaOpen)} /></label><button type="button" className="media-picker-close" onClick={() => setMediaOpen(null)}><X size={17} /></button><div className="media-picker-grid">{imageFor && <button type="button" className="media-option current" onClick={() => setMediaOpen(null)}><img src={imageFor} alt="Current selection" /><span>Current selection</span></button>}{media.map((asset) => <button type="button" className="media-option" key={asset.id} onClick={() => selectMedia(mediaOpen, asset)}><img src={asset.public_url} alt={asset.alt_text.en || asset.file_name} /><span>{asset.file_name}</span></button>)}</div></div></div>}
     </section>
   </div>, document.body);
@@ -1699,7 +1700,7 @@ function InboxPage({ inbox }: { inbox: string }) {
 }
 
 function SettingsPage({ user }: { user: User }) {
-  const isOwner = user.roles.includes("owner");
+  const isOwner = can(user, "cms.manage_settings");
   type Setting = { id: string; group_name: string; key: string; value: unknown; is_public: boolean };
   const [items, setItems] = useState<Setting[]>([]);
   const [form, setForm] = useState({
@@ -1739,7 +1740,7 @@ function SettingsPage({ user }: { user: User }) {
     <PageHead eyebrow="Administration" title="Site settings" copy="Manage global contact, brand and page copy used by the website." />
     {!isOwner ? (
       <div className="panel">
-        <Empty copy="Site settings are managed through Site content (pen mode) and the content editors. Raw JSON settings are restricted to the account owner." />
+        <Empty copy="Site settings are managed through Site content and the content editors. Raw configuration is restricted to a Super Admin / Developer." />
       </div>
     ) : (
     <section className="settings-grid">
@@ -1770,101 +1771,6 @@ function SettingsPage({ user }: { user: User }) {
       </div>
     </section>
     )}
-  </>;
-}
-
-function UsersPage({ user }: { user: User }) {
-  const [items, setItems] = useState<TeamUser[]>([]);
-  const [roles, setRoles] = useState<{ name: string; description?: string }[]>([]);
-  const [form, setForm] = useState({
-    email: "",
-    full_name: "",
-    password: "",
-    role: "editor",
-    is_active: true,
-  });
-  const [error, setError] = useState("");
-  const load = useCallback(() => {
-    api<{ items: TeamUser[] }>("/cms/users").then((r) => setItems(r.items));
-    api<{ items: { name: string; description?: string }[] }>("/cms/roles").then((r) => setRoles(r.items));
-  }, []);
-  useEffect(() => { load(); }, [load]);
-
-  async function invite(event: React.FormEvent) {
-    event.preventDefault();
-    setError("");
-    try {
-      await api("/cms/users", { method: "POST", body: JSON.stringify(form) });
-      setForm({ email: "", full_name: "", password: "", role: "editor", is_active: true });
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create user");
-    }
-  }
-
-  async function toggleActive(item: TeamUser) {
-    if (item.email === user.email) return;
-    await api(`/cms/users/${item.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ is_active: !item.is_active }),
-    });
-    load();
-  }
-
-  async function changeRole(item: TeamUser, role: string) {
-    await api(`/cms/users/${item.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ role }),
-    });
-    load();
-  }
-
-  return <>
-    <PageHead eyebrow="Access control" title="Team & access" copy="Invite teammates, assign roles, and disable accounts when needed." />
-    <section className="settings-grid">
-      {can(user, "cms.manage_users") && (
-        <form className="panel settings-form" onSubmit={invite}>
-          <PanelTitle title="Invite teammate" detail="New users sign in with the temporary password you set" />
-          <label>Full name<input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></label>
-          <label>Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label>
-          <label>Temporary password<input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} minLength={12} required /></label>
-          <label>Role
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              {roles.map((role) => <option key={role.name} value={role.name}>{role.name}</option>)}
-            </select>
-          </label>
-          {error && <p className="form-error">{error}</p>}
-          <button className="primary-button compact">Create user</button>
-        </form>
-      )}
-      <div className="panel">
-        <PanelTitle title="Team members" detail={`${items.length} accounts`} />
-        <div className="team-grid stacked">
-          {items.map((item) => (
-            <article key={item.id}>
-              <div className="avatar">{item.full_name.slice(0, 2).toUpperCase()}</div>
-              <div>
-                <h3>{item.full_name}</h3>
-                <p>{item.email}</p>
-                {can(user, "cms.manage_users") ? (
-                  <select value={item.roles[0] ?? "editor"} onChange={(event) => changeRole(item, event.target.value)}>
-                    {roles.map((role) => <option key={role.name} value={role.name}>{role.name}</option>)}
-                  </select>
-                ) : (
-                  <span>{item.roles.join(", ")}</span>
-                )}
-              </div>
-              <div className="team-actions">
-                <Badge value={item.is_active ? "active" : "disabled"} />
-                {can(user, "cms.manage_users") && item.email !== user.email && (
-                  <button onClick={() => toggleActive(item)}>{item.is_active ? "Disable" : "Enable"}</button>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
   </>;
 }
 
