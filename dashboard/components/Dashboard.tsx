@@ -31,6 +31,7 @@ import {
   Star,
   Sun,
   Trash2,
+  UserRound,
   Users,
   Upload,
   X,
@@ -318,8 +319,8 @@ export default function Dashboard({ route }: { route: string[] }) {
         {can(user, "cms.manage_settings") && <Nav href="/settings" icon={Settings} label="Site settings" active={active === "settings"} />}
         {can(user, "cms.manage_users") && <Nav href="/users" icon={ShieldCheck} label="Team & access" active={active === "users"} />}
         <div className="sidebar-user">
-          <div className="avatar">{user.full_name.slice(0, 2).toUpperCase()}</div>
-          <div><strong>{user.full_name}</strong><span>{user.email}</span></div>
+          <div className="avatar" aria-hidden="true"><UserRound size={18} /></div>
+          <div><strong>{user.full_name}</strong><span>{user.roles[0]?.replaceAll("_", " ") || "team member"}</span></div>
           <button onClick={logout} title="Sign out"><LogOut size={17} /></button>
         </div>
       </aside>
@@ -330,8 +331,12 @@ export default function Dashboard({ route }: { route: string[] }) {
           <button className="global-search" onClick={() => setSearchOpen(true)}>
             <Search size={17} /><span>Search workspace</span><kbd>⌘ K</kbd>
           </button>
+          <div className="workspace-state" aria-label="Production workspace online">
+            <i />
+            <span><b>Production</b><small>PostgreSQL connected</small></span>
+          </div>
           {topbarActions && <div className="topbar-page-actions">{topbarActions}</div>}
-          <a className="site-link" href="https://novarisesa.com" target="_blank"><Globe2 size={16} /> View website</a>
+          <a className="site-link" href="https://novarisesa.com" target="_blank"><Globe2 size={16} /><span>View website</span></a>
           <button className="theme-toggle" onClick={toggleTheme} title={dark ? "Switch to light mode" : "Switch to dark mode"} aria-label="Toggle theme">
             {dark ? <Sun size={17} /> : <Moon size={17} />}
           </button>
