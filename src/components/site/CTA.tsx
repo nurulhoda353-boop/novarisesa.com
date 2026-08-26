@@ -84,10 +84,11 @@ export function CTA() {
               </a>
             </div>
 
-            <div className="mt-10 grid sm:grid-cols-3 gap-px bg-border rounded-2xl overflow-hidden border border-border">
+            <div className="mt-10 grid sm:grid-cols-2 xl:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
               <ContactRow icon={Phone} label={t("cta.contact.call")} labelField="cta.contact.call" value="+966 55 442 9574" href="tel:+966554429574" ltr />
               <ContactRow icon={Mail} label={t("cta.contact.email")} labelField="cta.contact.email" value="info@novarisesa.com" href="mailto:info@novarisesa.com" ltr />
-              <ContactRow icon={MapPin} label={t("cta.contact.visit")} labelField="cta.contact.visit" value={t("cta.contact.visitValue")} valueField="cta.contact.visitValue" href="https://www.google.com/maps/search/?api=1&query=2124+King+Faisal+Rd+Al+Bathaa+Umluj+48313" />
+              <ContactRow icon={MapPin} label={t("cta.contact.headOffice")} labelField="cta.contact.headOffice" value={t("cta.contact.headOfficeValue")} valueField="cta.contact.headOfficeValue" href="https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313" />
+              <ContactRow icon={MapPin} label={t("cta.contact.branchOffice")} labelField="cta.contact.branchOffice" value={t("cta.contact.branchOfficeValue")} valueField="cta.contact.branchOfficeValue" href="https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514" />
             </div>
           </Reveal>
         </div>

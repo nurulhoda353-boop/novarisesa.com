@@ -48,7 +48,7 @@ export function ContactMap() {
                       {t("contactPage.map.address")}
                     </div>
                     <a
-                      href="https://www.google.com/maps/search/?api=1&query=2124+King+Faisal+Rd+Al+Bathaa+Umluj+48313"
+                      href="https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313"
                       target="_blank"
                       rel="noreferrer noopener"
                       className="group mt-3 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-navy hover:text-gold transition-colors"

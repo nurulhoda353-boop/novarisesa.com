@@ -11,8 +11,7 @@ import {
 } from "@/lib/site";
 
 export function ContactInfo() {
-  const { t, i18n } = useTranslation();
-  const isRtl = i18n.dir() === "rtl";
+  const { t } = useTranslation();
 
   const channels = [
     {
@@ -47,14 +46,23 @@ export function ContactInfo() {
     },
     {
       icon: MapPin,
-      label: t("contactPage.info.channels.office.label"),
-      labelField: "contactPage.info.channels.office.label",
-      value: t("contactPage.info.channels.office.value"),
-      valueField: "contactPage.info.channels.office.value" as string | undefined,
-      sub: t("contactPage.info.channels.office.sub"),
-      subField: "contactPage.info.channels.office.sub",
-      arabic: "كفتيريا طاهي القمة، 2124 طريق الملك فيصل، حي البطحاء، أملج 48313، المملكة العربية السعودية",
-      href: "#map",
+      label: t("contactPage.info.channels.headOffice.label"),
+      labelField: "contactPage.info.channels.headOffice.label",
+      value: t("contactPage.info.channels.headOffice.value"),
+      valueField: "contactPage.info.channels.headOffice.value" as string | undefined,
+      sub: t("contactPage.info.channels.headOffice.sub"),
+      subField: "contactPage.info.channels.headOffice.sub",
+      href: "https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313",
+    },
+    {
+      icon: MapPin,
+      label: t("contactPage.info.channels.branchOffice.label"),
+      labelField: "contactPage.info.channels.branchOffice.label",
+      value: t("contactPage.info.channels.branchOffice.value"),
+      valueField: "contactPage.info.channels.branchOffice.value" as string | undefined,
+      sub: t("contactPage.info.channels.branchOffice.sub"),
+      subField: "contactPage.info.channels.branchOffice.sub",
+      href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514",
     },
   ];
 
@@ -98,13 +106,8 @@ export function ContactInfo() {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.22em] font-semibold text-muted-foreground" data-cms-field={c.labelField} suppressContentEditableWarning>{c.label}</div>
-                <div className="text-[15px] font-display font-bold text-navy mt-0.5 break-words leading-snug" dir="ltr" data-cms-field={c.valueField}>{c.value}</div>
+                <div className="text-[15px] font-display font-bold text-navy mt-0.5 break-words leading-snug" data-cms-field={c.valueField}>{c.value}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5" data-cms-field={c.subField} suppressContentEditableWarning>{c.sub}</div>
-                {c.arabic && isRtl && (
-                  <div dir="rtl" lang="ar" className="text-[12px] text-navy/80 mt-2 pt-2 border-t border-border/60 font-medium leading-relaxed text-right">
-                    {c.arabic}
-                  </div>
-                )}
               </div>
               <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-gold group-hover:rotate-45 transition-all duration-500 shrink-0" />
             </a>

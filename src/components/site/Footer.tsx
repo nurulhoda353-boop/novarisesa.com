@@ -46,6 +46,16 @@ export function Footer() {
     { key: "it", to: "/services/it" },
     { key: "trading", to: "/services/trading" },
   ];
+  const offices = [
+    {
+      id: "headOffice",
+      href: "https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313",
+    },
+    {
+      id: "branchOffice",
+      href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514",
+    },
+  ];
 
   return (
     <footer className="relative dark-premium text-white overflow-hidden">
@@ -133,21 +143,23 @@ export function Footer() {
           <div className="lg:col-span-3">
             <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.getInTouch">{t("footer.getInTouch")}</h4>
             <ul className="space-y-4 text-sm text-white/80">
-              <li className="flex items-start gap-3">
-                <MapPin className="h-4 w-4 mt-0.5 text-gold shrink-0" />
-                <span>
-                  <span data-cms-field="footer.addressLine1" suppressContentEditableWarning>{t("footer.addressLine1")}</span><br />
-                  <span data-cms-field="footer.addressLine2" suppressContentEditableWarning>{t("footer.addressLine2")}</span>
-                  <a
-                    href="https://www.google.com/maps/search/?api=1&query=2124+King+Faisal+Rd+Al+Bathaa+Umluj+48313"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 block text-[10px] uppercase tracking-[0.2em] text-gold hover:text-white transition-colors"
-                  >
-                    <span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span>
-                  </a>
-                </span>
-              </li>
+              {offices.map((office) => (
+                <li className="flex items-start gap-3" key={office.id}>
+                  <MapPin className="h-4 w-4 mt-0.5 text-gold shrink-0" />
+                  <span>
+                    <strong className="block text-[10px] uppercase tracking-[0.2em] text-gold" data-cms-field={`footer.${office.id}.label`} suppressContentEditableWarning>{t(`footer.${office.id}.label`)}</strong>
+                    <span data-cms-field={`footer.${office.id}.address`} suppressContentEditableWarning>{t(`footer.${office.id}.address`)}</span>
+                    <a
+                      href={office.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 block text-[10px] uppercase tracking-[0.2em] text-gold hover:text-white transition-colors"
+                    >
+                      <span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span>
+                    </a>
+                  </span>
+                </li>
+              ))}
               <li className="flex items-center gap-3">
                 <Phone className="h-4 w-4 text-gold shrink-0" />
                 <a href="tel:+966554429574" className="hover:text-gold transition" dir="ltr">+966 55 442 9574</a>

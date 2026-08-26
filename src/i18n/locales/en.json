@@ -822,7 +822,11 @@
       "call": "Call",
       "email": "Email",
       "visit": "Visit",
-      "visitValue": "Umluj 48313, KSA"
+      "visitValue": "Umluj 48313, KSA",
+      "headOffice": "Head Office",
+      "headOfficeValue": "Umluj, Saudi Arabia",
+      "branchOffice": "Branch Office",
+      "branchOfficeValue": "Al Jubail, Saudi Arabia"
     }
   },
   "careersTeaser": {
@@ -850,6 +854,14 @@
     "viewMap": "View map ↗",
     "addressLine1": "2124 King Faisal Road, Al Bathaa",
     "addressLine2": "Umluj 48313, Saudi Arabia",
+    "headOffice": {
+      "label": "Head Office",
+      "address": "6563 King Faisal Rd, 2124 Al Bathaa District, 48313 Umluj, Kingdom of Saudi Arabia"
+    },
+    "branchOffice": {
+      "label": "Branch Office",
+      "address": "4342, 8805, Jubail City Center, Al Jubail 35514, Saudi Arabia"
+    },
     "officeHours": "Office hours · KSA · GMT+3",
     "sunThu": "Sun — Thu",
     "sunThuHours": "08:00 — 17:00",
@@ -1976,10 +1988,15 @@
           "label": "WhatsApp",
           "sub": "For urgent mobilization"
         },
-        "office": {
+        "headOffice": {
           "label": "Head Office",
           "value": "Umluj 48313, KSA",
-          "sub": "2124 King Faisal Rd, Al Bathaa District"
+          "sub": "6563 King Faisal Rd, 2124 Al Bathaa District"
+        },
+        "branchOffice": {
+          "label": "Branch Office",
+          "value": "Al Jubail 35514, KSA",
+          "sub": "4342, 8805, Jubail City Center"
         }
       }
     },
@@ -2022,7 +2039,7 @@
       "titleB": "in Umluj, Saudi Arabia.",
       "badge": "NOVARISE HEAD OFFICE",
       "name": "Umluj, Saudi Arabia",
-      "address": "Cafeteria Tahi Al Qimma, 2124 King Faisal Rd\nAl Bathaa District, Umluj 48313–6563, KSA",
+      "address": "6563 King Faisal Rd, 2124 Al Bathaa District\n48313 Umluj, Kingdom of Saudi Arabia",
       "directions": "Get directions"
     }
   },
