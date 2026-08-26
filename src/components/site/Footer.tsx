@@ -3,42 +3,30 @@
 import Image from "next/image";
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
-import { Mail, Phone, MapPin, Facebook, Linkedin, Twitter, Instagram, ArrowUpRight } from "lucide-react";
+import { Mail, Phone, MapPin, ArrowUpRight } from "lucide-react";
 import { useCmsAsset, useCmsNavigation } from "@/lib/cms-content";
+
 const logo = "/assets/logo-white-full.png";
 
-const linkBase =
-  "inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-gold transition-colors";
-const activeProps = {
-  className: "inline-flex items-center gap-1.5 text-sm text-gold font-semibold",
-};
+const linkBase = "group inline-flex items-center gap-1.5 text-sm leading-6 text-white/65 transition-colors hover:text-gold";
+const activeProps = { className: "group inline-flex items-center gap-1.5 text-sm leading-6 text-gold font-semibold" };
 
 export function Footer() {
   const { t } = useTranslation();
   const managedLogo = useCmsAsset("brand.logoWhite", logo);
   const managedFooter = useCmsNavigation("footer");
-  const companyLabels = {
-    about: t("footer.links.about"),
-    capabilities: t("footer.links.capabilities"),
-    requirements: t("footer.links.requirements"),
-    blog: t("footer.links.blog"),
-    careers: t("footer.links.careers"),
-    contact: t("footer.links.contact"),
-    rfq: t("footer.links.rfq"),
-  };
   const company = managedFooter.length
     ? managedFooter.map((item) => ({ label: item.label, to: item.url }))
     : [
-        { label: companyLabels.about, to: "/about" },
-        { label: companyLabels.capabilities, to: "/capabilities" },
-        { label: companyLabels.requirements, to: "/requirements" },
-        { label: companyLabels.blog, to: "/insights" },
-        { label: companyLabels.careers, to: "/careers" },
-        { label: companyLabels.contact, to: "/contact" },
-        { label: companyLabels.rfq, to: "/rfq" },
+        { label: t("footer.links.about"), to: "/about" },
+        { label: t("footer.links.capabilities"), to: "/capabilities" },
+        { label: t("footer.links.requirements"), to: "/requirements" },
+        { label: t("footer.links.blog"), to: "/insights" },
+        { label: t("footer.links.careers"), to: "/careers" },
+        { label: t("footer.links.contact"), to: "/contact" },
+        { label: t("footer.links.rfq"), to: "/rfq" },
       ];
-
-  const services: { key: string; to: string }[] = [
+  const services = [
     { key: "civil", to: "/services/civil" },
     { key: "power", to: "/services/power" },
     { key: "rental", to: "/services/rental" },
@@ -47,166 +35,85 @@ export function Footer() {
     { key: "trading", to: "/services/trading" },
   ];
   const offices = [
-    {
-      id: "headOffice",
-      href: "https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313",
-    },
-    {
-      id: "branchOffice",
-      href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514",
-    },
+    { id: "headOffice", href: "https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313" },
+    { id: "branchOffice", href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514" },
   ];
 
   return (
-    <footer className="relative dark-premium text-white overflow-hidden">
+    <footer className="footer-premium relative overflow-hidden text-white">
       <div className="gold-divider" />
-      <div className="h-1 bg-navy" />
-
-      {/* Ambient glows */}
-      <div className="pointer-events-none absolute -top-40 -left-20 h-[420px] w-[420px] rounded-full bg-gold/10 blur-[140px]" />
-      <div className="pointer-events-none absolute -bottom-40 -right-20 h-[420px] w-[420px] rounded-full bg-navy/40 blur-[140px]" />
-
-      <div className="relative container-wide pt-12 pb-8 lg:pt-16">
-        <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 pb-10 lg:pb-14 border-b border-white/10">
-          {/* Brand */}
-          <div className="lg:col-span-4">
-            <Link to="/" aria-label="NOVARISE — Home" className="inline-block mb-5">
-              <span className="relative block h-12 lg:h-14 w-44" data-cms-asset="brand.logoWhite">
-                <Image
-                  src={managedLogo}
-                  alt="NOVARISE Trading and Contracting Company"
-                  fill
-                  sizes="176px"
-                  className="object-contain object-left"
-                />
+      <div className="relative container-wide py-10 lg:py-12">
+        <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr_1.1fr] lg:gap-12">
+          <section className="max-w-sm">
+            <Link to="/" aria-label="NOVARISE home" className="inline-block">
+              <span className="relative block h-12 w-48" data-cms-asset="brand.logoWhite">
+                <Image src={managedLogo} alt="NOVARISE Trading and Contracting Company" fill sizes="192px" className="object-contain object-left" />
               </span>
             </Link>
-            <p className="text-white/70 text-sm leading-relaxed max-w-sm" data-cms-field="footer.tagline">
-              {t("footer.tagline")}
-            </p>
+            <div className="mt-6 h-px w-10 bg-gold/70" />
+            <p className="mt-4 text-sm leading-6 text-white/65" data-cms-field="footer.tagline">{t("footer.tagline")}</p>
             <a
               href="/company-profile.pdf"
               target="_blank"
               rel="noopener"
-              className="mt-5 inline-flex items-center gap-2 rounded-full border border-gold/50 bg-gold/10 px-4 py-2 text-xs font-semibold text-gold hover:bg-gold hover:text-navy-deep transition-colors"
+              className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-gold transition-colors hover:text-white"
             >
               <span data-cms-field="footer.downloadProfile" suppressContentEditableWarning>{t("footer.downloadProfile")}</span>
+              <ArrowUpRight className="h-3.5 w-3.5" />
             </a>
-            <div className="flex items-center gap-3 mt-6">
-              {[Facebook, Twitter, Linkedin, Instagram].map((Icon, i) => (
-                <span
-                  key={i}
-                  className="h-10 w-10 rounded-full border border-white/15 flex items-center justify-center text-white/50"
-                  aria-hidden="true"
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-              ))}
-            </div>
-          </div>
+          </section>
 
-          {/* Links: two columns on mobile, original layout on desktop */}
-          <div className="lg:col-span-5 grid grid-cols-2 gap-8 lg:contents">
-            <div className="lg:col-span-2">
-              <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.company">{t("footer.company")}</h4>
-              <ul className="space-y-3">
-                {company.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}>
-                      {l.label}
-                    </Link>
-                  </li>
+          <section className="grid grid-cols-2 gap-8 border-t border-white/10 pt-8 lg:border-l lg:border-t-0 lg:pl-12 lg:pt-0">
+            <div>
+              <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.company">{t("footer.company")}</h2>
+              <ul className="space-y-1.5">
+                {company.map((item) => (
+                  <li key={item.to}><Link to={item.to} className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}>{item.label}</Link></li>
                 ))}
               </ul>
             </div>
-
-            <div className="lg:col-span-3">
-              <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.servicesHeading">{t("footer.servicesHeading")}</h4>
-              <ul className="space-y-3">
-                <li>
-                  <Link to="/services" className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}>
-                    <span data-cms-field="footer.allServices" suppressContentEditableWarning>{t("footer.allServices")}</span> <ArrowUpRight className="h-3.5 w-3.5" />
-                  </Link>
-                </li>
-                {services.map((l) => (
-                  <li key={l.to}>
-                    <Link to={l.to} className={linkBase} activeProps={activeProps}>
-                      <span data-cms-field={`services.${l.key}.label`} suppressContentEditableWarning>{t(`services.${l.key}.label`)}</span>
-                    </Link>
-                  </li>
+            <div>
+              <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.servicesHeading">{t("footer.servicesHeading")}</h2>
+              <ul className="space-y-1.5">
+                <li><Link to="/services" className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}><span data-cms-field="footer.allServices" suppressContentEditableWarning>{t("footer.allServices")}</span><ArrowUpRight className="h-3.5 w-3.5 opacity-60 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></Link></li>
+                {services.map((item) => (
+                  <li key={item.to}><Link to={item.to} className={linkBase} activeProps={activeProps}><span data-cms-field={`services.${item.key}.label`} suppressContentEditableWarning>{t(`services.${item.key}.label`)}</span></Link></li>
                 ))}
               </ul>
             </div>
-          </div>
+          </section>
 
-          {/* Get in touch */}
-          <div className="lg:col-span-3">
-            <h4 className="text-xs uppercase tracking-[0.2em] text-gold mb-4 lg:mb-5" data-cms-field="footer.getInTouch">{t("footer.getInTouch")}</h4>
-            <ul className="space-y-4 text-sm text-white/80">
+          <section className="border-t border-white/10 pt-8 lg:border-l lg:border-t-0 lg:pl-12 lg:pt-0">
+            <h2 className="mb-5 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.getInTouch">{t("footer.getInTouch")}</h2>
+            <div className="space-y-4">
               {offices.map((office) => (
-                <li className="flex items-start gap-3" key={office.id}>
-                  <MapPin className="h-4 w-4 mt-0.5 text-gold shrink-0" />
-                  <span>
-                    <strong className="block text-[10px] uppercase tracking-[0.2em] text-gold" data-cms-field={`footer.${office.id}.label`} suppressContentEditableWarning>{t(`footer.${office.id}.label`)}</strong>
+                <div className="flex items-start gap-3" key={office.id}>
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                  <div className="min-w-0 text-sm leading-5 text-white/70">
+                    <strong className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gold" data-cms-field={`footer.${office.id}.label`} suppressContentEditableWarning>{t(`footer.${office.id}.label`)}</strong>
                     <span data-cms-field={`footer.${office.id}.address`} suppressContentEditableWarning>{t(`footer.${office.id}.address`)}</span>
-                    <a
-                      href={office.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 block text-[10px] uppercase tracking-[0.2em] text-gold hover:text-white transition-colors"
-                    >
-                      <span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span>
-                    </a>
-                  </span>
-                </li>
+                    <a href={office.href} target="_blank" rel="noopener noreferrer" className="mt-1.5 inline-block text-[10px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors hover:text-white"><span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span></a>
+                  </div>
+                </div>
               ))}
-              <li className="flex items-center gap-3">
-                <Phone className="h-4 w-4 text-gold shrink-0" />
-                <a href="tel:+966554429574" className="hover:text-gold transition" dir="ltr">+966 55 442 9574</a>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="h-4 w-4 text-gold shrink-0" />
-                <a href="mailto:info@novarisesa.com" className="hover:text-gold transition" dir="ltr">info@novarisesa.com</a>
-              </li>
-              <li className="mt-2 pt-4 border-t border-white/10">
-                <div className="text-[10px] uppercase tracking-[0.28em] text-gold mb-2" data-cms-field="footer.officeHours">{t("footer.officeHours")}</div>
-                <div className="flex items-center justify-between text-xs text-white/75">
-                  <span data-cms-field="footer.sunThu" suppressContentEditableWarning>{t("footer.sunThu")}</span>
-                  <span className="tabular-nums text-white" dir="ltr" data-cms-field="footer.sunThuHours" suppressContentEditableWarning>{t("footer.sunThuHours")}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-white/55 mt-1.5">
-                  <span data-cms-field="footer.friSat" suppressContentEditableWarning>{t("footer.friSat")}</span>
-                  <span data-cms-field="footer.byAppointment" suppressContentEditableWarning>{t("footer.byAppointment")}</span>
-                </div>
-              </li>
-            </ul>
-          </div>
+              <div className="grid gap-3 border-t border-white/10 pt-4 sm:grid-cols-2 lg:grid-cols-1">
+                <a href="tel:+966554429574" className="inline-flex items-center gap-3 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Phone className="h-4 w-4 shrink-0 text-gold" />+966 55 442 9574</a>
+                <a href="mailto:info@novarisesa.com" className="inline-flex items-center gap-3 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Mail className="h-4 w-4 shrink-0 text-gold" />info@novarisesa.com</a>
+              </div>
+              <div className="border-t border-white/10 pt-4">
+                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.officeHours">{t("footer.officeHours")}</div>
+                <div className="grid grid-cols-[1fr_auto] gap-y-1.5 text-xs text-white/55"><span data-cms-field="footer.sunThu">{t("footer.sunThu")}</span><span className="text-white/80" dir="ltr" data-cms-field="footer.sunThuHours">{t("footer.sunThuHours")}</span><span data-cms-field="footer.friSat">{t("footer.friSat")}</span><span data-cms-field="footer.byAppointment">{t("footer.byAppointment")}</span></div>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <div className="pt-6 lg:pt-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs text-white/50">
+        <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-5 text-[11px] text-white/45 md:flex-row md:items-center md:justify-between">
           <p>{t("footer.copyright", { year: 2026 })}</p>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <span><span data-cms-field="footer.crLabel" suppressContentEditableWarning>{t("footer.crLabel")}</span> <span className="text-white/80 tabular-nums" dir="ltr">4701103544</span></span>
-            <span><span data-cms-field="footer.vatLabel" suppressContentEditableWarning>{t("footer.vatLabel")}</span> <span className="text-white/80 tabular-nums" dir="ltr">300930779500003</span></span>
-            <span><span data-cms-field="footer.estLabel" suppressContentEditableWarning>{t("footer.estLabel")}</span> <span className="text-white/80" dir="ltr">2019</span></span>
-          </div>
-        </div>
-
-        {/* Giant brand wordmark */}
-        <div
-          aria-hidden
-          className="relative mt-10 lg:mt-14 select-none overflow-hidden"
-          style={{ maskImage: "linear-gradient(to bottom, white 20%, transparent 100%)", WebkitMaskImage: "linear-gradient(to bottom, white 20%, transparent 100%)" }}
-        >
-          <div
-            className="font-display font-black tracking-[-0.04em] leading-[0.8] text-transparent bg-clip-text"
-            style={{
-              fontSize: "clamp(4rem, 18vw, 16rem)",
-              backgroundImage: "linear-gradient(180deg, oklch(0.755 0.135 75 / 0.35), oklch(0.755 0.135 75 / 0.03))",
-              WebkitTextStroke: "1px oklch(0.755 0.135 75 / 0.18)",
-            }}
-          >
-            NOVARISE
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <span><span data-cms-field="footer.crLabel">{t("footer.crLabel")}</span> <span className="text-white/65" dir="ltr">4701103544</span></span>
+            <span><span data-cms-field="footer.vatLabel">{t("footer.vatLabel")}</span> <span className="text-white/65" dir="ltr">300930779500003</span></span>
+            <span><span data-cms-field="footer.estLabel">{t("footer.estLabel")}</span> <span className="text-white/65" dir="ltr">2019</span></span>
           </div>
         </div>
       </div>

@@ -19,6 +19,8 @@ All future website, dashboard, API, schema, content, build, addition, and remova
 4. Immediately commit and push the completed change to `main`; Coolify deploys the public site, API, and Dashboard from that branch.
 5. After every deploy, verify live health/readiness plus the affected public and dashboard routes. Record material results in this living report.
 
+> **Permanent delivery rule (2026-08-27):** For every completed task, run the relevant local tests first. Only after they pass, commit and push to `main`, allow the production deployment to finish, then verify the affected live routes and health endpoints. Report completion to the user only after those live checks pass.
+
 **Live:** https://novarisesa.com · Coolify: https://coolify.novarisesa.com · Email: info@novarisesa.com
 
 ---
