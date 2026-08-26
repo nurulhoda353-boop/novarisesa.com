@@ -86,7 +86,7 @@ export function Footer() {
           <section className="border-t border-white/10 pt-8 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
             <h2 className="mb-5 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.getInTouch">{t("footer.getInTouch")}</h2>
             <div className="grid gap-5">
-              <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+              <div className="grid max-w-[23rem] gap-4">
                 {offices.map((office) => (
                   <div className="flex items-start gap-2.5" key={office.id}>
                     <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
