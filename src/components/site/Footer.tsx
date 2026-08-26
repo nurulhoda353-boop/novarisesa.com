@@ -86,11 +86,11 @@ export function Footer() {
           <section className="border-t border-white/10 pt-8 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
             <h2 className="mb-5 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.getInTouch">{t("footer.getInTouch")}</h2>
             <div className="grid gap-5">
-              <div className="grid max-w-[23rem] gap-4">
+              <div className="grid w-full gap-4">
                 {offices.map((office) => (
                   <div className="flex items-start gap-2.5" key={office.id}>
                     <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
-                    <div className="min-w-0 text-[13px] leading-5 text-white/70">
+                    <div className="min-w-0 text-[11px] leading-5 tracking-[-0.01em] text-white/70 lg:whitespace-nowrap">
                       <strong className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gold" data-cms-field={`footer.${office.id}.label`} suppressContentEditableWarning>{t(`footer.${office.id}.label`)}</strong>
                       <span data-cms-field={`footer.${office.id}.address`} suppressContentEditableWarning>{t(`footer.${office.id}.address`)}</span>
                       <a href={office.href} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors hover:text-white"><span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span></a>
