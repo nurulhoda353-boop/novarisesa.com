@@ -62,7 +62,7 @@ export function ContactInfo() {
       valueField: "contactPage.info.channels.branchOffice.value" as string | undefined,
       sub: t("contactPage.info.channels.branchOffice.sub"),
       subField: "contactPage.info.channels.branchOffice.sub",
-      href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514",
+      href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubayl+35514",
     },
   ];
 

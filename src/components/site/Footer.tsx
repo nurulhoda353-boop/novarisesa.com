@@ -36,7 +36,7 @@ export function Footer() {
   ];
   const offices = [
     { id: "headOffice", href: "https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313" },
-    { id: "branchOffice", href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubail+35514" },
+    { id: "branchOffice", href: "https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubayl+35514" },
   ];
 
   return (

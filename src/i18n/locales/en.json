@@ -826,7 +826,7 @@
       "headOffice": "Head Office",
       "headOfficeValue": "Umluj, Saudi Arabia",
       "branchOffice": "Branch Office",
-      "branchOfficeValue": "Al Jubail, Saudi Arabia"
+      "branchOfficeValue": "Al Jubayl, Saudi Arabia"
     }
   },
   "careersTeaser": {
@@ -856,13 +856,13 @@
     "addressLine2": "Umluj 48313, Saudi Arabia",
     "headOffice": {
       "label": "Head Office",
-      "address": "6563 King Faisal Rd, 2124 Al Bathaa District, 48313 Umluj, Kingdom of Saudi Arabia",
-      "addressLine1": "6563 King Faisal Rd, 2124 Al Bathaa District, 48313 Umluj",
+      "address": "6563–King Faisal Rd, 2124–Al Bathaa District, 48313–Umluj, Kingdom of Saudi Arabia",
+      "addressLine1": "6563–King Faisal Rd, 2124–Al Bathaa District, 48313–Umluj,",
       "addressLine2": "Kingdom of Saudi Arabia"
     },
     "branchOffice": {
       "label": "Branch Office",
-      "address": "4342, 8805, Jubail City Center, Al Jubail 35514, Saudi Arabia"
+      "address": "4342, 8805, Jubail City Center, Al Jubayl 35514, Saudi Arabia"
     },
     "officeHours": "Office hours · KSA · GMT+3",
     "sunThu": "Sun — Thu",
@@ -1993,11 +1993,11 @@
         "headOffice": {
           "label": "Head Office",
           "value": "Umluj 48313, KSA",
-          "sub": "6563 King Faisal Rd, 2124 Al Bathaa District"
+          "sub": "6563–King Faisal Rd, 2124–Al Bathaa District"
         },
         "branchOffice": {
           "label": "Branch Office",
-          "value": "Al Jubail 35514, KSA",
+          "value": "Al Jubayl 35514, KSA",
           "sub": "4342, 8805, Jubail City Center"
         }
       }
@@ -2041,7 +2041,7 @@
       "titleB": "in Umluj, Saudi Arabia.",
       "badge": "NOVARISE HEAD OFFICE",
       "name": "Umluj, Saudi Arabia",
-      "address": "6563 King Faisal Rd, 2124 Al Bathaa District\n48313 Umluj, Kingdom of Saudi Arabia",
+      "address": "6563–King Faisal Rd, 2124–Al Bathaa District\n48313–Umluj, Kingdom of Saudi Arabia",
       "directions": "Get directions"
     }
   },
