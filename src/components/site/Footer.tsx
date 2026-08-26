@@ -26,6 +26,7 @@ export function Footer() {
         { label: t("footer.links.contact"), to: "/contact" },
         { label: t("footer.links.rfq"), to: "/rfq" },
       ];
+  const companyLinks = company.filter((item) => item.to !== "/rfq");
   const services = [
     { key: "civil", to: "/services/civil" },
     { key: "power", to: "/services/power" },
@@ -46,8 +47,8 @@ export function Footer() {
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1fr_1.2fr] lg:gap-10">
           <section className="max-w-sm">
             <Link to="/" aria-label="NOVARISE home" className="inline-block">
-              <span className="relative block h-12 w-48" data-cms-asset="brand.logoWhite">
-                <Image src={managedLogo} alt="NOVARISE Trading and Contracting Company" fill sizes="192px" className="object-contain object-left" />
+              <span className="relative block h-14 w-52 lg:h-[3.75rem] lg:w-56" data-cms-asset="brand.logoWhite">
+                <Image src={managedLogo} alt="NOVARISE Trading and Contracting Company" fill sizes="224px" className="object-contain object-left" />
               </span>
             </Link>
             <div className="mt-6 h-px w-10 bg-gold/70" />
@@ -61,10 +62,13 @@ export function Footer() {
               <span data-cms-field="footer.downloadProfile" suppressContentEditableWarning>{t("footer.downloadProfile")}</span>
               <ArrowUpRight className="h-3.5 w-3.5" />
             </a>
-            <div className="mt-5 flex items-center gap-2.5" aria-label={t("footer.social")}>
-              {[Linkedin, Facebook, Instagram].map((Icon, index) => (
-                <span key={index} className="grid h-8 w-8 place-items-center rounded-full border border-white/15 text-white/55 transition-colors hover:border-gold/70 hover:text-gold" aria-hidden="true"><Icon className="h-3.5 w-3.5" /></span>
-              ))}
+            <div className="mt-5">
+              <div className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.22em] text-white/45" data-cms-field="footer.follow">{t("footer.follow")}</div>
+              <div className="flex items-center gap-2.5" aria-label={t("footer.social")}>
+                {[Linkedin, Facebook, Instagram].map((Icon, index) => (
+                  <span key={index} className="grid h-8 w-8 place-items-center rounded-full border border-white/15 text-white/55 transition-colors hover:border-gold/70 hover:text-gold" aria-hidden="true"><Icon className="h-3.5 w-3.5" /></span>
+                ))}
+              </div>
             </div>
           </section>
 
@@ -72,7 +76,7 @@ export function Footer() {
             <div>
               <h2 className="mb-4 text-[10px] font-bold uppercase tracking-[0.24em] text-gold" data-cms-field="footer.company">{t("footer.company")}</h2>
               <ul className="space-y-1.5">
-                {company.map((item) => (
+                {companyLinks.map((item) => (
                   <li key={item.to}><Link to={item.to} className={linkBase} activeProps={activeProps} activeOptions={{ exact: true }}>{item.label}</Link></li>
                 ))}
               </ul>
@@ -85,6 +89,9 @@ export function Footer() {
                   <li key={item.to}><Link to={item.to} className={linkBase} activeProps={activeProps}><span data-cms-field={`services.${item.key}.label`} suppressContentEditableWarning>{t(`services.${item.key}.label`)}</span></Link></li>
                 ))}
               </ul>
+            </div>
+            <div className="col-span-2 mt-1 border-t border-white/10 pt-4">
+              <Link to="/rfq" className="group inline-flex items-center gap-2 text-xs font-semibold text-gold transition-colors hover:text-white"><span>{t("footer.links.rfq")}</span><ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></Link>
             </div>
           </section>
 
@@ -108,7 +115,7 @@ export function Footer() {
                   <a href="tel:+966554429574" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Phone className="h-3.5 w-3.5 shrink-0 text-gold" />+966 55 442 9574</a>
                   <a href="mailto:info@novarisesa.com" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Mail className="h-3.5 w-3.5 shrink-0 text-gold" />info@novarisesa.com</a>
                 </div>
-                <div>
+                <div className="sm:border-l sm:border-white/10 sm:pl-7">
                   <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold" data-cms-field="footer.officeHours">{t("footer.officeHours")}</div>
                   <div className="grid grid-cols-[1fr_auto] gap-y-1.5 text-xs text-white/55"><span data-cms-field="footer.sunThu">{t("footer.sunThu")}</span><span className="text-white/80" dir="ltr" data-cms-field="footer.sunThuHours">{t("footer.sunThuHours")}</span><span data-cms-field="footer.friSat">{t("footer.friSat")}</span><span data-cms-field="footer.byAppointment">{t("footer.byAppointment")}</span></div>
                 </div>
@@ -117,12 +124,12 @@ export function Footer() {
           </section>
         </div>
 
-        <div className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-5 text-[11px] text-white/45 md:flex-row md:items-center md:justify-between">
+        <div className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-5 text-[11px] text-white/55 md:flex-row md:items-center md:justify-between">
           <p>{t("footer.copyright", { year: 2026 })}</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <span><span data-cms-field="footer.crLabel">{t("footer.crLabel")}</span> <span className="text-white/65" dir="ltr">4701103544</span></span>
-            <span><span data-cms-field="footer.vatLabel">{t("footer.vatLabel")}</span> <span className="text-white/65" dir="ltr">300930779500003</span></span>
-            <span><span data-cms-field="footer.estLabel">{t("footer.estLabel")}</span> <span className="text-white/65" dir="ltr">2019</span></span>
+            <span><span data-cms-field="footer.crLabel">{t("footer.crLabel")}</span> <span className="text-white/75" dir="ltr">4701103544</span></span>
+            <span><span data-cms-field="footer.vatLabel">{t("footer.vatLabel")}</span> <span className="text-white/75" dir="ltr">300930779500003</span></span>
+            <span><span data-cms-field="footer.estLabel">{t("footer.estLabel")}</span> <span className="text-white/75" dir="ltr">2019</span></span>
           </div>
         </div>
       </div>
