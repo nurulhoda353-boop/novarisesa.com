@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Link } from "@/components/nav/AppLink";
 import { useTranslation } from "react-i18next";
-import { Mail, Phone, MapPin, ArrowUpRight } from "lucide-react";
+import { Mail, Phone, MapPin, ArrowUpRight, Facebook, Instagram, Linkedin } from "lucide-react";
 import { useCmsAsset, useCmsNavigation } from "@/lib/cms-content";
 
 const logo = "/assets/logo-white-full.png";
@@ -61,6 +61,11 @@ export function Footer() {
               <span data-cms-field="footer.downloadProfile" suppressContentEditableWarning>{t("footer.downloadProfile")}</span>
               <ArrowUpRight className="h-3.5 w-3.5" />
             </a>
+            <div className="mt-5 flex items-center gap-2.5" aria-label={t("footer.social")}>
+              {[Linkedin, Facebook, Instagram].map((Icon, index) => (
+                <span key={index} className="grid h-8 w-8 place-items-center rounded-full border border-white/15 text-white/55 transition-colors hover:border-gold/70 hover:text-gold" aria-hidden="true"><Icon className="h-3.5 w-3.5" /></span>
+              ))}
+            </div>
           </section>
 
           <section className="grid grid-cols-2 gap-8 border-t border-white/10 pt-8 lg:border-t-0 lg:pl-6 lg:pt-0">
