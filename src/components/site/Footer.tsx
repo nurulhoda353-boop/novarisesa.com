@@ -90,9 +90,9 @@ export function Footer() {
                 {offices.map((office) => (
                   <div className="flex items-start gap-2.5" key={office.id}>
                     <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
-                    <div className="min-w-0 text-[11px] leading-5 tracking-[-0.01em] text-white/70 lg:whitespace-nowrap">
+                    <div className="min-w-0 text-[13px] leading-5 text-white/70">
                       <strong className="block text-[10px] font-bold uppercase tracking-[0.2em] text-gold" data-cms-field={`footer.${office.id}.label`} suppressContentEditableWarning>{t(`footer.${office.id}.label`)}</strong>
-                      <span data-cms-field={`footer.${office.id}.address`} suppressContentEditableWarning>{t(`footer.${office.id}.address`)}</span>
+                      {office.id === "headOffice" ? <span data-cms-field="footer.headOffice.address" suppressContentEditableWarning><span className="block lg:whitespace-nowrap">{t("footer.headOffice.addressLine1")}</span><span className="block">{t("footer.headOffice.addressLine2")}</span></span> : <span className="block lg:whitespace-nowrap" data-cms-field="footer.branchOffice.address" suppressContentEditableWarning>{t("footer.branchOffice.address")}</span>}
                       <a href={office.href} target="_blank" rel="noopener noreferrer" className="mt-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-gold transition-colors hover:text-white"><span data-cms-field="footer.viewMap" suppressContentEditableWarning>{t("footer.viewMap")}</span></a>
                     </div>
                   </div>

@@ -856,7 +856,9 @@
     "addressLine2": "Umluj 48313, Saudi Arabia",
     "headOffice": {
       "label": "Head Office",
-      "address": "6563 King Faisal Rd, 2124 Al Bathaa District, 48313 Umluj"
+      "address": "6563 King Faisal Rd, 2124 Al Bathaa District, 48313 Umluj, Kingdom of Saudi Arabia",
+      "addressLine1": "6563 King Faisal Rd, 2124 Al Bathaa District, 48313 Umluj",
+      "addressLine2": "Kingdom of Saudi Arabia"
     },
     "branchOffice": {
       "label": "Branch Office",
