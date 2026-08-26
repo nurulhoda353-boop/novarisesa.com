@@ -12,7 +12,6 @@ import {
   FilePenLine,
   FolderKanban,
   Globe2,
-  HelpCircle,
   ImageIcon,
   ImagePlus,
   Inbox,
@@ -177,9 +176,10 @@ const contentNav = [
   ["projects", "Projects", FolderKanban],
   ["insights", "Insights & Events", Newspaper],
   ["requirements", "Requirements", Users],
-  ["faq", "FAQ", HelpCircle],
 ] as const;
 const hiddenContentResources = new Set(["pages"]);
+const retiredContentResources = new Set(["faq"]);
+const retiredWorkspaceRoutes = new Set(["media", "taxonomy"]);
 const inboxNav = [
   ["contact", "Contact", MessageSquareText],
   ["rfq", "RFQ", FileText],
@@ -279,9 +279,10 @@ export default function Dashboard({ route }: { route: string[] }) {
   }, []);
 
   useEffect(() => {
-    if (route[0] === "content" && hiddenContentResources.has(route[1] ?? "")) {
+    if (route[0] === "content" && (hiddenContentResources.has(route[1] ?? "") || retiredContentResources.has(route[1] ?? ""))) {
       router.replace("/site-content");
     }
+    if (retiredWorkspaceRoutes.has(route[0] ?? "")) router.replace("/overview");
   }, [route, router]);
 
   useEffect(() => {
@@ -322,8 +323,6 @@ export default function Dashboard({ route }: { route: string[] }) {
         {contentNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/content/${key}`} icon={Icon} label={label} active={active === `content/${key}`} />
         ))}
-        <Nav href="/media" icon={ImageIcon} label="Media library" active={active === "media"} />
-        <Nav href="/taxonomy" icon={BookOpen} label="Categories & tags" active={active === "taxonomy"} />
         {can(user, "cms.manage_inbox") && <p className="nav-label">Inbox</p>}
         {can(user, "cms.manage_inbox") && inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
@@ -363,15 +362,13 @@ export default function Dashboard({ route }: { route: string[] }) {
           {route[0] === "site-content" && <SiteContentPage user={user} onTopbarActions={setTopbarActions} />}
           {route[0] === "content" && route[1] === "insights" && <InsightsManager canPublish={can(user, "cms.publish")} />}
           {route[0] === "content" && route[1] === "requirements" && <RequirementsManager canPublish={can(user, "cms.publish")} />}
-          {route[0] === "content" && !["insights", "requirements"].includes(route[1] ?? "") && !hiddenContentResources.has(route[1] ?? "") && (
+          {route[0] === "content" && !["insights", "requirements"].includes(route[1] ?? "") && !hiddenContentResources.has(route[1] ?? "") && !retiredContentResources.has(route[1] ?? "") && (
             <ContentPage resource={route[1] ?? "services"} user={user} />
           )}
           {route[0] === "inbox" && route[1] === "applications" && <ApplicationsManager />}
           {route[0] === "inbox" && route[1] === "contact" && <ContactManager />}
           {route[0] === "inbox" && route[1] === "rfq" && <RFQManager />}
-          {route[0] === "media" && <MediaPage user={user} />}
           {route[0] === "navigation" && <NavigationPage user={user} />}
-          {route[0] === "taxonomy" && <TaxonomyPage user={user} />}
           {route[0] === "settings" && <SettingsPage user={user} />}
           {route[0] === "users" && can(user, "cms.manage_users") && <TeamAccessManager currentUser={user} />}
           {route[0] === "users" && !can(user, "cms.manage_users") && <div className="panel"><Empty copy="Only a Super Admin / Developer can manage team access." /></div>}
@@ -462,6 +459,7 @@ function isHiddenDashboardHref(href: string) {
   return href === "/media" ||
     href === "/navigation" ||
     href === "/taxonomy" ||
+    href === "/content/faq" ||
     href === "/content/pages";
 }
 
