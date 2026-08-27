@@ -3477,6 +3477,7 @@ html.dark .application-stats > :first-child b { color: white; }
 .team-summary-card b { font-size: 26px; }
 .team-summary-card em { font-size: 9.5px; }
 .team-role-strip { margin: 14px 0; padding: 16px 18px; border-radius: 15px; }
+.team-role-strip .team-role-intro span { max-width: 420px; }
 .team-role-intro b { font-size: 12px; }
 .team-role-intro span { font-size: 10px; }
 .team-role-miniatures b { font-size: 10.5px; }

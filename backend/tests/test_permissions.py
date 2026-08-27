@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
+from app.api.routes.cms import ensure_team_management_scope
 from app.bootstrap import ROLE_PERMISSIONS
 from app.core.auth import require_permission, user_has_permission, user_permission_codes
 from app.schemas.cms import UserCreate
@@ -12,6 +13,10 @@ def _user_with_permissions(*codes: str):
     permissions = [SimpleNamespace(code=code) for code in codes]
     role = SimpleNamespace(permissions=permissions)
     return SimpleNamespace(roles=[role])
+
+
+def _user_with_role(name: str):
+    return SimpleNamespace(roles=[SimpleNamespace(name=name)])
 
 
 def test_user_permission_codes_are_unioned() -> None:
@@ -45,15 +50,32 @@ def test_password_change_requirement_blocks_cms_permissions() -> None:
     assert "Password change required" in exc.value.detail
 
 
-def test_role_matrix_keeps_editor_and_admin_boundaries() -> None:
+def test_role_matrix_allows_admin_to_manage_admin_and_editor_accounts() -> None:
     assert "cms.manage_users" in ROLE_PERMISSIONS["super_admin"]
     assert "cms.publish" in ROLE_PERMISSIONS["admin"]
-    assert "cms.manage_users" not in ROLE_PERMISSIONS["admin"]
+    assert "cms.manage_users" in ROLE_PERMISSIONS["admin"]
     assert ROLE_PERMISSIONS["editor"] == {
         "cms.view",
         "cms.manage_content",
         "cms.manage_media",
     }
+
+
+def test_admin_cannot_manage_super_admin_accounts() -> None:
+    admin = _user_with_role("admin")
+    with pytest.raises(HTTPException) as exc:
+        ensure_team_management_scope(admin, target_role="super_admin")
+    assert exc.value.status_code == 403
+
+    with pytest.raises(HTTPException) as exc:
+        ensure_team_management_scope(admin, target_user=_user_with_role("super_admin"))
+    assert exc.value.status_code == 403
+
+
+def test_admin_can_manage_admin_and_editor_accounts() -> None:
+    admin = _user_with_role("admin")
+    ensure_team_management_scope(admin, target_role="admin")
+    ensure_team_management_scope(admin, target_user=_user_with_role("editor"))
 
 
 def test_new_accounts_keep_the_admin_set_password_by_default() -> None:

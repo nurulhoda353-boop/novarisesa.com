@@ -376,7 +376,7 @@ export default function Dashboard({ route }: { route: string[] }) {
           {route[0] === "settings" && <SettingsPage user={user} />}
           {route[0] === "account" && <AccountSecurity user={user} />}
           {route[0] === "users" && can(user, "cms.manage_users") && <TeamAccessManager currentUser={user} />}
-          {route[0] === "users" && !can(user, "cms.manage_users") && <div className="panel"><Empty copy="Only a Super Admin / Developer can manage team access." /></div>}
+          {route[0] === "users" && !can(user, "cms.manage_users") && <div className="panel"><Empty copy="Only Admin and Super Admin accounts can manage team access." /></div>}
         </main>
       </div>
       {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} />}

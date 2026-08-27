@@ -2420,6 +2420,24 @@ def team_role_label(name: str) -> str:
     }.get(name, name.replace("_", " ").title())
 
 
+def is_super_admin(user: User) -> bool:
+    return any(role.name == "super_admin" for role in user.roles)
+
+
+def ensure_team_management_scope(
+    actor: User, *, target_role: str | None = None, target_user: User | None = None
+) -> None:
+    """Keep Super Admin identities and privileges outside an Admin's scope."""
+    if is_super_admin(actor):
+        return
+    target_is_super_admin = target_user is not None and is_super_admin(target_user)
+    if target_role == "super_admin" or target_is_super_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only a Super Admin / Developer can manage Super Admin accounts",
+        )
+
+
 def revoke_user_sessions(db: Session, user_id: uuid.UUID) -> int:
     now = datetime.now(UTC)
     tokens = list(
@@ -2497,7 +2515,6 @@ def list_roles(
     user: Annotated[User, Depends(require_permission("cms.manage_users"))],
     db: DBSession,
 ) -> dict[str, Any]:
-    _ = user
     roles = list(
         db.scalars(
             select(Role)
@@ -2506,6 +2523,8 @@ def list_roles(
         )
     )
     order = {"super_admin": 0, "admin": 1, "editor": 2}
+    if not is_super_admin(user):
+        roles = [role for role in roles if role.name != "super_admin"]
     return {
         "items": [
             {
@@ -2525,14 +2544,14 @@ def list_users(
     user: Annotated[User, Depends(require_permission("cms.manage_users"))],
     db: DBSession,
 ) -> dict[str, Any]:
-    _ = user
-    users = list(
-        db.scalars(
-            select(User)
-            .options(selectinload(User.roles).selectinload(Role.permissions))
-            .order_by(User.created_at.desc())
-        )
+    statement = (
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .order_by(User.created_at.desc())
     )
+    if not is_super_admin(user):
+        statement = statement.where(~User.roles.any(Role.name == "super_admin"))
+    users = list(db.scalars(statement))
     session_counts = dict(
         db.execute(
             select(RefreshToken.user_id, func.count(RefreshToken.id))
@@ -2573,6 +2592,7 @@ def get_user_detail(
     )
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    ensure_team_management_scope(user, target_user=item)
     now = datetime.now(UTC)
     sessions = list(
         db.scalars(
@@ -2640,6 +2660,7 @@ def create_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     if payload.role not in TEAM_ROLE_NAMES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
+    ensure_team_management_scope(user, target_role=payload.role)
     role = db.scalar(select(Role).where(Role.name == payload.role))
     if role is None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
@@ -2688,6 +2709,7 @@ def update_user(
     final_active = payload.is_active if payload.is_active is not None else item.is_active
     if final_role not in TEAM_ROLE_NAMES:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown role")
+    ensure_team_management_scope(user, target_role=final_role, target_user=item)
     if item.id == user.id and (not final_active or final_role != current_role):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2745,6 +2767,7 @@ def reset_user_password(
     )
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    ensure_team_management_scope(user, target_user=item)
     if verify_password(payload.new_password, item.password_hash):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must be different")
     item.password_hash = hash_password(payload.new_password)
@@ -2772,6 +2795,7 @@ def revoke_sessions(
     item = db.get(User, item_id)
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    ensure_team_management_scope(user, target_user=item)
     revoked = revoke_user_sessions(db, item.id)
     audit(
         db, request, user, "cms.user_sessions_revoked", "users", item.id,
@@ -2791,6 +2815,7 @@ def delete_user(
     item = db.scalar(select(User).options(selectinload(User.roles)).where(User.id == item_id))
     if item is None or item.deleted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    ensure_team_management_scope(user, target_user=item)
     if item.id == user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2823,6 +2848,7 @@ def restore_user(
     )
     if item is None or item.deleted_at is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted user not found")
+    ensure_team_management_scope(user, target_user=item)
     item.deleted_at = None
     item.is_active = False
     item.suspended_at = datetime.now(UTC)

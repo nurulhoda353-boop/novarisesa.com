@@ -102,6 +102,11 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
   const [detail, setDetail] = useState<TeamUserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
+  const canManageSuperAdmins = currentUser.roles.includes("super_admin");
+  const manageableRoles = useMemo(
+    () => roles.filter((role) => canManageSuperAdmins || role.name !== "super_admin"),
+    [canManageSuperAdmins, roles],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,7 +162,7 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
       <div>
         <p className="eyebrow">Identity & access control</p>
         <h1>Team & access</h1>
-        <p>Control who can enter the dashboard, what they can change, and every security action they take.</p>
+        <p>{canManageSuperAdmins ? "Control every dashboard account, role and security action." : "Create and manage Admin and Editor accounts. Super Admin accounts remain protected."}</p>
       </div>
       <button className="primary-button team-create-button" onClick={() => setCreating(true)}><Plus size={16} />Add team member</button>
     </header>
@@ -168,13 +173,13 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
       <SummaryCard icon={Users} label="Team accounts" value={summary.total} detail="Non-deleted users" />
       <SummaryCard icon={UserCheck} label="Active access" value={summary.active} detail="Can sign in now" tone="green" />
       <SummaryCard icon={UserX} label="Suspended" value={summary.suspended} detail="Access fully blocked" tone="red" />
-      <SummaryCard icon={ShieldCheck} label="Super admins" value={summary.super_admins} detail="Protected system owners" tone="gold" />
+      <SummaryCard icon={ShieldCheck} label={canManageSuperAdmins ? "Super admins" : "Manageable roles"} value={canManageSuperAdmins ? summary.super_admins : manageableRoles.length} detail={canManageSuperAdmins ? "Protected system owners" : "Admin and Editor accounts"} tone="gold" />
     </section>
 
     <section className="team-role-strip">
       <div className="team-role-intro"><Shield size={18} /><div><b>Access architecture</b><span>Three fixed roles keep responsibilities clear and auditable.</span></div></div>
       <div className="team-role-miniatures">
-        {roles.map((role) => <div key={role.name}><i className={role.name}>{role.name === "super_admin" ? "SA" : role.name[0].toUpperCase()}</i><span><b>{role.label}</b><small>{role.permissions.length} permissions</small></span></div>)}
+        {manageableRoles.map((role) => <div key={role.name}><i className={role.name}>{role.name === "super_admin" ? "SA" : role.name[0].toUpperCase()}</i><span><b>{role.label}</b><small>{role.permissions.length} permissions</small></span></div>)}
       </div>
     </section>
 
@@ -183,7 +188,7 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
         <div><h2>Account directory</h2><p>{filtered.length} of {items.length} accounts shown</p></div>
         <div className="team-filters">
           <label><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name or email" /></label>
-          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter by role"><option value="all">All roles</option>{roles.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>
+          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter by role"><option value="all">All roles</option>{manageableRoles.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>
           <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter by status"><option value="all">All statuses</option><option value="active">Active</option><option value="password_change_required">Password change required</option><option value="suspended">Suspended</option><option value="deleted">Deleted</option></select>
         </div>
       </header>
@@ -203,8 +208,8 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
       </div>
     </section>
 
-    {creating && <CreateUserModal roles={roles} onClose={() => setCreating(false)} onCreated={async () => { setCreating(false); setNotice("Team member created. The password set by the Super Admin is active immediately."); await load(); }} />}
-    {selected && <UserDetailPanel currentUser={currentUser} detail={detail} roles={roles} onClose={() => { setSelected(null); setDetail(null); }} onChanged={refreshSelected} onNotice={setNotice} />}
+    {creating && <CreateUserModal roles={manageableRoles} onClose={() => setCreating(false)} onCreated={async () => { setCreating(false); setNotice("Team member created. Their initial password is active immediately."); await load(); }} />}
+    {selected && <UserDetailPanel currentUser={currentUser} detail={detail} roles={manageableRoles} canManageSecurity={canManageSuperAdmins} onClose={() => { setSelected(null); setDetail(null); }} onChanged={refreshSelected} onNotice={setNotice} />}
   </>;
 }
 
@@ -252,13 +257,16 @@ function CreateUserModal({ roles, onClose, onCreated }: { roles: Role[]; onClose
   </form></div>;
 }
 
-function UserDetailPanel({ currentUser, detail, roles, onClose, onChanged, onNotice }: { currentUser: CurrentUser; detail: TeamUserDetail | null; roles: Role[]; onClose: () => void; onChanged: () => Promise<void>; onNotice: (value: string) => void }) {
+function UserDetailPanel({ currentUser, detail, roles, canManageSecurity, onClose, onChanged, onNotice }: { currentUser: CurrentUser; detail: TeamUserDetail | null; roles: Role[]; canManageSecurity: boolean; onClose: () => void; onChanged: () => Promise<void>; onNotice: (value: string) => void }) {
   const [tab, setTab] = useState<DetailTab>("profile");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [sensitive, setSensitive] = useState<SensitiveMode>(null);
   const isSelf = detail?.id === currentUser.id;
+  const tabs = (canManageSecurity
+    ? [['profile', 'Profile', UserRoundCog], ['access', 'Access', ShieldCheck], ['security', 'Security', KeyRound], ['activity', 'Activity', Activity]]
+    : [['profile', 'Profile', UserRoundCog], ['access', 'Access', ShieldCheck], ['activity', 'Activity', Activity]]) as [DetailTab, string, typeof Users][];
 
   useEffect(() => { if (detail) setName(detail.full_name); }, [detail]);
 
@@ -290,7 +298,7 @@ function UserDetailPanel({ currentUser, detail, roles, onClose, onChanged, onNot
   return <div className="team-panel-backdrop" onMouseDown={onClose}><aside className="team-detail-panel" onMouseDown={(event) => event.stopPropagation()}>
     {detail ? <>
       <header><div className="team-panel-kicker"><p className="eyebrow">Account control</p><button onClick={onClose}><X size={19} /></button></div><div className="team-panel-identity"><i>{initials(detail.full_name)}</i><span><h2>{detail.full_name}</h2><p>{detail.email}</p><div><RolePill role={detail.roles[0] ?? "editor"} label={detail.role_label} /><StatusPill status={detail.status} /></div></span></div></header>
-      <nav>{([['profile', 'Profile', UserRoundCog], ['access', 'Access', ShieldCheck], ['security', 'Security', KeyRound], ['activity', 'Activity', Activity]] as [DetailTab, string, typeof Users][]).map(([key, label, Icon]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); setError(""); }}><Icon size={15} />{label}</button>)}</nav>
+      <nav>{tabs.map(([key, label, Icon]) => <button key={key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); setError(""); }}><Icon size={15} />{label}</button>)}</nav>
       <div className="team-panel-body">
         {tab === "profile" && <div className="team-detail-stack"><section className="team-detail-card"><div className="team-section-title"><i><UserRoundCog size={15} /></i><span><b>Identity</b><small>The name shown across assignments and audit records.</small></span></div><label>Full name<input value={name} onChange={(event) => setName(event.target.value)} /></label><label>Work email<input value={detail.email} disabled /><small>Email is the permanent sign-in identifier.</small></label><button className="primary-button compact" disabled={busy || name.trim().length < 2 || name === detail.full_name} onClick={() => void patch({ full_name: name.trim() }, "Profile name updated.")}>Save profile</button></section><section className="team-facts"><div><span>Created</span><b>{dateTime(detail.created_at)}</b></div><div><span>Last sign-in</span><b>{dateTime(detail.last_login_at, "Never signed in")}</b></div><div><span>Password changed</span><b>{dateTime(detail.password_changed_at, "Not recorded")}</b></div><div><span>Active sessions</span><b>{detail.active_sessions}</b></div></section></div>}
         {tab === "access" && <div className="team-detail-stack"><section className="team-detail-card"><div className="team-section-title"><i><ShieldCheck size={15} /></i><span><b>Role & permissions</b><small>Changing a role signs the member out of every device.</small></span></div><div className="team-role-picker compact">{roles.map((role) => <button className={detail.roles.includes(role.name) ? "selected" : ""} key={role.name} disabled={busy || isSelf || detail.status === "deleted"} onClick={() => void patch({ role: role.name }, `Role changed to ${role.label}.`)}><i className={role.name}><Shield size={15} /></i><span><b>{role.label}</b><small>{role.description}</small></span>{detail.roles.includes(role.name) && <Check size={15} />}</button>)}</div>{isSelf && <p className="team-inline-note">For safety, you cannot change your own role.</p>}</section><section className="team-detail-card"><div className="team-section-title"><i><UserCheck size={15} /></i><span><b>Account state</b><small>Suspension immediately blocks API and dashboard access.</small></span></div>{detail.status === "deleted" ? <button className="team-safe-action" disabled={busy} onClick={() => void restore()}><UserCheck size={15} /><span><b>Restore account</b><small>Restores it as suspended and requires a password reset.</small></span></button> : <button className={detail.is_active ? "team-danger-action" : "team-safe-action"} disabled={busy || isSelf} onClick={() => void patch({ is_active: !detail.is_active }, detail.is_active ? "Account suspended and sessions revoked." : "Account reactivated.")}>{detail.is_active ? <UserX size={15} /> : <UserCheck size={15} />}<span><b>{detail.is_active ? "Suspend dashboard access" : "Reactivate dashboard access"}</b><small>{detail.is_active ? "The user is signed out immediately." : "The user can sign in again."}</small></span></button>}</section>{detail.status !== "deleted" && !isSelf && <button className="team-delete-link" disabled={busy} onClick={() => void remove()}><Trash2 size={14} />Delete account</button>}</div>}

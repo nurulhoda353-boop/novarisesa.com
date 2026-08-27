@@ -35,6 +35,7 @@ ROLE_PERMISSIONS = {
         "cms.manage_media",
         "cms.manage_inbox",
         "cms.manage_settings",
+        "cms.manage_users",
     },
     "editor": {
         "cms.view",
@@ -45,7 +46,7 @@ ROLE_PERMISSIONS = {
 
 ROLE_DESCRIPTIONS = {
     "super_admin": "Full developer-level access, security and team administration",
-    "admin": "Publish content, manage enquiries and control website settings",
+    "admin": "Publish content, manage enquiries, settings, and Admin or Editor accounts",
     "editor": "Create and edit website content and media without publishing",
 }
 
