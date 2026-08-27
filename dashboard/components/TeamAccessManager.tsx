@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, ApiError } from "@/lib/api";
 
 type CurrentUser = {
@@ -245,7 +246,7 @@ function CreateUserModal({ roles, onClose, onCreated }: { roles: Role[]; onClose
     }
   }
 
-  return <div className="team-modal-backdrop" onMouseDown={onClose}><form className="team-create-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
+  return createPortal(<div className="team-modal-backdrop" onMouseDown={onClose}><form className="team-create-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
     <header><div><p className="eyebrow">New dashboard account</p><h2>Add team member</h2><span>Set their identity, permanent sign-in password and exact responsibility.</span></div><button type="button" onClick={onClose}><X size={19} /></button></header>
     <div className="team-modal-body">
       <section className="team-form-section"><div className="team-section-title"><i>1</i><span><b>Account identity</b><small>Use the team member&apos;s work information.</small></span></div><div className="team-form-grid"><label>Full name<input autoFocus value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} required minLength={2} /></label><label>Work email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required autoComplete="off" /></label><label className="full">Initial password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required minLength={12} autoComplete="new-password" /><small>Use at least 12 characters. This is the member&apos;s active password; they can change it anytime from My security.</small></label></div></section>
@@ -254,7 +255,7 @@ function CreateUserModal({ roles, onClose, onCreated }: { roles: Role[]; onClose
       {error && <p className="team-form-error">{error}</p>}
     </div>
     <footer><span><LockKeyhole size={13} />Account creation is recorded in the security audit.</span><div><button type="button" onClick={onClose}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Creating…" : "Create account"}</button></div></footer>
-  </form></div>;
+  </form></div>, document.body);
 }
 
 function UserDetailPanel({ currentUser, detail, roles, canManageSecurity, onClose, onChanged, onNotice }: { currentUser: CurrentUser; detail: TeamUserDetail | null; roles: Role[]; canManageSecurity: boolean; onClose: () => void; onChanged: () => Promise<void>; onNotice: (value: string) => void }) {
