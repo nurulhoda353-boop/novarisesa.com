@@ -3441,6 +3441,34 @@ html.dark .application-stats > :first-child b { color: white; }
 }
 .candidate-timeline p { font-size: 12px; }
 
+/* Personal password control */
+.account-security-page { max-width: 1040px; }
+.account-security-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .65fr); gap: 18px; align-items: start; }
+.account-password-card { padding: 24px; }
+.account-password-card > header { display: flex; align-items: flex-start; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+.account-password-card > header > i, .account-security-summary > i { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--gold-soft); color: #a66a19; }
+.account-password-card h2, .account-security-summary h2 { color: var(--navy); font-size: 17px; }
+.account-password-card header p, .account-security-summary > p { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.account-password-card > label { display: block; margin-top: 17px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.account-password-card input { width: 100%; min-height: 43px; margin-top: 7px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface2); color: var(--ink); font-size: 12px; outline: none; }
+.account-password-card input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-glow); }
+.account-password-input { position: relative; }
+.account-password-input input { padding-right: 46px; }
+.account-password-input button { position: absolute; right: 8px; top: 50%; display: grid; place-items: center; width: 31px; height: 31px; transform: translateY(-22%); border-radius: 7px; color: var(--muted); }
+.account-password-input button:hover { color: var(--navy); background: var(--surface3); }
+.account-password-rules { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.account-password-rules span { display: flex; align-items: center; gap: 5px; padding: 6px 8px; border-radius: 99px; background: var(--surface3); color: var(--muted); font-size: 10px; }
+.account-password-rules span.met { background: var(--green-bg); color: var(--green); }
+.account-password-card .primary-button { margin-top: 18px; }
+.account-success { display: flex; align-items: center; gap: 7px; margin-top: 14px; padding: 10px 11px; border-radius: 9px; background: var(--green-bg); color: var(--green); font-size: 11px; font-weight: 700; }
+.account-security-summary { padding: 24px; }
+.account-security-summary h2 { margin-top: 15px; }
+.account-security-summary hr { margin: 20px 0; border: 0; border-top: 1px solid var(--line); }
+.account-security-summary b, .account-security-summary span { display: block; }
+.account-security-summary b { color: var(--navy); font-size: 12px; }
+.account-security-summary span { margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+@media (max-width: 760px) { .account-security-grid { grid-template-columns: 1fr; } .account-password-card, .account-security-summary { padding: 18px; } }
+
 /* Team and access readability */
 .team-summary-grid { gap: 13px; }
 .team-summary-card { min-height: 86px; padding: 18px; border-radius: 15px; }

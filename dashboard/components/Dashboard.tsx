@@ -15,6 +15,7 @@ import {
   ImageIcon,
   ImagePlus,
   Inbox,
+  KeyRound,
   LogOut,
   Menu,
   MessageSquareText,
@@ -47,6 +48,7 @@ import { RequirementsManager } from "./RequirementsManager";
 import { ApplicationsManager } from "./ApplicationsManager";
 import { ContactManager, RFQManager } from "./InquiryManagers";
 import { TeamAccessManager } from "./TeamAccessManager";
+import { AccountSecurity } from "./AccountSecurity";
 
 // ── Dark / Light mode toggle ──────────────────────────────────────────────────
 function useTheme() {
@@ -327,6 +329,8 @@ export default function Dashboard({ route }: { route: string[] }) {
         {can(user, "cms.manage_inbox") && inboxNav.map(([key, label, Icon]) => (
           <Nav key={key} href={`/inbox/${key}`} icon={Icon} label={label} active={active === `inbox/${key}`} />
         ))}
+        <p className="nav-label">Account</p>
+        <Nav href="/account" icon={KeyRound} label="My security" active={active === "account"} />
         <p className="nav-label">Administration</p>
         {can(user, "cms.manage_settings") && <Nav href="/settings" icon={Settings} label="Site settings" active={active === "settings"} />}
         {can(user, "cms.manage_users") && <Nav href="/users" icon={ShieldCheck} label="Team & access" active={active === "users"} />}
@@ -370,6 +374,7 @@ export default function Dashboard({ route }: { route: string[] }) {
           {route[0] === "inbox" && route[1] === "rfq" && <RFQManager />}
           {route[0] === "navigation" && <NavigationPage user={user} />}
           {route[0] === "settings" && <SettingsPage user={user} />}
+          {route[0] === "account" && <AccountSecurity user={user} />}
           {route[0] === "users" && can(user, "cms.manage_users") && <TeamAccessManager currentUser={user} />}
           {route[0] === "users" && !can(user, "cms.manage_users") && <div className="panel"><Empty copy="Only a Super Admin / Developer can manage team access." /></div>}
         </main>

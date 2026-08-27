@@ -2649,8 +2649,8 @@ def create_user(
     item.full_name = payload.full_name
     item.is_active = payload.is_active
     item.is_verified = True
-    item.must_change_password = payload.require_password_change
-    item.password_changed_at = None
+    item.must_change_password = False
+    item.password_changed_at = datetime.now(UTC)
     item.suspended_at = None if payload.is_active else datetime.now(UTC)
     item.created_by_id = user.id
     item.deleted_at = None
@@ -2661,7 +2661,7 @@ def create_user(
     db.flush()
     audit(
         db, request, user, "cms.user_created", "users", item.id,
-        after={"email": item.email, "role": role.name, "is_active": item.is_active},
+        after={"email": item.email, "role": role.name, "is_active": item.is_active, "password_policy": "admin_set_permanent"},
     )
     db.commit()
     db.refresh(item)

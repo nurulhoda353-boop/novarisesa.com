@@ -349,7 +349,6 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=12, max_length=128)
     role: str = Field(default="editor", min_length=2, max_length=80)
     is_active: bool = True
-    require_password_change: bool = True
 
 
 class UserUpdate(BaseModel):

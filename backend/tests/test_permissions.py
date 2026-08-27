@@ -56,11 +56,11 @@ def test_role_matrix_keeps_editor_and_admin_boundaries() -> None:
     }
 
 
-def test_new_accounts_require_private_password_by_default() -> None:
+def test_new_accounts_keep_the_admin_set_password_by_default() -> None:
     payload = UserCreate(
         email="editor@example.com",
         full_name="Project Editor",
-        password="temporary-passphrase",
+        password="permanent-passphrase",
     )
     assert payload.role == "editor"
-    assert payload.require_password_change is True
+    assert not hasattr(payload, "require_password_change")
