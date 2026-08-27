@@ -349,7 +349,7 @@ export default function Dashboard({ route }: { route: string[] }) {
           </button>
           <div className={`workspace-state ${platformReady === false ? "offline" : platformReady === null ? "checking" : ""}`} aria-label={`Production workspace ${platformReady === false ? "needs attention" : platformReady === null ? "is checking connectivity" : "is online"}`}>
             <i />
-            <span><b>Production</b><small>{platformReady === false ? "Connection needs attention" : platformReady === null ? "Checking connectivity" : "PostgreSQL connected"}</small></span>
+            <span><b>Production</b></span>
           </div>
           {topbarActions && <div className="topbar-page-actions">{topbarActions}</div>}
           <a className="site-link" href="https://novarisesa.com" target="_blank"><Globe2 size={16} /><span>View website</span></a>
@@ -392,10 +392,10 @@ function Nav({ href, icon: Icon, label, active }: { href: string; icon: typeof A
   );
 }
 
-function PageHead({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
+function PageHead({ eyebrow, title, action }: { eyebrow: string; title: string; copy?: string; action?: React.ReactNode }) {
   return (
     <div className="page-head">
-      <div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{copy}</p></div>
+      <div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1></div>
       {action}
     </div>
   );
@@ -476,28 +476,22 @@ function OverviewPage({ user }: { user: User }) {
   const totalInbox = Object.values(data.inbox).slice(0, 3).reduce((sum, value) => sum + value, 0);
   return <>
     <section className="overview-hero">
-      <div className="overview-hero-copy">
-        <p className="eyebrow">NOVARISE CONTROL CENTER</p>
-        <h1>Good day, {user.full_name.split(" ")[0]}.</h1>
-        <p>Operate your website, commercial enquiries and team access from one focused workspace.</p>
-        <div className="overview-hero-meta"><span><i />Production workspace</span><small>Website, API and database monitored live</small></div>
-      </div>
+      <div className="overview-hero-copy"><h1>Good day, {user.full_name.split(" ")[0]}.</h1></div>
       <aside className="overview-signal">
-        <span>INBOX SIGNAL</span>
+        <span>New enquiries</span>
         <strong>{totalInbox || "Clear"}</strong>
-        <p>{totalInbox ? "new enquiries waiting for review" : "no new enquiries waiting for review"}</p>
         <Link href="/inbox/contact">Open inbox <ChevronRight size={15} /></Link>
       </aside>
     </section>
     <section className="stats-grid">
-      <Stat label="Managed content" value={totalContent} note="Across collections & media" icon={BookOpen} tone="gold" />
-      <Stat label="New enquiries" value={totalInbox} note="Needs your attention" icon={Inbox} tone="navy" />
-      <Stat label="Newsletter audience" value={data.inbox.newsletter ?? 0} note="Active subscribers" icon={Users} tone="green" />
+      <Stat label="Managed content" value={totalContent} icon={BookOpen} tone="gold" />
+      <Stat label="New enquiries" value={totalInbox} icon={Inbox} tone="navy" />
+      <Stat label="Newsletter audience" value={data.inbox.newsletter ?? 0} icon={Users} tone="green" />
       <Stat label="System health" value="100%" note={`API ${data.system.api} · DB ${data.system.database}`} icon={Activity} tone="blue" />
     </section>
     <section className="dashboard-grid">
       <div className="panel span-2">
-        <PanelTitle title="Content at a glance" detail="Live inventory across the website" />
+        <PanelTitle title="Content at a glance" />
         <div className="collection-grid">
           {contentNav.map(([key, label, Icon]) => (
             <Link href={`/content/${key}`} key={key} className="collection-card">
@@ -510,7 +504,7 @@ function OverviewPage({ user }: { user: User }) {
         </div>
       </div>
       <div className="panel">
-        <PanelTitle title="Platform status" detail="Live infrastructure" />
+        <PanelTitle title="Platform status" />
         <div className="status-list">
           <Status label="Website" value="Live" />
           <Status label="API service" value={data.system.api} />
@@ -519,7 +513,7 @@ function OverviewPage({ user }: { user: User }) {
         </div>
       </div>
       <div className="panel span-2">
-        <PanelTitle title="Recent activity" detail="Latest changes made in Control Center" />
+        <PanelTitle title="Recent activity" />
         <div className="activity-list">
           {data.activity.length ? data.activity.map((item) => (
             <div key={item.id}>
@@ -533,7 +527,7 @@ function OverviewPage({ user }: { user: User }) {
         </div>
       </div>
       <div className="panel">
-        <PanelTitle title="Inbox pulse" detail="Unprocessed messages" />
+        <PanelTitle title="Inbox pulse" />
         <div className="inbox-pulse">
           {inboxNav.map(([key, label, Icon]) => (
             <Link href={`/inbox/${key}`} key={key}>
@@ -546,16 +540,16 @@ function OverviewPage({ user }: { user: User }) {
   </>;
 }
 
-function Stat({ label, value, note, icon: Icon, tone }: { label: string; value: string | number; note: string; icon: typeof Activity; tone: string }) {
+function Stat({ label, value, icon: Icon, tone }: { label: string; value: string | number; note?: string; icon: typeof Activity; tone: string }) {
   return (
     <div className="stat-card">
       <span className={`stat-icon ${tone}`}><Icon size={20} /></span>
-      <p>{label}</p><strong>{value}</strong><small>{note}</small>
+      <p>{label}</p><strong>{value}</strong>
     </div>
   );
 }
-function PanelTitle({ title, detail }: { title: string; detail: string }) {
-  return <div className="panel-title"><div><h2>{title}</h2><p>{detail}</p></div></div>;
+function PanelTitle({ title }: { title: string; detail?: string }) {
+  return <div className="panel-title"><div><h2>{title}</h2></div></div>;
 }
 function Status({ label, value }: { label: string; value: string }) {
   return <div><span><i />{label}</span><b>{humanize(value)}</b></div>;

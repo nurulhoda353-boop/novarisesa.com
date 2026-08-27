@@ -3807,3 +3807,11 @@ html.dark .dashboard-grid > .panel:first-child .collection-card { background: rg
 .login-showcase-copy > p:last-child,
 .secure-note,
 .login-help { font-family: "Segoe UI", Inter, system-ui, sans-serif; letter-spacing: 0; }
+
+/* Dashboard: keep operational screens focused on actions and data. */
+.dashboard-content > .page-head > div > p:last-child,
+.candidate-detail-card > header p,
+.candidate-note-card > header p,
+.candidate-section-head > div > p,
+.team-create-modal > footer > span { display:none; }
+.team-create-modal > footer { justify-content:flex-end; }

@@ -163,7 +163,6 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
       <div>
         <p className="eyebrow">Identity & access control</p>
         <h1>Team & access</h1>
-        <p>{canManageSuperAdmins ? "Control every dashboard account, role and security action." : "Create and manage Admin and Editor accounts. Super Admin accounts remain protected."}</p>
       </div>
       <button className="primary-button team-create-button" onClick={() => setCreating(true)}><Plus size={16} />Add team member</button>
     </header>
@@ -171,22 +170,15 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
     {notice && <div className="team-notice"><ShieldCheck size={15} /><span>{notice}</span><button onClick={() => setNotice("")}><X size={14} /></button></div>}
 
     <section className="team-summary-grid">
-      <SummaryCard icon={Users} label="Team accounts" value={summary.total} detail="Non-deleted users" />
-      <SummaryCard icon={UserCheck} label="Active access" value={summary.active} detail="Can sign in now" tone="green" />
-      <SummaryCard icon={UserX} label="Suspended" value={summary.suspended} detail="Access fully blocked" tone="red" />
-      <SummaryCard icon={ShieldCheck} label={canManageSuperAdmins ? "Super admins" : "Manageable roles"} value={canManageSuperAdmins ? summary.super_admins : manageableRoles.length} detail={canManageSuperAdmins ? "Protected system owners" : "Admin and Editor accounts"} tone="gold" />
-    </section>
-
-    <section className="team-role-strip">
-      <div className="team-role-intro"><Shield size={18} /><div><b>Access architecture</b><span>Three fixed roles keep responsibilities clear and auditable.</span></div></div>
-      <div className="team-role-miniatures">
-        {manageableRoles.map((role) => <div key={role.name}><i className={role.name}>{role.name === "super_admin" ? "SA" : role.name[0].toUpperCase()}</i><span><b>{role.label}</b><small>{role.permissions.length} permissions</small></span></div>)}
-      </div>
+      <SummaryCard icon={Users} label="Team accounts" value={summary.total} />
+      <SummaryCard icon={UserCheck} label="Active access" value={summary.active} tone="green" />
+      <SummaryCard icon={UserX} label="Suspended" value={summary.suspended} tone="red" />
+      <SummaryCard icon={ShieldCheck} label={canManageSuperAdmins ? "Super admins" : "Manageable roles"} value={canManageSuperAdmins ? summary.super_admins : manageableRoles.length} tone="gold" />
     </section>
 
     <section className="team-directory panel">
       <header>
-        <div><h2>Account directory</h2><p>{filtered.length} of {items.length} accounts shown</p></div>
+        <div><h2>Account directory</h2></div>
         <div className="team-filters">
           <label><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name or email" /></label>
           <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} aria-label="Filter by role"><option value="all">All roles</option>{manageableRoles.map((role) => <option key={role.name} value={role.name}>{role.label}</option>)}</select>
@@ -205,7 +197,7 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
             <span><MoreHorizontal size={17} /></span>
           </button>
         ))}
-        {!loading && filtered.length === 0 && <div className="team-empty"><Users size={23} /><b>No matching accounts</b><span>Change the search or filters to see other team members.</span></div>}
+        {!loading && filtered.length === 0 && <div className="team-empty"><Users size={23} /><b>No matching accounts</b></div>}
       </div>
     </section>
 
@@ -214,8 +206,8 @@ export function TeamAccessManager({ currentUser }: { currentUser: CurrentUser })
   </>;
 }
 
-function SummaryCard({ icon: Icon, label, value, detail, tone = "navy" }: { icon: typeof Users; label: string; value: number; detail: string; tone?: string }) {
-  return <article className={`team-summary-card ${tone}`}><i><Icon size={18} /></i><span><small>{label}</small><b>{value}</b><em>{detail}</em></span></article>;
+function SummaryCard({ icon: Icon, label, value, tone = "navy" }: { icon: typeof Users; label: string; value: number; tone?: string }) {
+  return <article className={`team-summary-card ${tone}`}><i><Icon size={18} /></i><span><small>{label}</small><b>{value}</b></span></article>;
 }
 
 function RolePill({ role, label }: { role: string; label: string }) {
@@ -247,11 +239,11 @@ function CreateUserModal({ roles, onClose, onCreated }: { roles: Role[]; onClose
   }
 
   return createPortal(<div className="team-modal-backdrop" onMouseDown={onClose}><form className="team-create-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
-    <header><div><p className="eyebrow">New dashboard account</p><h2>Add team member</h2><span>Set their identity, permanent sign-in password and exact responsibility.</span></div><button type="button" onClick={onClose}><X size={19} /></button></header>
+    <header><div><p className="eyebrow">New dashboard account</p><h2>Add team member</h2></div><button type="button" onClick={onClose}><X size={19} /></button></header>
     <div className="team-modal-body">
-      <section className="team-form-section"><div className="team-section-title"><i>1</i><span><b>Account identity</b><small>Use the team member&apos;s work information.</small></span></div><div className="team-form-grid"><label>Full name<input autoFocus value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} required minLength={2} /></label><label>Work email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required autoComplete="off" /></label><label className="full">Initial password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required minLength={12} autoComplete="new-password" /><small>Use at least 12 characters. This is the member&apos;s active password; they can change it anytime from My security.</small></label></div></section>
-      <section className="team-form-section"><div className="team-section-title"><i>2</i><span><b>Choose responsibility</b><small>Permissions are fixed to prevent accidental privilege drift.</small></span></div><div className="team-role-picker">{roles.map((role) => <label className={form.role === role.name ? "selected" : ""} key={role.name}><input type="radio" name="role" value={role.name} checked={form.role === role.name} onChange={() => setForm({ ...form, role: role.name })} /><i className={role.name}><Shield size={16} /></i><span><b>{role.label}</b><small>{role.description}</small></span>{form.role === role.name && <Check size={16} />}</label>)}</div>{selectedRole && <div className="team-permission-preview">{selectedRole.permissions.map((permission) => <span key={permission}><Check size={11} />{permissionCopy[permission] ?? permission}</span>)}</div>}</section>
-      <section className="team-startup-options"><label><input type="checkbox" checked={form.is_active} onChange={(event) => setForm({ ...form, is_active: event.target.checked })} /><span><b>Activate account now</b><small>Turn this off to prepare access without allowing sign-in yet.</small></span></label></section>
+      <section className="team-form-section"><div className="team-section-title"><i>1</i><span><b>Account identity</b></span></div><div className="team-form-grid"><label>Full name<input autoFocus value={form.full_name} onChange={(event) => setForm({ ...form, full_name: event.target.value })} required minLength={2} /></label><label>Work email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required autoComplete="off" /></label><label className="full">Initial password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required minLength={12} autoComplete="new-password" /><small>Use at least 12 characters. This is the member&apos;s active password; they can change it anytime from My security.</small></label></div></section>
+      <section className="team-form-section"><div className="team-section-title"><i>2</i><span><b>Choose responsibility</b></span></div><div className="team-role-picker">{roles.map((role) => <label className={form.role === role.name ? "selected" : ""} key={role.name}><input type="radio" name="role" value={role.name} checked={form.role === role.name} onChange={() => setForm({ ...form, role: role.name })} /><i className={role.name}><Shield size={16} /></i><span><b>{role.label}</b></span>{form.role === role.name && <Check size={16} />}</label>)}</div>{selectedRole && <div className="team-permission-preview">{selectedRole.permissions.map((permission) => <span key={permission}><Check size={11} />{permissionCopy[permission] ?? permission}</span>)}</div>}</section>
+      <section className="team-startup-options"><label><input type="checkbox" checked={form.is_active} onChange={(event) => setForm({ ...form, is_active: event.target.checked })} /><span><b>Activate account now</b></span></label></section>
       {error && <p className="team-form-error">{error}</p>}
     </div>
     <footer><span><LockKeyhole size={13} />Account creation is recorded in the security audit.</span><div><button type="button" onClick={onClose}>Cancel</button><button className="primary-button" disabled={busy}>{busy ? "Creating…" : "Create account"}</button></div></footer>
