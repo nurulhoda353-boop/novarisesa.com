@@ -361,7 +361,7 @@ export default function Dashboard({ route }: { route: string[] }) {
             {inboxNew > 0 && <i />}
           </Link>}
         </header>
-        <main className="content">
+        <main className="content dashboard-content">
           {route[0] === "overview" && <OverviewPage user={user} />}
           {route[0] === "site-content" && <SiteContentPage user={user} onTopbarActions={setTopbarActions} />}
           {route[0] === "content" && route[1] === "insights" && <InsightsManager canPublish={can(user, "cms.publish")} />}
@@ -475,12 +475,20 @@ function OverviewPage({ user }: { user: User }) {
   const totalContent = Object.values(data.counts).reduce((sum, value) => sum + value, 0);
   const totalInbox = Object.values(data.inbox).slice(0, 3).reduce((sum, value) => sum + value, 0);
   return <>
-    <PageHead
-      eyebrow="Operations pulse"
-      title={`Good day, ${user.full_name.split(" ")[0]}.`}
-      copy="Here is what is happening across your website today."
-      action={<Link className="primary-button compact" href="/content/pages"><Plus size={17} /> New content</Link>}
-    />
+    <section className="overview-hero">
+      <div className="overview-hero-copy">
+        <p className="eyebrow">NOVARISE CONTROL CENTER</p>
+        <h1>Good day, {user.full_name.split(" ")[0]}.</h1>
+        <p>Operate your website, commercial enquiries and team access from one focused workspace.</p>
+        <div className="overview-hero-meta"><span><i />Production workspace</span><small>Website, API and database monitored live</small></div>
+      </div>
+      <aside className="overview-signal">
+        <span>INBOX SIGNAL</span>
+        <strong>{totalInbox || "Clear"}</strong>
+        <p>{totalInbox ? "new enquiries waiting for review" : "no new enquiries waiting for review"}</p>
+        <Link href="/inbox/contact">Open inbox <ChevronRight size={15} /></Link>
+      </aside>
+    </section>
     <section className="stats-grid">
       <Stat label="Managed content" value={totalContent} note="Across collections & media" icon={BookOpen} tone="gold" />
       <Stat label="New enquiries" value={totalInbox} note="Needs your attention" icon={Inbox} tone="navy" />
