@@ -47,21 +47,23 @@ export default function Home() {
   return (
     <main className="login-page">
       <div className="login-backdrop" />
-      <div className="login-orbit orbit-one" />
-      <div className="login-orbit orbit-two" />
       <section className="login-shell">
-        <div className="login-logo">
-          <Image src="/logo-white-full.png" alt="NOVARISE" width={190} height={52} priority />
-          <span>CONTROL CENTER</span>
-        </div>
+        <aside className="login-showcase">
+          <div className="login-logo">
+            <Image src="/logo-white-full.png" alt="NOVARISE" width={190} height={52} priority />
+            <span>CONTROL CENTER</span>
+          </div>
+          <div className="login-console-art" aria-hidden="true"><div className="login-console-head"><i /><i /><i /></div><div className="login-console-body"><span /><span /><span /><b /><b /><em /></div></div>
+          <div className="login-showcase-copy"><p className="eyebrow">Secure operations</p><h2>Everything important, clearly in one place.</h2><p>Manage NOVARISE content, enquiries and team workflows with clarity and control.</p></div>
+          <div className="login-showcase-rule"><i /><i /><i /></div>
+        </aside>
         <form className="login-card" onSubmit={submit}>
           <div className="login-card-top">
-            <div className="mark"><LockKeyhole size={20} /></div>
             <span><i /> Secure workspace</span>
           </div>
           <p className="eyebrow">Authorized access only</p>
-          <h1>Welcome back.</h1>
-          <p className="muted">Manage the NOVARISE website, enquiries and content from one place.</p>
+          <h1>Sign in</h1>
+          <p className="muted">Enter your work email and password to open the Control Center.</p>
           <label>
             Work email
             <div className="login-field">
@@ -101,8 +103,8 @@ export default function Home() {
             <ShieldMark />
             <span>Encrypted session · Monitored access · NOVARISE SA</span>
           </div>
+          <p className="login-help">Need access help? <a href="mailto:info@novarisesa.com">Contact the administrator</a></p>
         </form>
-        <p className="login-help">Need access help? <a href="mailto:info@novarisesa.com">Contact the administrator</a></p>
       </section>
     </main>
   );
