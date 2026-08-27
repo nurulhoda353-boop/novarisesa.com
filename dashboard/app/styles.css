@@ -3626,3 +3626,26 @@ html.dark .application-stats > :first-child b { color: white; }
 .login-showcase-rule { display: flex; gap: 9px; margin-top: 24px; }.login-showcase-rule i { width: 30px; height: 2px; background: rgba(255,255,255,.32); }.login-showcase-rule i:first-child { background: #dba247; }
 .login-card { display: flex; flex-direction: column; justify-content: center; min-height: 550px; padding: 58px 62px 48px; border: 0; border-radius: 0; background: rgba(11, 20, 38, .66); box-shadow: none; backdrop-filter: none; }.login-card-top { justify-content: flex-start; margin-bottom: 20px; }.login-card-top > span { color: rgba(214,225,240,.66); }.login-card h1 { color: white; font-size: 32px; }.login-card .muted { color: rgba(212,223,238,.60); max-width: 360px; }.login-card label { color: rgba(221,230,241,.76); font-size: 11px; font-weight: 700; }.login-card .login-field input { border-color: rgba(255,255,255,.13); background: rgba(255,255,255,.07); color: white; }.login-card .login-field input::placeholder { color: rgba(218,226,239,.40); }.login-card .login-field input:focus { border-color: #dba247; background: rgba(255,255,255,.10); box-shadow: 0 0 0 4px rgba(223,162,71,.12); }.login-field > svg { color: #dba247; }.password-toggle { border-left-color: rgba(255,255,255,.12); color: rgba(220,230,241,.64); }.password-toggle:hover { color: white; }.login-card > .primary-button { background: linear-gradient(110deg, #d19a43, #e9b75e); color: #12213a; box-shadow: 0 12px 26px rgba(205,149,55,.20); }.secure-note { color: rgba(218,227,239,.48); }.shield-mark { color: #d39b42; background: rgba(223,162,71,.14); }.login-help { margin: 20px 0 0; color: rgba(218,227,239,.52); }.login-help a { color: #efbd69; }
 @media (max-width: 760px) { .login-page { padding: 16px; }.login-shell { display: block; min-height: 0; border-radius: 18px; }.login-showcase { min-height: 144px; padding: 24px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.10); }.login-console-art, .login-showcase-copy, .login-showcase-rule { display: none; }.login-logo img { width: 160px; }.login-card { min-height: 0; padding: 32px 24px 28px; }.login-card h1 { font-size: 29px; } }
+
+/* Login typography: keep display type open and calm, never compressed. */
+.login-card h1,
+.login-showcase-copy h2 {
+  font-family: "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif;
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  text-wrap: balance;
+}
+.login-card h1 { line-height: 1.18; }
+.login-showcase-copy h2 { line-height: 1.26; letter-spacing: -0.014em; }
+.login-card .eyebrow,
+.login-showcase-copy .eyebrow,
+.login-card-top > span,
+.login-logo span {
+  font-family: "Segoe UI", Inter, system-ui, sans-serif;
+  letter-spacing: .115em;
+}
+.login-card label { font-family: "Segoe UI", Inter, system-ui, sans-serif; font-weight: 650; letter-spacing: .01em; }
+.login-card .muted,
+.login-showcase-copy > p:last-child,
+.secure-note,
+.login-help { font-family: "Segoe UI", Inter, system-ui, sans-serif; letter-spacing: 0; }
