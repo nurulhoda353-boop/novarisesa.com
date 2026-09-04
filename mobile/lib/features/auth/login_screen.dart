@@ -74,19 +74,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 28),
-                    const Text(
+                    Text(
                       'Novarise Mail',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 30,
                           fontWeight: FontWeight.w800,
-                          color: NovariseTheme.navy),
+                          color: Theme.of(context).colorScheme.onSurface),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Sign in with your @novarisesa.com mailbox',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.blueGrey.shade600),
+                      style: TextStyle(color: AppColors.of(context).subtleText),
                     ),
                     const SizedBox(height: 36),
                     TextFormField(
@@ -142,16 +142,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       label: const Text('Sign in'),
                     ),
                     const SizedBox(height: 20),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.shield_outlined,
-                            size: 18, color: Colors.blueGrey),
-                        SizedBox(width: 7),
+                            size: 18, color: AppColors.of(context).subtleText),
+                        const SizedBox(width: 7),
                         Flexible(
                             child: Text(
                                 'Encrypted connection to Hostinger Mail',
-                                style: TextStyle(color: Colors.blueGrey))),
+                                style: TextStyle(
+                                    color: AppColors.of(context).subtleText))),
                       ],
                     ),
                   ],
