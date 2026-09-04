@@ -43,8 +43,8 @@ export function Leadership() {
             </div>
             <div className="mt-4 flex items-center gap-4">
               <div className="h-px w-16 bg-gold" />
-              <a href="mailto:info@novarisesa.com" className="text-sm font-semibold text-white hover:text-gold transition" dir="ltr">
-                info@novarisesa.com
+              <a href="mailto:official@novarisesa.com" className="text-sm font-semibold text-white hover:text-gold transition" dir="ltr">
+                official@novarisesa.com
               </a>
             </div>
           </div>

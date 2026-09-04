@@ -24,7 +24,7 @@ import { useCmsAsset } from "@/lib/cms-content";
 
 const heroImage = "/assets/manpower.jpg";
 
-const APPLY_EMAIL = "info@novarisesa.com";
+const APPLY_EMAIL = "official@novarisesa.com";
 
 const benefits = [
   { icon: ShieldCheck, key: "safety" },

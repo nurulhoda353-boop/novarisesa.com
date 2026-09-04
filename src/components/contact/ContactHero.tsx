@@ -24,7 +24,7 @@ export function ContactHero() {
       crumbs={[{ label: t("contactPage.hero.crumb") }]}
       ctas={[
         { label: "+966 55 442 9574", href: "tel:+966554429574", variant: "primary", icon: Phone },
-        { label: "info@novarisesa.com", href: "mailto:info@novarisesa.com", variant: "ghost", icon: Mail },
+        { label: "official@novarisesa.com", href: "mailto:official@novarisesa.com", variant: "ghost", icon: Mail },
       ]}
     />
   );

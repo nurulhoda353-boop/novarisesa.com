@@ -113,7 +113,7 @@ export function Footer() {
               <div className="grid gap-5 border-t border-white/10 pt-4 sm:grid-cols-[0.95fr_1.05fr] sm:gap-7">
                 <div className="grid content-start gap-3">
                   <a href="tel:+966554429574" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Phone className="h-3.5 w-3.5 shrink-0 text-gold" />+966 55 442 9574</a>
-                  <a href="mailto:info@novarisesa.com" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Mail className="h-3.5 w-3.5 shrink-0 text-gold" />info@novarisesa.com</a>
+                  <a href="mailto:official@novarisesa.com" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Mail className="h-3.5 w-3.5 shrink-0 text-gold" />official@novarisesa.com</a>
                 </div>
                 <div className="sm:border-l sm:border-white/10 sm:pl-7">
                   <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold" data-cms-field="footer.officeHours">{t("footer.officeHours")}</div>

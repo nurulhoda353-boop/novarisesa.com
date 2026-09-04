@@ -3,7 +3,7 @@ export const SITE_URL = "https://novarisesa.com";
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "https://api.novarisesa.com/api/v1";
 
-export const CONTACT_EMAIL = "info@novarisesa.com";
+export const CONTACT_EMAIL = "official@novarisesa.com";
 export const CONTACT_PHONE_DISPLAY = "+966 55 442 9574";
 export const CONTACT_PHONE_TEL = "+966554429574";
 export const CONTACT_WHATSAPP = "966554429574";

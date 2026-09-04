@@ -103,7 +103,7 @@ export default function Home() {
             <ShieldMark />
             <span>Encrypted session · Monitored access · NOVARISE SA</span>
           </div>
-          <p className="login-help">Need access help? <a href="mailto:info@novarisesa.com">Contact the administrator</a></p>
+          <p className="login-help">Need access help? <a href="mailto:official@novarisesa.com">Contact the administrator</a></p>
         </form>
       </section>
     </main>
