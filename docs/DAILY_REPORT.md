@@ -298,6 +298,40 @@ All future website, dashboard, API, schema, content, build, addition, and remova
 
 ---
 
+## 2026-09-05 (শনিবার)
+
+### Done
+
+**Novarise Mail — Gmail-parity ফিচার বিল্ড (mobile app + backend)**
+- লোগোর বদলে শুধু আইকন (login screen, drawer, Android/iOS launcher icon)।
+- **নিজস্ব push notification** (Firebase ছাড়া): ব্যাকএন্ডে IMAP IDLE watcher + WebSocket (`/mail/ws`) — নতুন মেইল এলে সাথে সাথে অ্যাপে পুশ হয়; অ্যাপ বন্ধ থাকলে Android WorkManager প্রতি ~১৫ মিনিটে চেক করে।
+- ইনবক্স: infinite scroll পেজিনেশন, swipe করে archive/delete, multi-select bulk action (mark read/archive/delete), unread badge, per-contact colored avatar, skeleton loading।
+- **Conversation threading** — References/In-Reply-To চেইন দিয়ে রিপ্লাই একসাথে গ্রুপ, নতুন Thread স্ক্রিন (expand/collapse)।
+- Compose: Cc/Bcc, Reply-All, একসাথে একাধিক অ্যাটাচমেন্ট, lightweight rich-text টুলবার (Bold/Italic/List/Link → HTML), ইমেইল সিগনেচার অটো-অ্যাড, Undo send (৫ সেকেন্ড ফেরত নেওয়ার সুযোগ)।
+- HTML মেইল প্রপার রেন্ডারিং (আগে শুধু regex দিয়ে টেক্সট স্ট্রিপ হতো), ইনলাইন cid: ছবি রেজলভ, অ্যাটাচমেন্ট Open (সিস্টেম ভিউয়ারে) + Save।
+- সার্চ ফিল্টার (From/date range/has-attachment), অফলাইন ক্যাশ ফলব্যাক, একাধিক অ্যাকাউন্ট সেভ/সুইচ, home screen "Compose" শর্টকাট, ডার্ক মোড + ডিজাইন টোকেন।
+- **সত্যিকার সার্ভার-সাইড Snooze scheduler**: নতুন `mail_snoozes` টেবিল + `INBOX.Snoozed` ফোল্ডার + প্রতি ৩০ সেকেন্ডে চলা background poll loop (app lifespan থেকে শুরু) — মেইল সত্যিই ইনবক্স থেকে সরে যায় ও নির্দিষ্ট সময়ে নিজে থেকেই ফিরে আসে, ডিভাইস অনলাইন না থাকলেও। লাইভ প্রোডাকশনে end-to-end টেস্ট করে কনফার্ম করা হয়েছে (snooze → ফোল্ডার পরিবর্তন → wake time-এ auto-restore)।
+- বাগ ফিক্স: (১) Send mail-এ naive datetime বাগের কারণে সফল পাঠানো মেইলও "failed" দেখাতো (Sent ফোল্ডারে কপি সেভ করতে গিয়ে ক্র্যাশ) — ফিক্সড ও লাইভ ভেরিফাই করা। (২) Token refresh race condition — দুইটা concurrent রিকোয়েস্ট রিফ্রেশ করতে গেলে একটা আরেকটার ভ্যালিড সেশন মুছে ফেলতে পারত, ফলে হঠাৎ লগআউট হয়ে যেত — in-flight refresh শেয়ারিং দিয়ে ফিক্সড। (৩) ডার্ক মোডে "Novarise Mail" টাইটেল hardcoded navy কালারের কারণে প্রায় অদৃশ্য ছিল — theme-aware কালারে ফিক্স।
+- ধারাবাহিক release: `1.0.0` → `1.3.0` (কমিট: `b1f7e2c`, `9d59bc4`, `f0ffa1c`, `1f802cc`, `6467d57`, `c60a028`, `be2619d`), প্রতিটা পরিবর্তনের পর real release APK বিল্ড + backend deploy + লাইভ প্রোডাকশনে যাচাই + একাধিকবার ফোনে (USB debugging দিয়ে) ইনস্টল করে টেস্ট।
+
+**Hostinger/Cloudflare অ্যাক্সেস ও মেইল ইনফ্রাস্ট্রাকচার**
+- Access token.js-এর Hostinger ও Cloudflare টোকেন যাচাই — দুটোই ভ্যালিড; Cloudflare টোকেন শুধু `novarisesa.com` জোনে সীমাবদ্ধ (least-privilege)। Hostinger অ্যাকাউন্টে VPS API অ্যাক্সেসও পাওয়া গেছে — ২টা VPS আছে, একটা (`187.127.111.3`) কোথাও ডকুমেন্টেড না, ইউজারকে জানানো হয়েছে চেক করতে।
+- নতুন মেইলবক্স তৈরি: **`official@novarisesa.com`** (৩টা সিটের খালি স্লটে)।
+- পাবলিক সাইট জুড়ে (Header, Footer, CTA, Contact, RFQ sidebar, Careers, Leadership, Dashboard লগইন) পুরনো `info@novarisesa.com` বাদ দিয়ে `official@novarisesa.com` সেট করা হয়েছে — টেস্ট ফিক্সচার ও পুরনো লগ এন্ট্রি ইচ্ছাকৃতভাবে অপরিবর্তিত রাখা হয়েছে।
+
+### Tomorrow (2026-09-06) — planned
+1. **Google Workspace মেইলবক্স ইন্টিগ্রেশন** — ডোমেইনের কিছু মেইল Hostinger-এ, কিছু Google Workspace-এ; Workspace মেইলগুলোও Novarise Mail অ্যাপে লগইন করে ব্যবহারযোগ্য করা।
+   - সিদ্ধান্ত নিতে হবে: App Password পথ (দ্রুত, কিন্তু alias/forwarder/password-change Google-এ কাজ করবে না) নাকি সত্যিকার OAuth (বড় কাজ — Google Cloud OAuth setup, token refresh, Google Admin SDK)।
+   - ইউজারের Google Workspace admin অ্যাক্সেস আছে কিনা যাচাই করা লাগবে প্রথমে।
+
+### Notes
+- আজকের সব কাজ কমিট + পুশ করা হয়েছে GitHub `main`-এ; প্রতিটা ব্যাকএন্ড ডিপ্লয় Coolify API দিয়ে পোল করে "finished" কনফার্ম করার পরই পরের ধাপে যাওয়া হয়েছে।
+- নতুন release APK-গুলো `releases/` ফোল্ডারে (`novarise-mail-1.0.0` থেকে `1.3.0` পর্যন্ত), সর্বশেষটা ইউজারের ফোনে ইনস্টল করা আছে।
+- Hostinger mailbox `official@novarisesa.com`-এর পাসওয়ার্ড ইউজারের দেওয়া `novariseofficial2026@`-এর বদলে `Novariseofficial2026@` (প্রথম অক্ষর বড় হাতের) — Hostinger-এর uppercase-বাধ্যতামূলক নিয়মের কারণে।
+- Push notification (IMAP IDLE watcher registry) ও Snooze scheduler দুটোই বর্তমানে single-process assumption-এ বানানো — ভবিষ্যতে backend multi-worker স্কেল করলে shared lock/broker (Redis pub/sub বা Postgres advisory lock) যোগ করা লাগবে।
+
+---
+
 ## Template (পরের দিন কপি করে ব্যবহার করো)
 
 ```markdown
