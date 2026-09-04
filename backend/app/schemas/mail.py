@@ -32,11 +32,13 @@ class MailAccountResponse(BaseModel):
     avatar_url: str | None
     cache_ttl_days: int
     hostinger_mailbox_id: str | None
+    signature: str | None = None
 
 
 class MailProfileUpdate(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
     cache_ttl_days: int = Field(ge=1, le=365)
+    signature: str | None = Field(default=None, max_length=2000)
 
 
 class MailPasswordChange(BaseModel):
@@ -53,6 +55,8 @@ class MailMessageSummary(BaseModel):
     uid: int
     folder: str
     message_id: str | None = None
+    in_reply_to: str | None = None
+    references: list[str] = []
     subject: str
     sender: MailAddress
     recipients: list[MailAddress]
@@ -67,6 +71,7 @@ class MailAttachmentInfo(BaseModel):
     part: str
     filename: str
     content_type: str
+    content_id: str | None = None
     size: int | None = None
 
 

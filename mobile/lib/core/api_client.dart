@@ -70,11 +70,73 @@ class ApiClient {
     final data = _decode(response);
     final session = MobileSession.fromJson(data as Map<String, dynamic>);
     await _storeSession(session);
+    await _rememberAccount(session.account.address, session.refreshToken);
     return session;
   }
 
-  Future<bool> refresh() async {
-    if (_refreshToken == null) return false;
+  // --- Multi-account switching -------------------------------------------
+  //
+  // Each successful login/refresh remembers its (address -> refresh_token)
+  // pair, so the user can hold several mailboxes on one device and switch
+  // between them without re-entering a password each time. Only one
+  // account's tokens are ever "current" (used by `_request`); the rest sit
+  // idle in secure storage until switched to.
+  static const _savedAccountsKey = 'mail_saved_accounts';
+
+  Future<List<Map<String, dynamic>>> _savedAccountsRaw() async {
+    final raw = await _storage.read(key: _savedAccountsKey);
+    if (raw == null) return [];
+    return List<Map<String, dynamic>>.from(jsonDecode(raw) as List<dynamic>);
+  }
+
+  Future<void> _rememberAccount(String address, String refreshToken) async {
+    final list = await _savedAccountsRaw();
+    list.removeWhere((item) => item['address'] == address);
+    list.add({'address': address, 'refresh_token': refreshToken});
+    await _storage.write(key: _savedAccountsKey, value: jsonEncode(list));
+  }
+
+  Future<List<String>> savedAccountAddresses() async =>
+      (await _savedAccountsRaw())
+          .map((item) => item['address'] as String)
+          .toList();
+
+  Future<void> forgetAccount(String address) async {
+    final list = await _savedAccountsRaw();
+    list.removeWhere((item) => item['address'] == address);
+    await _storage.write(key: _savedAccountsKey, value: jsonEncode(list));
+  }
+
+  /// Switches the active session to a previously saved account, refreshing
+  /// its access token. Returns false if the account isn't saved or its
+  /// refresh token has since expired (caller should drop it and prompt for
+  /// a fresh login in that case).
+  Future<bool> switchAccount(String address) async {
+    final list = await _savedAccountsRaw();
+    final match = list.where((item) => item['address'] == address);
+    if (match.isEmpty) return false;
+    _refreshToken = match.first['refresh_token'] as String;
+    _accessToken = null;
+    final ok = await refresh();
+    if (!ok) await forgetAccount(address);
+    return ok;
+  }
+
+  /// Refresh tokens rotate server-side (using one invalidates it and issues a
+  /// new one), so two concurrent 401s must never fire two /auth/refresh
+  /// calls: the loser would submit an already-rotated-out token, fail, and
+  /// wipe out the winner's freshly-stored valid session. Callers share one
+  /// in-flight refresh instead of racing.
+  Future<bool>? _refreshInFlight;
+
+  Future<bool> refresh() {
+    if (_refreshToken == null) return Future.value(false);
+    return _refreshInFlight ??= _performRefresh().whenComplete(() {
+      _refreshInFlight = null;
+    });
+  }
+
+  Future<bool> _performRefresh() async {
     final response = await _client.post(
       Uri.parse('$baseUrl/mail/auth/refresh'),
       headers: const {'Content-Type': 'application/json'},
@@ -84,9 +146,10 @@ class ApiClient {
       await clearSession();
       return false;
     }
-    await _storeSession(
-      MobileSession.fromJson(jsonDecode(response.body) as Map<String, dynamic>),
-    );
+    final session =
+        MobileSession.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    await _storeSession(session);
+    await _rememberAccount(session.account.address, session.refreshToken);
     return true;
   }
 
@@ -163,7 +226,15 @@ class ApiClient {
     String? query,
     int limit = 30,
     int? beforeUid,
+    String? fromContains,
+    DateTime? since,
+    DateTime? before,
+    bool? hasAttachment,
   }) async {
+    String isoDate(DateTime value) =>
+        '${value.year.toString().padLeft(4, '0')}-'
+        '${value.month.toString().padLeft(2, '0')}-'
+        '${value.day.toString().padLeft(2, '0')}';
     final response = await _request(
       'GET',
       '/mail/messages',
@@ -172,6 +243,10 @@ class ApiClient {
         'limit': limit,
         if (beforeUid != null) 'before_uid': beforeUid,
         if (query?.isNotEmpty ?? false) 'q': query,
+        if (fromContains?.isNotEmpty ?? false) 'from_contains': fromContains,
+        if (since != null) 'since': isoDate(since),
+        if (before != null) 'before': isoDate(before),
+        if (hasAttachment != null) 'has_attachment': hasAttachment,
       },
     );
     final body = _decode(response) as Map<String, dynamic>;
@@ -228,6 +303,7 @@ class ApiClient {
     required List<String> to,
     required String subject,
     required String textBody,
+    String? htmlBody,
     List<String> cc = const [],
     List<String> bcc = const [],
     String? replyToMessageId,
@@ -239,16 +315,22 @@ class ApiClient {
       'bcc': bcc,
       'subject': subject,
       'text_body': textBody,
+      'html_body': htmlBody,
       'reply_to_message_id': replyToMessageId,
       'attachments': attachments,
     });
   }
 
-  Future<MailAccount> updateProfile(String displayName, int cacheDays) async =>
+  Future<MailAccount> updateProfile(
+    String displayName,
+    int cacheDays, {
+    String? signature,
+  }) async =>
       MailAccount.fromJson(
         _decode(await _request('PATCH', '/mail/account', body: {
           'display_name': displayName,
           'cache_ttl_days': cacheDays,
+          'signature': signature,
         })) as Map<String, dynamic>,
       );
 

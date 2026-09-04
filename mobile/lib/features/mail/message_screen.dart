@@ -1,16 +1,13 @@
-import 'dart:typed_data';
-
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_state.dart';
 import '../../core/models.dart';
+import '../../core/push_service.dart';
 import '../../core/theme.dart';
 import 'compose_screen.dart';
+import 'message_body_view.dart';
 
 class MessageScreen extends StatefulWidget {
   const MessageScreen({super.key, required this.summary});
@@ -29,48 +26,46 @@ class _MessageScreenState extends State<MessageScreen> {
     _message = context.read<AppState>().getMessage(widget.summary);
   }
 
-  Future<bool> _openLink(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return false;
-    try {
-      return await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Could not open $url')));
-      }
-      return false;
+  Future<void> _remindLater(MailMessage message) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+    );
+    if (time == null || !mounted) return;
+    final target = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final delay = target.difference(DateTime.now());
+    if (delay.isNegative) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Pick a time in the future')));
+      return;
     }
-  }
-
-  Future<void> _download(MailMessage message, MailAttachment attachment) async {
-    try {
-      final bytes = await context.read<AppState>().api.downloadAttachment(
-            message.folder,
-            message.uid,
-            attachment.part,
-          );
-      await FilePicker.platform.saveFile(
-        dialogTitle: 'Save attachment',
-        fileName: attachment.filename,
-        bytes: Uint8List.fromList(bytes),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${attachment.filename} saved')),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save attachment: $error')),
-        );
-      }
+    await scheduleReminder(
+      id: message.uid,
+      delay: delay,
+      title: message.sender.label.isEmpty ? 'Reminder' : message.sender.label,
+      body: message.subject,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'We\'ll remind you on ${DateFormat('MMM d, h:mm a').format(target)}')));
     }
   }
 
   Future<void> _act(BuildContext context, String action, MailMessage message) async {
     final state = context.read<AppState>();
+    if (action == 'remind') {
+      await _remindLater(message);
+      return;
+    }
     if (action == 'delete') {
       final confirmed = await showDialog<bool>(
         context: context,
@@ -133,6 +128,8 @@ class _MessageScreenState extends State<MessageScreen> {
                 PopupMenuButton<String>(
                   onSelected: (value) => _act(context, value, message),
                   itemBuilder: (_) => const [
+                    PopupMenuItem(
+                        value: 'remind', child: Text('Remind me later')),
                     PopupMenuItem(value: 'archive', child: Text('Archive')),
                     PopupMenuItem(value: 'spam', child: Text('Mark as spam')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),
@@ -200,38 +197,7 @@ class _MessageScreenState extends State<MessageScreen> {
                           ],
                         ),
                         const Divider(height: 34),
-                        if ((message.htmlBody ?? '').trim().isNotEmpty)
-                          HtmlWidget(
-                            message.htmlBody!,
-                            onTapUrl: _openLink,
-                            textStyle: const TextStyle(fontSize: 16, height: 1.5),
-                          )
-                        else
-                          SelectableText(
-                            (message.textBody ?? message.preview).trim(),
-                            style: const TextStyle(fontSize: 16, height: 1.55),
-                          ),
-                        if (message.attachments.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          Text('Attachments',
-                              style: Theme.of(context).textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          ...message.attachments.map(
-                            (attachment) => Card(
-                              child: ListTile(
-                                leading: const Icon(Icons.attach_file),
-                                title: Text(attachment.filename),
-                                subtitle: Text(attachment.contentType),
-                                trailing: IconButton(
-                                  tooltip: 'Download',
-                                  icon: const Icon(Icons.download_rounded),
-                                  onPressed: () =>
-                                      _download(message, attachment),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        MessageBodyView(message: message),
                         const SizedBox(height: 28),
                         Wrap(
                           spacing: 10,

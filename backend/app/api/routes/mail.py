@@ -2,7 +2,7 @@ import json
 import secrets
 import urllib.parse
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 import jwt
@@ -88,6 +88,7 @@ def account_response(account: MailAccount) -> MailAccountResponse:
         avatar_url=account.avatar_url,
         cache_ttl_days=account.cache_ttl_days,
         hostinger_mailbox_id=account.hostinger_mailbox_id,
+        signature=account.signature,
     )
 
 
@@ -295,6 +296,7 @@ def update_account(
 ) -> MailAccountResponse:
     account.display_name = payload.display_name.strip()
     account.cache_ttl_days = payload.cache_ttl_days
+    account.signature = payload.signature
     db.commit()
     db.refresh(account)
     return account_response(account)
@@ -372,9 +374,22 @@ def list_messages(
     limit: int = Query(default=30, ge=1, le=50),
     before_uid: int | None = Query(default=None, ge=1),
     q: str | None = Query(default=None, max_length=200),
+    from_contains: str | None = Query(default=None, max_length=200),
+    since: Annotated[date | None, Query()] = None,
+    before: Annotated[date | None, Query()] = None,
+    has_attachment: bool | None = Query(default=None),
 ) -> MailMessageList:
     try:
-        rows = mailbox_client(account).messages(folder, limit, before_uid, q)
+        rows = mailbox_client(account).messages(
+            folder,
+            limit,
+            before_uid,
+            q,
+            from_contains=from_contains,
+            since=since,
+            before=before,
+            has_attachment=has_attachment,
+        )
     except MailConnectionError as exc:
         raise mail_error(exc) from exc
     next_uid = min((item["uid"] for item in rows), default=None) if len(rows) == limit else None

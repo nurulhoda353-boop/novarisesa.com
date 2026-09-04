@@ -8,10 +8,12 @@ import 'package:shimmer/shimmer.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
+import '../../core/thread_utils.dart';
+import '../auth/login_screen.dart';
 import '../settings/settings_screen.dart';
 import 'compose_screen.dart';
-import 'message_screen.dart';
 import 'organizer_screens.dart';
+import 'thread_screen.dart';
 
 class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key});
@@ -26,6 +28,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
   Timer? _searchDebounce;
   final Set<String> _selectedKeys = {};
   String? _selectionFolder;
+  MessageFilter _filter = const MessageFilter();
 
   bool get _selectionMode => _selectedKeys.isNotEmpty;
 
@@ -63,8 +66,19 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
     setState(() {});
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 400), () {
-      context.read<AppState>().loadMessages(query: value);
+      context.read<AppState>().loadMessages(query: value, filter: _filter);
     });
+  }
+
+  Future<void> _openFilters() async {
+    final result = await showModalBottomSheet<MessageFilter>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _FilterSheet(initial: _filter),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _filter = result);
+    context.read<AppState>().loadMessages(query: _search.text, filter: result);
   }
 
   String _keyFor(MailMessage message) => '${message.folder}-${message.uid}';
@@ -96,6 +110,8 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
       _selectedKeys.clear();
       _selectionFolder = null;
     }
+    final threads = groupIntoThreads(state.messages);
+    final threadLatestMessages = [for (final thread in threads) thread.latest];
     return Scaffold(
       appBar: _selectionMode
           ? _SelectionAppBar(
@@ -164,10 +180,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                     onPressed: state.busy ? null : () => state.loadMessages(),
                     icon: const Icon(Icons.refresh)),
                 IconButton(
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const SettingsScreen())),
+                  onPressed: () => _openAccountSwitcher(context, state),
                   icon: _avatar(state.account),
                 ),
               ],
@@ -192,17 +205,34 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                   IconButton(
                     onPressed: () {
                       _search.clear();
-                      context.read<AppState>().loadMessages();
+                      context.read<AppState>().loadMessages(filter: _filter);
                       setState(() {});
                     },
                     icon: const Icon(Icons.close),
                   ),
+                IconButton(
+                  tooltip: 'Filters',
+                  onPressed: _openFilters,
+                  icon: Icon(_filter.isEmpty
+                      ? Icons.filter_list
+                      : Icons.filter_alt),
+                ),
               ],
               onChanged: _onSearchChanged,
-              onSubmitted: (value) => state.loadMessages(query: value),
+              onSubmitted: (value) =>
+                  state.loadMessages(query: value, filter: _filter),
             ),
           ),
-          if (state.error != null)
+          if (state.offline && state.messages.isNotEmpty)
+            MaterialBanner(
+              content: const Text('Offline — showing saved mail'),
+              actions: [
+                TextButton(
+                    onPressed: () => state.loadMessages(),
+                    child: const Text('Retry'))
+              ],
+            )
+          else if (state.error != null)
             MaterialBanner(
               content: Text(state.error!),
               actions: [
@@ -223,12 +253,11 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                         child: ListView.separated(
                           controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount:
-                              state.messages.length + (state.hasMore ? 1 : 0),
+                          itemCount: threads.length + (state.hasMore ? 1 : 0),
                           separatorBuilder: (_, __) =>
                               const Divider(height: 1, indent: 72),
                           itemBuilder: (context, index) {
-                            if (index >= state.messages.length) {
+                            if (index >= threads.length) {
                               return const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 20),
                                 child: Center(
@@ -239,13 +268,13 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                                             strokeWidth: 2))),
                               );
                             }
-                            final message = state.messages[index];
+                            final thread = threads[index];
+                            final latest = threadLatestMessages[index];
                             return _MessageTile(
-                              message: message,
+                              thread: thread,
                               selectionMode: _selectionMode,
-                              selected:
-                                  _selectedKeys.contains(_keyFor(message)),
-                              onToggleSelect: () => _toggleSelect(message),
+                              selected: _selectedKeys.contains(_keyFor(latest)),
+                              onToggleSelect: () => _toggleSelect(latest),
                             );
                           },
                         ),
@@ -253,6 +282,13 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openAccountSwitcher(BuildContext context, AppState state) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => _AccountSwitcherSheet(state: state),
     );
   }
 
@@ -272,6 +308,198 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
 
   String _folderTitle(String folder) =>
       folder.split('.').last.replaceAll('INBOX', 'Inbox');
+}
+
+class _FilterSheet extends StatefulWidget {
+  const _FilterSheet({required this.initial});
+  final MessageFilter initial;
+
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  late final TextEditingController _from;
+  DateTime? _since;
+  DateTime? _before;
+  bool? _hasAttachment;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = TextEditingController(text: widget.initial.fromContains ?? '');
+    _since = widget.initial.since;
+    _before = widget.initial.before;
+    _hasAttachment = widget.initial.hasAttachment;
+  }
+
+  @override
+  void dispose() {
+    _from.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate({required bool isSince}) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (isSince ? _since : _before) ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isSince) {
+        _since = picked;
+      } else {
+        _before = picked;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Search filters', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _from,
+            decoration:
+                const InputDecoration(labelText: 'From contains', hintText: 'name@example.com'),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _pickDate(isSince: true),
+                  child: Text(_since == null
+                      ? 'Since'
+                      : DateFormat('MMM d, yyyy').format(_since!)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _pickDate(isSince: false),
+                  child: Text(_before == null
+                      ? 'Before'
+                      : DateFormat('MMM d, yyyy').format(_before!)),
+                ),
+              ),
+            ],
+          ),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Has attachment'),
+            value: _hasAttachment ?? false,
+            onChanged: (value) => setState(() => _hasAttachment = value),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, const MessageFilter()),
+                child: const Text('Clear'),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: () => Navigator.pop(
+                  context,
+                  MessageFilter(
+                    fromContains:
+                        _from.text.trim().isEmpty ? null : _from.text.trim(),
+                    since: _since,
+                    before: _before,
+                    hasAttachment: _hasAttachment,
+                  ),
+                ),
+                child: const Text('Apply'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountSwitcherSheet extends StatelessWidget {
+  const _AccountSwitcherSheet({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final address in state.savedAccounts)
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: address == state.account?.address
+                      ? NovariseTheme.blue
+                      : AppColors.of(context).subtleText,
+                  foregroundColor: Colors.white,
+                  child: Text(address.isEmpty ? '?' : address[0].toUpperCase()),
+                ),
+                title: Text(address),
+                trailing: address == state.account?.address
+                    ? const Icon(Icons.check_circle, color: NovariseTheme.blue)
+                    : IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Remove account',
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await state.removeAccount(address);
+                        },
+                      ),
+                onTap: address == state.account?.address
+                    ? null
+                    : () async {
+                        Navigator.pop(context);
+                        final ok = await state.switchAccount(address);
+                        if (!ok && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'That account needs you to sign in again')),
+                          );
+                        }
+                      },
+              ),
+            ListTile(
+              leading: const Icon(Icons.person_add_alt_1),
+              title: const Text('Add account'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const LoginScreen(addingAccount: true)));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Profile & settings'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()));
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
 }
 
 class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -355,25 +583,28 @@ class _InboxSkeleton extends StatelessWidget {
 
 class _MessageTile extends StatelessWidget {
   const _MessageTile({
-    required this.message,
+    required this.thread,
     required this.selectionMode,
     required this.selected,
     required this.onToggleSelect,
   });
-  final MailMessage message;
+  final MailThread thread;
   final bool selectionMode;
   final bool selected;
   final VoidCallback onToggleSelect;
 
+  MailMessage get message => thread.latest;
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final weight = message.isRead ? FontWeight.w400 : FontWeight.w700;
+    final unread = thread.unreadCount > 0;
+    final weight = unread ? FontWeight.w700 : FontWeight.w400;
     final state = context.read<AppState>();
     final row = Material(
       color: selected
           ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
-          : (message.isRead ? null : colors.unreadTint),
+          : (unread ? colors.unreadTint : null),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         onLongPress: onToggleSelect,
@@ -411,7 +642,10 @@ class _MessageTile extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(message.subject,
+                  child: Text(
+                      thread.messages.length > 1
+                          ? '${message.subject}  (${thread.messages.length})'
+                          : message.subject,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontWeight: weight)),
@@ -430,15 +664,15 @@ class _MessageTile extends StatelessWidget {
         ),
         trailing: selectionMode
             ? null
-            : Icon(message.isStarred ? Icons.star : Icons.star_border,
-                color: message.isStarred ? colors.star : colors.subtleText,
+            : Icon(thread.hasStarred ? Icons.star : Icons.star_border,
+                color: thread.hasStarred ? colors.star : colors.subtleText,
                 size: 21),
         onTap: selectionMode
             ? onToggleSelect
             : () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => MessageScreen(summary: message))),
+                    builder: (_) => ThreadScreen(thread: thread))),
       ),
     );
     if (selectionMode) return row;

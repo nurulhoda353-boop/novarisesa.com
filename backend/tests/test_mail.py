@@ -119,6 +119,50 @@ def test_contact_update_allows_clearing_optional_fields() -> None:
     assert update.is_favorite is True
 
 
+def test_message_summary_captures_thread_headers() -> None:
+    message = EmailMessage()
+    message["From"] = "team@novarisesa.com"
+    message["To"] = "info@novarisesa.com"
+    message["Subject"] = "Re: Welcome"
+    message["In-Reply-To"] = "<root@novarisesa.com>"
+    message["References"] = "<root@novarisesa.com> <second@novarisesa.com>"
+    message.set_content("Thanks!")
+    parsed = _summary(43, "INBOX", message.as_bytes(), [])
+    assert parsed["in_reply_to"] == "<root@novarisesa.com>"
+    assert parsed["references"] == ["<root@novarisesa.com>", "<second@novarisesa.com>"]
+
+
+def test_message_summary_ignores_inline_cid_images_for_has_attachments() -> None:
+    message = EmailMessage()
+    message["From"] = "team@novarisesa.com"
+    message["To"] = "info@novarisesa.com"
+    message["Subject"] = "Newsletter"
+    message.set_content("See the logo below")
+    message.add_related(b"fake-png-bytes", maintype="image", subtype="png", cid="<logo123>")
+    parsed = _summary(44, "INBOX", message.as_bytes(), [])
+    assert parsed["has_attachments"] is False
+
+    with_real_attachment = EmailMessage()
+    with_real_attachment["From"] = "team@novarisesa.com"
+    with_real_attachment["To"] = "info@novarisesa.com"
+    with_real_attachment["Subject"] = "Invoice"
+    with_real_attachment.set_content("See attached invoice")
+    with_real_attachment.add_attachment(
+        b"pdf-bytes", maintype="application", subtype="pdf", filename="invoice.pdf"
+    )
+    parsed_with_attachment = _summary(45, "INBOX", with_real_attachment.as_bytes(), [])
+    assert parsed_with_attachment["has_attachments"] is True
+
+
+def test_mail_profile_update_accepts_optional_signature() -> None:
+    without_signature = MailProfileUpdate(display_name="Novarise", cache_ttl_days=30)
+    assert without_signature.signature is None
+    with_signature = MailProfileUpdate(
+        display_name="Novarise", cache_ttl_days=30, signature="Best,\nNovarise Team"
+    )
+    assert with_signature.signature == "Best,\nNovarise Team"
+
+
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:
     registry = WatcherRegistry()
     started: list[str] = []

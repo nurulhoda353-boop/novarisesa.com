@@ -160,6 +160,7 @@ class MailAccount(UUIDMixin, TimestampMixin, Base):
     hostinger_order_id: Mapped[str | None] = mapped_column(String(80), index=True)
     hostinger_mailbox_id: Mapped[str | None] = mapped_column(String(80), index=True)
     cache_ttl_days: Mapped[int] = mapped_column(Integer, default=30)
+    signature: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

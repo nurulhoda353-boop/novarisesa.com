@@ -5,6 +5,7 @@ class MailAccount {
     required this.displayName,
     required this.cacheTtlDays,
     this.avatarUrl,
+    this.signature,
   });
 
   final String id;
@@ -12,6 +13,7 @@ class MailAccount {
   final String displayName;
   final String? avatarUrl;
   final int cacheTtlDays;
+  final String? signature;
 
   factory MailAccount.fromJson(Map<String, dynamic> json) => MailAccount(
         id: json['id'] as String,
@@ -19,6 +21,7 @@ class MailAccount {
         displayName: json['display_name'] as String? ?? '',
         avatarUrl: json['avatar_url'] as String?,
         cacheTtlDays: json['cache_ttl_days'] as int? ?? 30,
+        signature: json['signature'] as String?,
       );
 }
 
@@ -31,6 +34,8 @@ class MailAddress {
         name: json?['name'] as String? ?? '',
         email: json?['email'] as String? ?? '',
       );
+
+  Map<String, dynamic> toJson() => {'name': name, 'email': email};
 
   String get label => name.trim().isEmpty ? email : name;
 }
@@ -47,6 +52,8 @@ class MailMessage {
     this.cc = const [],
     this.receivedAt,
     this.messageId,
+    this.inReplyTo,
+    this.references = const [],
     this.textBody,
     this.htmlBody,
     this.hasAttachments = false,
@@ -61,6 +68,8 @@ class MailMessage {
   final List<MailAddress> cc;
   final DateTime? receivedAt;
   final String? messageId;
+  final String? inReplyTo;
+  final List<String> references;
   final String preview;
   final List<String> flags;
   final String? textBody;
@@ -70,6 +79,15 @@ class MailMessage {
 
   bool get isRead => flags.contains(r'\Seen');
   bool get isStarred => flags.contains(r'\Flagged');
+
+  /// Best-effort thread identity: the root of the References chain when
+  /// present (so every reply in a conversation shares the same key), falling
+  /// back to this message's own id for a message that starts a thread.
+  String get threadKey {
+    if (references.isNotEmpty) return references.first;
+    if (inReplyTo != null && inReplyTo!.isNotEmpty) return inReplyTo!;
+    return messageId ?? '$folder-$uid';
+  }
 
   factory MailMessage.fromJson(Map<String, dynamic> json) => MailMessage(
         uid: json['uid'] as int,
@@ -86,6 +104,9 @@ class MailMessage {
             ? null
             : DateTime.tryParse(json['received_at'] as String),
         messageId: json['message_id'] as String?,
+        inReplyTo: json['in_reply_to'] as String?,
+        references:
+            List<String>.from(json['references'] as List<dynamic>? ?? const []),
         preview: json['preview'] as String? ?? '',
         flags: List<String>.from(json['flags'] as List<dynamic>? ?? const []),
         textBody: json['text_body'] as String?,
@@ -96,6 +117,22 @@ class MailMessage {
                 (item) => MailAttachment.fromJson(item as Map<String, dynamic>))
             .toList(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'uid': uid,
+        'folder': folder,
+        'subject': subject,
+        'sender': sender.toJson(),
+        'recipients': recipients.map((item) => item.toJson()).toList(),
+        'cc': cc.map((item) => item.toJson()).toList(),
+        'received_at': receivedAt?.toIso8601String(),
+        'message_id': messageId,
+        'in_reply_to': inReplyTo,
+        'references': references,
+        'preview': preview,
+        'flags': flags,
+        'has_attachments': hasAttachments,
+      };
 }
 
 class MailAttachment {
@@ -103,12 +140,14 @@ class MailAttachment {
     required this.part,
     required this.filename,
     required this.contentType,
+    this.contentId,
     this.size,
   });
 
   final String part;
   final String filename;
   final String contentType;
+  final String? contentId;
   final int? size;
 
   factory MailAttachment.fromJson(Map<String, dynamic> json) => MailAttachment(
@@ -116,6 +155,7 @@ class MailAttachment {
         filename: json['filename'] as String,
         contentType:
             json['content_type'] as String? ?? 'application/octet-stream',
+        contentId: json['content_id'] as String?,
         size: json['size'] as int?,
       );
 }
@@ -138,6 +178,25 @@ class MailFolder {
         unseen: json['unseen'] as int? ?? 0,
         total: json['total'] as int? ?? 0,
       );
+}
+
+/// Structured search filters (From/date range/has-attachment) applied
+/// alongside the free-text query.
+class MessageFilter {
+  const MessageFilter({
+    this.fromContains,
+    this.since,
+    this.before,
+    this.hasAttachment,
+  });
+
+  final String? fromContains;
+  final DateTime? since;
+  final DateTime? before;
+  final bool? hasAttachment;
+
+  bool get isEmpty =>
+      fromContains == null && since == null && before == null && hasAttachment == null;
 }
 
 extension MailFolderResolution on List<MailFolder> {

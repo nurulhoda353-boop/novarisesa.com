@@ -14,6 +14,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _name;
+  late final TextEditingController _signature;
   late int _cacheDays;
 
   @override
@@ -21,12 +22,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final account = context.read<AppState>().account!;
     _name = TextEditingController(text: account.displayName);
+    _signature = TextEditingController(text: account.signature ?? '');
     _cacheDays = account.cacheTtlDays;
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _signature.dispose();
     super.dispose();
   }
 
@@ -46,7 +49,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _save() async {
     try {
-      await context.read<AppState>().updateProfile(_name.text, _cacheDays);
+      await context.read<AppState>().updateProfile(
+            _name.text,
+            _cacheDays,
+            signature: _signature.text.trim().isEmpty ? null : _signature.text,
+          );
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Profile saved')));
@@ -105,6 +112,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               decoration: const InputDecoration(
                   labelText: 'Sender name',
                   prefixIcon: Icon(Icons.badge_outlined))),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _signature,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(
+                labelText: 'Email signature',
+                hintText: 'Added to the end of new messages',
+                alignLabelWithHint: true,
+                prefixIcon: Icon(Icons.draw_outlined)),
+          ),
           const SizedBox(height: 14),
           DropdownButtonFormField<int>(
             initialValue: _cacheDays,

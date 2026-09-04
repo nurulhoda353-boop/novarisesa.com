@@ -5,7 +5,11 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.addingAccount = false});
+
+  /// True when pushed on top of an already-signed-in session to add a
+  /// second mailbox, rather than being the app's root auth gate.
+  final bool addingAccount;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -29,6 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     try {
       await context.read<AppState>().login(_email.text, _password.text);
+      if (widget.addingAccount && mounted) Navigator.pop(context);
     } catch (_) {}
   }
 
@@ -36,6 +41,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     return Scaffold(
+      appBar: widget.addingAccount
+          ? AppBar(title: const Text('Add account'))
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

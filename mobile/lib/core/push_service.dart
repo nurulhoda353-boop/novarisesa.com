@@ -19,6 +19,7 @@ import 'api_client.dart';
 /// still surfaces as a notification without any Google Play Services
 /// dependency.
 const _backgroundTaskName = 'novarise-mail-background-sync';
+const _reminderTaskName = 'reminder';
 const notificationChannelId = 'novarise_mail_inbox';
 const _prefsLastNotifiedUidKey = 'push_last_notified_uid';
 
@@ -142,6 +143,15 @@ class PushService {
 void backgroundSyncDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
+      if (task == _reminderTaskName) {
+        await initLocalNotifications();
+        await showNewMailNotification(
+          title: inputData?['title'] as String? ?? 'Reminder',
+          body: inputData?['body'] as String? ?? '',
+          id: inputData?['id'] as int?,
+        );
+        return true;
+      }
       final api = ApiClient();
       if (!await api.restoreSession()) return true;
       if (!await api.refresh()) return true;
@@ -181,4 +191,24 @@ Future<void> registerBackgroundSync() async {
 Future<void> cancelBackgroundSync() async {
   if (!Platform.isAndroid) return;
   await Workmanager().cancelByUniqueName(_backgroundTaskName);
+}
+
+/// Schedules a one-off local notification (a "remind me about this email
+/// later" nudge). This does not hide or move the message the way Gmail's
+/// server-side snooze does — there is no scheduler on our backend for that
+/// yet — it only pops a reminder notification at the chosen time.
+Future<void> scheduleReminder({
+  required int id,
+  required Duration delay,
+  required String title,
+  required String body,
+}) async {
+  if (!Platform.isAndroid) return;
+  await Workmanager().initialize(backgroundSyncDispatcher);
+  await Workmanager().registerOneOffTask(
+    'novarise-mail-reminder-$id-${DateTime.now().millisecondsSinceEpoch}',
+    _reminderTaskName,
+    initialDelay: delay,
+    inputData: {'title': title, 'body': body, 'id': id},
+  );
 }

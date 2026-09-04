@@ -5,7 +5,7 @@ import smtplib
 import ssl
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from email import policy
 from email.header import decode_header, make_header
 from email.message import EmailMessage, Message
@@ -61,14 +61,19 @@ def _body_parts(message: Message) -> tuple[str, str | None, list[dict[str, Any]]
         content_disposition = part.get_content_disposition()
         filename = part.get_filename()
         content_type = part.get_content_type()
+        content_id = part.get("Content-ID")
         payload = part.get_payload(decode=True) or b""
-        if content_disposition == "attachment" or filename:
+        if content_disposition == "attachment" or filename or content_id:
             attachments.append(
                 {
                     "part": str(index),
                     "filename": _decode_header(filename) or f"attachment-{index}",
                     "content_type": content_type,
+                    "content_id": content_id.strip("<>") if content_id else None,
                     "size": len(payload),
+                    # Inline images referenced by the HTML body via cid: aren't
+                    # "attachments" from the user's point of view.
+                    "is_inline": bool(content_id) and content_disposition != "attachment",
                 }
             )
             continue
@@ -86,6 +91,11 @@ def _body_parts(message: Message) -> tuple[str, str | None, list[dict[str, Any]]
     return text, html, attachments
 
 
+def _references(message: Message) -> list[str]:
+    raw = message.get("References", "")
+    return [ref.strip() for ref in raw.split() if ref.strip()]
+
+
 def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | None = None) -> dict[str, Any]:
     message = BytesParser(policy=policy.default).parsebytes(raw)
     text, html, attachments = _body_parts(message)
@@ -96,6 +106,8 @@ def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | No
         "uid": uid,
         "folder": folder,
         "message_id": message.get("Message-ID"),
+        "in_reply_to": message.get("In-Reply-To"),
+        "references": _references(message),
         "subject": _decode_header(message.get("Subject")),
         "sender": senders[0] if senders else {"name": "", "email": ""},
         "recipients": _addresses(message, ["To"]),
@@ -103,7 +115,7 @@ def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | No
         "flags": flags,
         "preview": preview,
         "size_bytes": size or len(raw),
-        "has_attachments": bool(attachments),
+        "has_attachments": any(not item["is_inline"] for item in attachments),
     }
 
 
@@ -198,24 +210,43 @@ class HostingerMailboxClient:
         limit: int = 30,
         before_uid: int | None = None,
         query: str | None = None,
+        from_contains: str | None = None,
+        since: date | None = None,
+        before: date | None = None,
+        has_attachment: bool | None = None,
     ) -> list[dict[str, Any]]:
         with self.imap() as client:
             status, _ = client.select(folder, readonly=True)
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
-            criterion = "ALL"
+            clauses: list[str] = []
             if query:
                 escaped = query.replace('"', "")[:200]
-                criterion = f'(OR SUBJECT "{escaped}" FROM "{escaped}")'
+                clauses.append(f'(OR SUBJECT "{escaped}" FROM "{escaped}")')
+            if from_contains:
+                clauses.append(f'FROM "{from_contains.replace(chr(34), "")[:200]}"')
+            if since:
+                clauses.append(f"SINCE {since.strftime('%d-%b-%Y')}")
+            if before:
+                clauses.append(f"BEFORE {before.strftime('%d-%b-%Y')}")
+            criterion = " ".join(clauses) or "ALL"
             status, data = client.uid("search", None, criterion)
             if status != "OK" or not data:
                 return []
             uids = [int(value) for value in data[0].split()]
             if before_uid is not None:
                 uids = [uid for uid in uids if uid < before_uid]
-            selected = list(reversed(uids[-limit:]))
+            uids = list(reversed(uids))
             results: list[dict[str, Any]] = []
-            for uid in selected:
+            # has_attachment can't be expressed as an IMAP search term, so we
+            # walk newest-first until `limit` matching messages are found
+            # (bounded so a mailbox with no attachments at all can't spin
+            # through its entire history in one request).
+            scan_budget = max(limit * 8, 200)
+            for uid in uids:
+                if len(results) >= limit or scan_budget <= 0:
+                    break
+                scan_budget -= 1
                 fetch_status, rows = client.uid("fetch", str(uid), "(FLAGS RFC822.SIZE BODY.PEEK[])")
                 if fetch_status != "OK" or not rows:
                     continue
@@ -231,7 +262,10 @@ class HostingerMailboxClient:
                 size_match = re.search(rb"RFC822\.SIZE (\d+)", metadata)
                 flags = flags_match.group(1).decode("ascii", errors="ignore").split() if flags_match else []
                 size = int(size_match.group(1)) if size_match else None
-                results.append(_summary(uid, folder, raw, flags, size))
+                summary = _summary(uid, folder, raw, flags, size)
+                if has_attachment and not summary["has_attachments"]:
+                    continue
+                results.append(summary)
             return results
 
     def message(self, folder: str, uid: int) -> dict[str, Any]:
