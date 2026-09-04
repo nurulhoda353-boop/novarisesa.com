@@ -349,7 +349,10 @@ class HostingerMailboxClient:
                 )
         except (smtplib.SMTPException, OSError, ssl.SSLError) as exc:
             raise MailConnectionError("Email could not be sent") from exc
-        with suppress(MailConnectionError):
+        with suppress(Exception):
+            # Best-effort: the message is already sent via SMTP at this point,
+            # so a failure to also copy it into Sent must never be reported to
+            # the caller as a failed send.
             self._append_sent(message.as_bytes())
         return message.get("Message-ID", "")
 
@@ -364,4 +367,4 @@ class HostingerMailboxClient:
                         if match:
                             sent_folder = match.group(1).decode("utf-8", errors="replace").strip('"')
                             break
-            client.append(sent_folder, "(\\Seen)", imaplib.Time2Internaldate(datetime.now()), raw)
+            client.append(sent_folder, "(\\Seen)", imaplib.Time2Internaldate(datetime.now(UTC)), raw)

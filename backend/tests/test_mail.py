@@ -1,4 +1,6 @@
 import asyncio
+import imaplib
+from datetime import UTC, datetime
 from email.message import EmailMessage
 
 import jwt
@@ -88,6 +90,17 @@ def test_attachment_can_be_selected_from_message() -> None:
     assert filename == "report.txt"
     assert content_type == "text/plain"
     assert content == b"report-data"
+
+
+def test_time2internaldate_needs_an_aware_datetime() -> None:
+    # Regression: HostingerMailboxClient._append_sent used to pass a naive
+    # datetime.now() to imaplib.Time2Internaldate. That raises ValueError
+    # ("date_time must be aware"), which then propagated out of send() and
+    # made the API report a successfully-sent email as a 502 failure. The
+    # fix is datetime.now(UTC); this test pins that behavior down.
+    with pytest.raises(ValueError, match="date_time must be aware"):
+        imaplib.Time2Internaldate(datetime.now())
+    assert imaplib.Time2Internaldate(datetime.now(UTC))
 
 
 def test_folder_response_defaults_unseen_and_total_to_zero() -> None:
