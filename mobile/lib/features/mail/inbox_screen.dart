@@ -775,6 +775,7 @@ class _MailboxDrawer extends StatelessWidget {
       return Icons.report_outlined;
     }
     if (value.contains('archive')) return Icons.archive_outlined;
+    if (value.contains('snooze')) return Icons.snooze_outlined;
     return Icons.folder_outlined;
   }
 

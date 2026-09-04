@@ -26,7 +26,13 @@ class _MessageScreenState extends State<MessageScreen> {
     _message = context.read<AppState>().getMessage(widget.summary);
   }
 
-  Future<void> _remindLater(MailMessage message) async {
+  /// Real snooze: the backend moves the message out of Inbox now and back
+  /// in at [wakeAt] on its own (see docs/NOVARISE_MAIL.md), so it's
+  /// actually gone from the list meanwhile — not just a local reminder.
+  /// A local notification is still scheduled alongside it so the device
+  /// pings at the right moment instead of only surfacing the mail silently.
+  Future<void> _snooze(MailMessage message) async {
+    final state = context.read<AppState>();
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
@@ -47,23 +53,33 @@ class _MessageScreenState extends State<MessageScreen> {
           .showSnackBar(const SnackBar(content: Text('Pick a time in the future')));
       return;
     }
+    try {
+      await state.snoozeMessage(message, target);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not snooze this email. Please retry.')));
+      }
+      return;
+    }
     await scheduleReminder(
       id: message.uid,
       delay: delay,
-      title: message.sender.label.isEmpty ? 'Reminder' : message.sender.label,
+      title: message.sender.label.isEmpty ? 'Snoozed mail' : message.sender.label,
       body: message.subject,
     );
     if (mounted) {
+      Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'We\'ll remind you on ${DateFormat('MMM d, h:mm a').format(target)}')));
+              'Snoozed until ${DateFormat('MMM d, h:mm a').format(target)}')));
     }
   }
 
   Future<void> _act(BuildContext context, String action, MailMessage message) async {
     final state = context.read<AppState>();
     if (action == 'remind') {
-      await _remindLater(message);
+      await _snooze(message);
       return;
     }
     if (action == 'delete') {
@@ -129,7 +145,7 @@ class _MessageScreenState extends State<MessageScreen> {
                   onSelected: (value) => _act(context, value, message),
                   itemBuilder: (_) => const [
                     PopupMenuItem(
-                        value: 'remind', child: Text('Remind me later')),
+                        value: 'remind', child: Text('Snooze')),
                     PopupMenuItem(value: 'archive', child: Text('Archive')),
                     PopupMenuItem(value: 'spam', child: Text('Mark as spam')),
                     PopupMenuItem(value: 'delete', child: Text('Delete')),

@@ -13,8 +13,16 @@ from app.core.security import (
     decode_mobile_token,
     decode_token,
 )
-from app.schemas.mail import ContactUpdate, FolderResponse, MailLoginRequest, MailProfileUpdate
+from app.models import MailSnooze
+from app.schemas.mail import (
+    ContactUpdate,
+    FolderResponse,
+    MailLoginRequest,
+    MailProfileUpdate,
+    SnoozeRequest,
+)
 from app.services.mail_client import _attachment_from_raw, _summary
+from app.services.mail_snooze import SNOOZE_FOLDER
 from app.services.mail_watcher import WatcherRegistry
 
 
@@ -161,6 +169,36 @@ def test_mail_profile_update_accepts_optional_signature() -> None:
         display_name="Novarise", cache_ttl_days=30, signature="Best,\nNovarise Team"
     )
     assert with_signature.signature == "Best,\nNovarise Team"
+
+
+def test_snooze_request_requires_wake_at() -> None:
+    with pytest.raises(ValueError):
+        SnoozeRequest()
+    request = SnoozeRequest(wake_at=datetime(2026, 9, 10, 9, 0, tzinfo=UTC))
+    assert request.wake_at.year == 2026
+
+
+def test_mail_snooze_model_has_the_expected_columns() -> None:
+    columns = {column.name for column in MailSnooze.__table__.columns}
+    assert columns == {
+        "id",
+        "account_id",
+        "message_id",
+        "subject",
+        "original_folder",
+        "snoozed_folder",
+        "wake_at",
+        "woken_at",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_snooze_folder_is_namespaced_under_inbox() -> None:
+    # Matches Hostinger's dot-hierarchy convention (INBOX.Sent, INBOX.Trash,
+    # ...) seen from the live folder list, so it nests under Inbox in most
+    # mail clients instead of appearing as an unrelated top-level folder.
+    assert SNOOZE_FOLDER == "INBOX.Snoozed"
 
 
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:

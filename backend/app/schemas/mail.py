@@ -160,6 +160,18 @@ class FolderResponse(BaseModel):
     total: int = 0
 
 
+class SnoozeRequest(BaseModel):
+    wake_at: datetime
+
+
+class SnoozeResponse(BaseModel):
+    id: uuid.UUID
+    message_id: str
+    subject: str
+    original_folder: str
+    wake_at: datetime
+
+
 class AliasCreate(BaseModel):
     local_part: str = Field(pattern=r"^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,48}[a-zA-Z0-9])?$")
 

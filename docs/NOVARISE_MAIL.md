@@ -69,9 +69,24 @@ channel:
   multiple workers, replace it with a shared broker (e.g. Redis pub/sub) so
   every worker's WebSocket connections see the same IMAP IDLE events.
 
+## Server-side snooze
+
+Snoozing a message is real, not a local reminder: `POST
+/mail/messages/{uid}/snooze` moves it into an `INBOX.Snoozed` folder
+(created on first use) and records the wake time in the `mail_snoozes`
+table. A background poll loop started from `app.main`'s lifespan
+(`app/services/mail_snooze.py`, every 30s) moves each message back to its
+original folder the instant its wake time arrives, whether or not the
+user's device is online then. The mobile app also schedules a local
+notification for the same moment via WorkManager so the device pings, but
+the actual hide/reveal is entirely server-driven. Like the IMAP IDLE
+watcher registry, this loop is per-process — scaling the API to multiple
+workers would double-process due snoozes without adding a shared lock
+(e.g. a Postgres advisory lock) first.
+
 ## Release checklist
 
-1. Apply Alembic migration `20260904_0010`.
+1. Apply Alembic migrations `20260904_0010` through `20260905_0012`.
 2. Configure the production secrets above and deploy the API (with the
    `imapclient` dependency installed — it ships in `pyproject.toml`).
 3. Verify IMAP/SMTP egress on ports 993 and 465 from the API container, and

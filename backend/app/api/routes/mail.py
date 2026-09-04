@@ -47,6 +47,7 @@ from app.models import (
     MailDevice,
     MailDraft,
     MailMessageCache,
+    MailSnooze,
     RefreshToken,
     User,
 )
@@ -71,9 +72,12 @@ from app.schemas.mail import (
     MobileSessionResponse,
     MoveRequest,
     SendMailRequest,
+    SnoozeRequest,
+    SnoozeResponse,
 )
 from app.services.hostinger_api import HostingerApiError, HostingerManagementClient
 from app.services.mail_client import HostingerMailboxClient, MailConnectionError
+from app.services.mail_snooze import SNOOZE_FOLDER
 from app.services.mail_watcher import watcher_registry
 
 router = APIRouter(prefix="/mail")
@@ -513,6 +517,68 @@ def delete_message(uid: int, account: CurrentMailAccount, folder: str = Query("I
         mailbox_client(account).delete(folder, uid)
     except MailConnectionError as exc:
         raise mail_error(exc) from exc
+
+
+@router.post(
+    "/messages/{uid}/snooze", response_model=SnoozeResponse, status_code=status.HTTP_201_CREATED
+)
+def snooze_message(
+    uid: int,
+    payload: SnoozeRequest,
+    account: CurrentMailAccount,
+    db: DBSession,
+    folder: str = Query(default="INBOX", max_length=500),
+) -> MailSnooze:
+    client = mailbox_client(account)
+    try:
+        detail = client.message(folder, uid)
+        client.ensure_folder(SNOOZE_FOLDER)
+        client.move(folder, uid, SNOOZE_FOLDER)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Message not found") from exc
+    except MailConnectionError as exc:
+        raise mail_error(exc) from exc
+    snooze = MailSnooze(
+        account_id=account.id,
+        message_id=detail.get("message_id") or f"novarise-uid-{uid}",
+        subject=detail.get("subject", ""),
+        original_folder=folder,
+        snoozed_folder=SNOOZE_FOLDER,
+        wake_at=payload.wake_at,
+    )
+    db.add(snooze)
+    db.commit()
+    db.refresh(snooze)
+    return snooze
+
+
+@router.get("/snoozes", response_model=list[SnoozeResponse])
+def list_snoozes(account: CurrentMailAccount, db: DBSession) -> list[MailSnooze]:
+    return list(
+        db.scalars(
+            select(MailSnooze)
+            .where(MailSnooze.account_id == account.id, MailSnooze.woken_at.is_(None))
+            .order_by(MailSnooze.wake_at)
+        )
+    )
+
+
+@router.delete("/snoozes/{snooze_id}", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_snooze(snooze_id: uuid.UUID, account: CurrentMailAccount, db: DBSession) -> None:
+    snooze = db.scalar(
+        select(MailSnooze).where(MailSnooze.id == snooze_id, MailSnooze.account_id == account.id)
+    )
+    if not snooze or snooze.woken_at is not None:
+        raise HTTPException(status_code=404, detail="Snooze not found")
+    client = mailbox_client(account)
+    try:
+        found_uid = client.find_uid_by_message_id(snooze.snoozed_folder, snooze.message_id)
+        if found_uid is not None:
+            client.move(snooze.snoozed_folder, found_uid, snooze.original_folder)
+    except MailConnectionError as exc:
+        raise mail_error(exc) from exc
+    snooze.woken_at = datetime.now(UTC)
+    db.commit()
 
 
 @router.post("/messages/send")

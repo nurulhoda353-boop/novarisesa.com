@@ -299,6 +299,16 @@ class ApiClient {
         query: {'folder': folder},
       );
 
+  /// Real (server-side) snooze: moves the message into a Snoozed folder and
+  /// the backend's own scheduler moves it back to [folder] at [wakeAt],
+  /// whether or not this device is online then.
+  Future<void> snoozeMessage(String folder, int uid, DateTime wakeAt) => _request(
+        'POST',
+        '/mail/messages/$uid/snooze',
+        query: {'folder': folder},
+        body: {'wake_at': wakeAt.toUtc().toIso8601String()},
+      );
+
   Future<void> send({
     required List<String> to,
     required String subject,

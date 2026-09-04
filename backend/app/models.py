@@ -217,6 +217,20 @@ class MailDraft(UUIDMixin, TimestampMixin, Base):
     attachments: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
 
 
+class MailSnooze(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "mail_snoozes"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    message_id: Mapped[str] = mapped_column(String(1000))
+    subject: Mapped[str] = mapped_column(String(998), default="")
+    original_folder: Mapped[str] = mapped_column(String(500))
+    snoozed_folder: Mapped[str] = mapped_column(String(500))
+    wake_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    woken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class MailDevice(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "mail_devices"
     __table_args__ = (UniqueConstraint("account_id", "installation_id", name="uq_mail_device_installation"),)

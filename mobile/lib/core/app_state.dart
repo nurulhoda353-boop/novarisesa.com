@@ -322,6 +322,13 @@ class AppState extends ChangeNotifier {
     }, showBusy: false);
   }
 
+  Future<void> snoozeMessage(MailMessage message, DateTime wakeAt) async {
+    await _guard(() async {
+      await api.snoozeMessage(message.folder, message.uid, wakeAt);
+      removeLocally(message);
+    }, showBusy: false);
+  }
+
   /// Bulk actions used by inbox multi-select. Each removes the affected
   /// messages from the visible list immediately, fires the backend calls in
   /// parallel (best-effort — a failed item simply reappears on the next

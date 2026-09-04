@@ -341,6 +341,35 @@ class HostingerMailboxClient:
                 raise MailConnectionError("Message could not be deleted")
             client.expunge()
 
+    def ensure_folder(self, name: str) -> None:
+        """Creates `name` if it doesn't already exist. Used for the Snoozed
+        folder; safe to call even when it's already there."""
+        with self.imap() as client:
+            status, rows = client.list()
+            if status == "OK":
+                for row in rows or []:
+                    if isinstance(row, bytes) and row.endswith(f'"{name}"'.encode()):
+                        return
+                    if isinstance(row, bytes) and row.decode("utf-8", errors="replace").endswith(name):
+                        return
+            client.create(name)
+
+    def find_uid_by_message_id(self, folder: str, message_id: str) -> int | None:
+        """Looks up a message's current UID in `folder` by its Message-ID
+        header. UIDs are per-folder, so after a move the UID we knew before
+        is meaningless — this is how the snooze scheduler relocates a
+        message it moved earlier."""
+        escaped = message_id.replace('"', "")
+        with self.imap() as client:
+            status, _ = client.select(folder, readonly=True)
+            if status != "OK":
+                raise MailConnectionError("Mailbox folder is unavailable")
+            status, data = client.uid("search", None, f'(HEADER "Message-ID" "{escaped}")')
+            if status != "OK" or not data or not data[0]:
+                return None
+            uids = [int(value) for value in data[0].split()]
+            return uids[0] if uids else None
+
     def send(self, payload: dict[str, Any], display_name: str) -> str:
         message = EmailMessage()
         message["Message-ID"] = make_msgid(domain=self.address.rsplit("@", 1)[-1])

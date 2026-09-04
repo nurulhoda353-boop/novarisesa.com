@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,7 @@ from starlette.requests import Request
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.storage import media_root
+from app.services.mail_snooze import snooze_scheduler_loop
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -65,7 +67,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     media_root()
-    yield
+    scheduler_task = asyncio.create_task(snooze_scheduler_loop())
+    try:
+        yield
+    finally:
+        scheduler_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await scheduler_task
 
 
 app = FastAPI(
