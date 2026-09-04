@@ -19,11 +19,15 @@ class NovariseMailApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppState(ApiClient())..bootstrap(),
-      child: MaterialApp(
-        title: 'Novarise Mail',
-        debugShowCheckedModeBanner: false,
-        theme: NovariseTheme.light(),
-        home: const _AppGate(),
+      child: Consumer<AppState>(
+        builder: (context, state, _) => MaterialApp(
+          title: 'Novarise Mail',
+          debugShowCheckedModeBanner: false,
+          theme: NovariseTheme.light(),
+          darkTheme: NovariseTheme.dark(),
+          themeMode: state.themeMode,
+          home: const _AppGate(),
+        ),
       ),
     );
   }

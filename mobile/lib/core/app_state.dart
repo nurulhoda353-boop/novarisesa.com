@@ -1,26 +1,37 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'models.dart';
+import 'push_service.dart';
 
 class AppState extends ChangeNotifier {
-  AppState(this.api);
+  AppState(this.api) : push = PushService(api);
 
   final ApiClient api;
+  final PushService push;
   MailAccount? account;
   List<MailFolder> folders = const [];
   List<MailMessage> messages = const [];
   String currentFolder = 'INBOX';
   bool booting = true;
   bool busy = false;
+  bool loadingMore = false;
+  bool hasMore = false;
   String? error;
+  ThemeMode themeMode = ThemeMode.system;
+  bool notificationsEnabled = true;
+
+  int? _nextBeforeUid;
+  String? _activeQuery;
   Timer? _refreshTimer;
 
   bool get authenticated => account != null;
 
   Future<void> bootstrap() async {
+    await _loadPreferences();
     try {
       if (await api.restoreSession() && await api.refresh()) {
         account = await api.account();
@@ -31,6 +42,38 @@ class AppState extends ChangeNotifier {
     } finally {
       booting = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    themeMode = switch (prefs.getString('theme_mode')) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+    notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    themeMode = mode;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme_mode', mode.name);
+  }
+
+  Future<void> setNotificationsEnabled(bool value) async {
+    notificationsEnabled = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', value);
+    if (value) {
+      await initLocalNotifications();
+      push.start();
+      await registerBackgroundSync();
+    } else {
+      push.stop();
+      await cancelBackgroundSync();
     }
   }
 
@@ -46,10 +89,18 @@ class AppState extends ChangeNotifier {
     folders = await api.folders();
     await loadMessages();
     _refreshTimer?.cancel();
+    // Safety-net poll: the push WebSocket delivers new mail instantly, this
+    // just guards against a silently-dropped connection.
     _refreshTimer = Timer.periodic(
-      const Duration(minutes: 2),
+      const Duration(minutes: 5),
       (_) => loadMessages(silent: true),
     );
+    if (notificationsEnabled) {
+      await initLocalNotifications();
+      push.onNewMail = () => loadMessages(silent: true);
+      push.start();
+      await registerBackgroundSync();
+    }
   }
 
   Future<void> selectFolder(String folder) async {
@@ -59,13 +110,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadMessages({String? query, bool silent = false}) async {
+    _activeQuery = query;
     if (!silent) {
       busy = true;
       error = null;
       notifyListeners();
     }
     try {
-      messages = await api.messages(currentFolder, query: query);
+      final page = await api.messages(currentFolder, query: query);
+      messages = page.data;
+      _nextBeforeUid = page.nextBeforeUid;
+      hasMore = page.nextBeforeUid != null;
+      folders = await api.folders();
     } on ApiException catch (exception) {
       error = exception.message;
     } catch (_) {
@@ -74,6 +130,38 @@ class AppState extends ChangeNotifier {
       busy = false;
       notifyListeners();
     }
+  }
+
+  Future<void> loadMore() async {
+    if (loadingMore || !hasMore || _nextBeforeUid == null) return;
+    loadingMore = true;
+    notifyListeners();
+    try {
+      final page = await api.messages(
+        currentFolder,
+        query: _activeQuery,
+        beforeUid: _nextBeforeUid,
+      );
+      messages = [...messages, ...page.data];
+      _nextBeforeUid = page.nextBeforeUid;
+      hasMore = page.nextBeforeUid != null;
+    } catch (_) {
+      // Keep the existing list; the user can retry by scrolling again.
+    } finally {
+      loadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  /// Optimistically removes a message from the visible list (used by swipe
+  /// actions) ahead of the backend confirming the move/delete. If the backend
+  /// call ends up failing, the next silent reload restores it automatically.
+  void removeLocally(MailMessage message) {
+    messages = messages
+        .where((item) =>
+            !(item.uid == message.uid && item.folder == message.folder))
+        .toList();
+    notifyListeners();
   }
 
   Future<MailMessage> getMessage(MailMessage summary) async {
@@ -106,8 +194,41 @@ class AppState extends ChangeNotifier {
     }, showBusy: false);
   }
 
+  /// Bulk actions used by inbox multi-select. Each removes the affected
+  /// messages from the visible list immediately, fires the backend calls in
+  /// parallel (best-effort — a failed item simply reappears on the next
+  /// silent reload), then resyncs with the server.
+  Future<void> bulkDelete(List<MailMessage> selected) async {
+    for (final message in selected) {
+      removeLocally(message);
+    }
+    await Future.wait(selected
+        .map((message) => api.deleteMessage(message.folder, message.uid))
+        .map((future) => future.catchError((_) {})));
+    unawaited(loadMessages(silent: true));
+  }
+
+  Future<void> bulkMove(List<MailMessage> selected, String destination) async {
+    for (final message in selected) {
+      removeLocally(message);
+    }
+    await Future.wait(selected
+        .map((message) => api.move(message.folder, message.uid, destination))
+        .map((future) => future.catchError((_) {})));
+    unawaited(loadMessages(silent: true));
+  }
+
+  Future<void> bulkSetRead(List<MailMessage> selected, bool value) async {
+    await Future.wait(selected
+        .map((message) => api.setRead(message.folder, message.uid, value))
+        .map((future) => future.catchError((_) {})));
+    await loadMessages(silent: true);
+  }
+
   Future<void> send({
     required List<String> to,
+    List<String> cc = const [],
+    List<String> bcc = const [],
     required String subject,
     required String body,
     String? replyToMessageId,
@@ -116,6 +237,8 @@ class AppState extends ChangeNotifier {
     await _guard(() async {
       await api.send(
         to: to,
+        cc: cc,
+        bcc: bcc,
         subject: subject,
         textBody: body,
         replyToMessageId: replyToMessageId,
@@ -143,6 +266,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> logout() async {
     _refreshTimer?.cancel();
+    push.stop();
+    await cancelBackgroundSync();
     await api.logout();
     account = null;
     messages = const [];
@@ -174,6 +299,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    push.stop();
     super.dispose();
   }
 }

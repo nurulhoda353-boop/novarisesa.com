@@ -167,7 +167,29 @@ class HostingerMailboxClient:
                 name = match.group("name").rstrip(b'"').decode("utf-8", errors="replace")
                 flags = match.group("flags").decode("ascii", errors="ignore").split()
                 delimiter = match.group("delimiter").decode("ascii", errors="ignore") or None
-                folders.append({"name": name, "flags": flags, "delimiter": delimiter})
+                if "\\Noselect" in flags:
+                    folders.append(
+                        {"name": name, "flags": flags, "delimiter": delimiter, "unseen": 0, "total": 0}
+                    )
+                    continue
+                unseen = 0
+                total = 0
+                status_ok, status_rows = client.status(name, "(MESSAGES UNSEEN)")
+                if status_ok == "OK" and status_rows and status_rows[0]:
+                    text = status_rows[0].decode("utf-8", errors="ignore")
+                    messages_match = re.search(r"MESSAGES\s+(\d+)", text)
+                    unseen_match = re.search(r"UNSEEN\s+(\d+)", text)
+                    total = int(messages_match.group(1)) if messages_match else 0
+                    unseen = int(unseen_match.group(1)) if unseen_match else 0
+                folders.append(
+                    {
+                        "name": name,
+                        "flags": flags,
+                        "delimiter": delimiter,
+                        "unseen": unseen,
+                        "total": total,
+                    }
+                )
             return folders
 
     def messages(

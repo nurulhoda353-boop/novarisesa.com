@@ -1,3 +1,4 @@
+import asyncio
 from email.message import EmailMessage
 
 import jwt
@@ -10,8 +11,9 @@ from app.core.security import (
     decode_mobile_token,
     decode_token,
 )
-from app.schemas.mail import MailLoginRequest, MailProfileUpdate
+from app.schemas.mail import ContactUpdate, FolderResponse, MailLoginRequest, MailProfileUpdate
 from app.services.mail_client import _attachment_from_raw, _summary
+from app.services.mail_watcher import WatcherRegistry
 
 
 def test_mail_credentials_are_encrypted_and_round_trip() -> None:
@@ -86,3 +88,56 @@ def test_attachment_can_be_selected_from_message() -> None:
     assert filename == "report.txt"
     assert content_type == "text/plain"
     assert content == b"report-data"
+
+
+def test_folder_response_defaults_unseen_and_total_to_zero() -> None:
+    folder = FolderResponse(name="INBOX")
+    assert folder.unseen == 0
+    assert folder.total == 0
+    counted = FolderResponse(name="INBOX", unseen=3, total=12)
+    assert counted.unseen == 3
+    assert counted.total == 12
+
+
+def test_contact_update_allows_clearing_optional_fields() -> None:
+    update = ContactUpdate(display_name="Novarise Team", phone=None, company=None, is_favorite=True)
+    assert update.display_name == "Novarise Team"
+    assert update.phone is None
+    assert update.is_favorite is True
+
+
+def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:
+    registry = WatcherRegistry()
+    started: list[str] = []
+    stopped: list[str] = []
+
+    class _FakeWatcher:
+        def __init__(self, account_id, address, password, loop, on_event):  # noqa: ANN001
+            self.account_id = account_id
+
+        def start(self) -> None:
+            started.append(self.account_id)
+
+        def stop(self) -> None:
+            stopped.append(self.account_id)
+
+    import app.services.mail_watcher as mail_watcher_module
+
+    original = mail_watcher_module.MailboxWatcher
+    mail_watcher_module.MailboxWatcher = _FakeWatcher
+    try:
+
+        async def scenario() -> None:
+            ws_a = object()
+            ws_b = object()
+            await registry.subscribe("acct-1", "a@novarisesa.com", "secret", ws_a)
+            await registry.subscribe("acct-1", "a@novarisesa.com", "secret", ws_b)
+            assert started == ["acct-1"]
+            await registry.unsubscribe("acct-1", ws_a)
+            assert stopped == []
+            await registry.unsubscribe("acct-1", ws_b)
+            assert stopped == ["acct-1"]
+
+        asyncio.run(scenario())
+    finally:
+        mail_watcher_module.MailboxWatcher = original

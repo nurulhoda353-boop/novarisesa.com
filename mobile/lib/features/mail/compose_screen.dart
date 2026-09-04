@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/models.dart';
 
@@ -14,11 +15,13 @@ class ComposeScreen extends StatefulWidget {
     this.draft,
     this.initialTo,
     this.isForward = false,
+    this.replyAll = false,
   });
   final MailMessage? replyTo;
   final MailDraft? draft;
   final String? initialTo;
   final bool isForward;
+  final bool replyAll;
 
   @override
   State<ComposeScreen> createState() => _ComposeScreenState();
@@ -26,20 +29,39 @@ class ComposeScreen extends StatefulWidget {
 
 class _ComposeScreenState extends State<ComposeScreen> {
   late final TextEditingController _to;
+  late final TextEditingController _cc;
+  late final TextEditingController _bcc;
   late final TextEditingController _subject;
   late final TextEditingController _body;
   final List<Map<String, dynamic>> _attachments = [];
+  bool _showCcBcc = false;
 
   @override
   void initState() {
     super.initState();
     final reply = widget.replyTo;
+    final selfAddress = context.read<AppState>().account?.address.toLowerCase();
     _to = TextEditingController(
       text: widget.draft?.to.join(', ') ??
           widget.initialTo ??
           (widget.isForward ? '' : reply?.sender.email) ??
           '',
     );
+    final ccPrefill = <String>{};
+    if (widget.draft != null) {
+      ccPrefill.addAll(widget.draft!.cc);
+    } else if (reply != null && !widget.isForward && widget.replyAll) {
+      for (final address in [...reply.recipients, ...reply.cc]) {
+        final email = address.email.toLowerCase();
+        if (email.isEmpty || email == selfAddress || email == reply.sender.email.toLowerCase()) {
+          continue;
+        }
+        ccPrefill.add(address.email);
+      }
+    }
+    _cc = TextEditingController(text: ccPrefill.join(', '));
+    _bcc = TextEditingController(text: widget.draft?.bcc.join(', ') ?? '');
+    _showCcBcc = ccPrefill.isNotEmpty || _bcc.text.isNotEmpty;
     _subject = TextEditingController(
       text: widget.draft?.subject ??
           (reply == null
@@ -66,10 +88,18 @@ class _ComposeScreenState extends State<ComposeScreen> {
   @override
   void dispose() {
     _to.dispose();
+    _cc.dispose();
+    _bcc.dispose();
     _subject.dispose();
     _body.dispose();
     super.dispose();
   }
+
+  List<String> _splitAddresses(String value) => value
+      .split(RegExp(r'[,;]'))
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList();
 
   Future<void> _attach() async {
     final result = await FilePicker.platform.pickFiles(withData: true);
@@ -85,11 +115,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
   }
 
   Future<void> _send() async {
-    final recipients = _to.text
-        .split(RegExp(r'[,;]'))
-        .map((value) => value.trim())
-        .where((value) => value.contains('@'))
-        .toList();
+    final recipients =
+        _splitAddresses(_to.text).where((value) => value.contains('@')).toList();
     if (recipients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Add at least one recipient')));
@@ -99,6 +126,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
     try {
       await state.send(
         to: recipients,
+        cc: _splitAddresses(_cc.text),
+        bcc: _splitAddresses(_bcc.text),
         subject: _subject.text,
         body: _body.text,
         replyToMessageId: widget.isForward ? null : widget.replyTo?.messageId,
@@ -108,22 +137,36 @@ class _ComposeScreenState extends State<ComposeScreen> {
         await state.api.deleteDraft(widget.draft!.id);
       }
       if (mounted) Navigator.pop(context, true);
-    } catch (_) {}
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not send. Please retry.')));
+      }
+    }
   }
 
   Future<void> _saveDraft() async {
-    final recipients = _to.text
-        .split(RegExp(r'[,;]'))
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-    await context.read<AppState>().api.saveDraft(
-          id: widget.draft?.id,
-          to: recipients,
-          subject: _subject.text,
-          body: _body.text,
-        );
-    if (mounted) Navigator.pop(context, true);
+    try {
+      await context.read<AppState>().api.saveDraft(
+            id: widget.draft?.id,
+            to: _splitAddresses(_to.text),
+            cc: _splitAddresses(_cc.text),
+            bcc: _splitAddresses(_bcc.text),
+            subject: _subject.text,
+            body: _body.text,
+          );
+      if (mounted) Navigator.pop(context, true);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not save draft. Please retry.')));
+      }
+    }
   }
 
   @override
@@ -146,10 +189,33 @@ class _ComposeScreenState extends State<ComposeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          TextField(
-              controller: _to,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'To')),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                    controller: _to,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'To')),
+              ),
+              if (!_showCcBcc)
+                TextButton(
+                  onPressed: () => setState(() => _showCcBcc = true),
+                  child: const Text('Cc/Bcc'),
+                ),
+            ],
+          ),
+          if (_showCcBcc) ...[
+            const SizedBox(height: 10),
+            TextField(
+                controller: _cc,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Cc')),
+            const SizedBox(height: 10),
+            TextField(
+                controller: _bcc,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Bcc')),
+          ],
           const SizedBox(height: 10),
           TextField(
               controller: _subject,

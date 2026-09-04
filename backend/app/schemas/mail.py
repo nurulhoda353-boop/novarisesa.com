@@ -121,6 +121,13 @@ class ContactCreate(BaseModel):
         return str(value).lower()
 
 
+class ContactUpdate(BaseModel):
+    display_name: str = Field(default="", max_length=160)
+    phone: str | None = Field(default=None, max_length=40)
+    company: str | None = Field(default=None, max_length=255)
+    is_favorite: bool = False
+
+
 class ContactResponse(ContactCreate):
     id: uuid.UUID
 
@@ -144,6 +151,8 @@ class FolderResponse(BaseModel):
     name: str
     delimiter: str | None = None
     flags: list[str] = []
+    unseen: int = 0
+    total: int = 0
 
 
 class AliasCreate(BaseModel):

@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 offset: Offset(0, 12)),
                           ],
                         ),
-                        child: Image.asset('assets/novarise-logo-mark.png'),
+                        child: Image.asset('assets/novarise-icon-mark.png'),
                       ),
                     ),
                     const SizedBox(height: 28),

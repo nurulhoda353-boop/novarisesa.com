@@ -36,7 +36,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (file == null || !mounted) return;
     try {
       await context.read<AppState>().updateAvatar(file.path);
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not update your photo')));
+      }
+    }
   }
 
   Future<void> _save() async {
@@ -46,7 +51,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Profile saved')));
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not save. Please retry.')));
+      }
+    }
   }
 
   @override
@@ -88,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           Text(account.address,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.blueGrey)),
+              style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 28),
           TextField(
               controller: _name,
@@ -112,6 +122,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: state.busy ? null : _save,
               child: const Text('Save changes')),
           const SizedBox(height: 26),
+          const _SectionTitle('Appearance'),
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: RadioGroup<ThemeMode>(
+              groupValue: state.themeMode,
+              onChanged: (mode) => state.setThemeMode(mode!),
+              child: const Column(
+                children: [
+                  RadioListTile<ThemeMode>(
+                    title: Text('Match system'),
+                    value: ThemeMode.system,
+                  ),
+                  RadioListTile<ThemeMode>(
+                    title: Text('Light'),
+                    value: ThemeMode.light,
+                  ),
+                  RadioListTile<ThemeMode>(
+                    title: Text('Dark'),
+                    value: ThemeMode.dark,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          const _SectionTitle('Notifications'),
+          Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: SwitchListTile(
+              title: const Text('New mail notifications'),
+              subtitle: const Text(
+                  'Instant while the app is open, periodic checks otherwise'),
+              value: state.notificationsEnabled,
+              onChanged: state.setNotificationsEnabled,
+            ),
+          ),
+          const SizedBox(height: 18),
           const _SectionTitle('Mailbox management'),
           _SettingsTile(
             icon: Icons.password_outlined,
@@ -184,6 +231,7 @@ class _ChangePasswordDialog extends StatefulWidget {
 class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   final current = TextEditingController();
   final next = TextEditingController();
+  String? _error;
 
   @override
   void dispose() {
@@ -208,6 +256,11 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
                 controller: next,
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'New password')),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
           ],
         ),
         actions: [
@@ -216,13 +269,20 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
-              if (next.text.length < 8) return;
+              if (next.text.length < 8) {
+                setState(() => _error = 'New password must be at least 8 characters');
+                return;
+              }
               try {
                 await context
                     .read<AppState>()
                     .changePassword(current.text, next.text);
                 if (context.mounted) Navigator.pop(context);
-              } catch (_) {}
+              } on ApiException catch (error) {
+                setState(() => _error = error.message);
+              } catch (_) {
+                setState(() => _error = 'Could not update the password');
+              }
             },
             child: const Text('Update'),
           ),
@@ -251,68 +311,128 @@ class _ManagementScreenState extends State<_ManagementScreen> {
     _items = context.read<AppState>().api.managementList(widget.resource);
   }
 
-  Future<void> _add() async {
-    final first = TextEditingController();
-    final second = TextEditingController();
-    final created = await showDialog<Map<String, dynamic>>(
+  String get _singular => widget.resource == 'aliases'
+      ? 'alias'
+      : widget.resource == 'forwarders'
+          ? 'forwarder'
+          : 'automatic reply';
+
+  Future<void> _upsert({Map<String, dynamic>? existing}) async {
+    final first = TextEditingController(
+      text: widget.resource == 'aliases'
+          ? ''
+          : widget.resource == 'forwarders'
+              ? (existing?['destination']?.toString() ?? '')
+              : (existing?['subject']?.toString() ?? ''),
+    );
+    final second =
+        TextEditingController(text: existing?['body']?.toString() ?? '');
+    DateTime? startsAt = _parseDate(existing?['starts_at']);
+    DateTime? endsAt = _parseDate(existing?['ends_at']);
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-            'Add ${widget.resource == 'aliases' ? 'alias' : widget.resource == 'forwarders' ? 'forwarder' : 'automatic reply'}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: first,
-              decoration: InputDecoration(
-                  labelText: widget.resource == 'aliases'
-                      ? 'Name before @'
-                      : widget.resource == 'forwarders'
-                          ? 'Destination email'
-                          : 'Subject'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(
+              '${existing == null ? 'Add' : 'Edit'} $_singular'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: first,
+                  decoration: InputDecoration(
+                      labelText: widget.resource == 'aliases'
+                          ? 'Name before @'
+                          : widget.resource == 'forwarders'
+                              ? 'Destination email'
+                              : 'Subject'),
+                ),
+                if (widget.resource == 'autoreplies') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                      controller: second,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: const InputDecoration(labelText: 'Message')),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(startsAt == null
+                        ? 'Start date (optional)'
+                        : 'Starts ${startsAt!.toLocal()}'.split('.').first),
+                    trailing: const Icon(Icons.calendar_today_outlined, size: 18),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: startsAt ?? DateTime.now(),
+                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) setDialogState(() => startsAt = picked);
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(endsAt == null
+                        ? 'End date (optional)'
+                        : 'Ends ${endsAt!.toLocal()}'.split('.').first),
+                    trailing: const Icon(Icons.calendar_today_outlined, size: 18),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: endsAt ?? DateTime.now(),
+                        firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) setDialogState(() => endsAt = picked);
+                    },
+                  ),
+                ],
+              ],
             ),
-            if (widget.resource == 'autoreplies') ...[
-              const SizedBox(height: 12),
-              TextField(
-                  controller: second,
-                  minLines: 3,
-                  maxLines: 5,
-                  decoration: const InputDecoration(labelText: 'Message')),
-            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                context,
+                widget.resource == 'aliases'
+                    ? {'local_part': first.text}
+                    : widget.resource == 'forwarders'
+                        ? {'destination': first.text, 'keep_copy': true}
+                        : {
+                            'subject': first.text,
+                            'body': second.text,
+                            'display_name':
+                                context.read<AppState>().account?.displayName ??
+                                    '',
+                            if (startsAt != null)
+                              'starts_at': startsAt!.toUtc().toIso8601String(),
+                            if (endsAt != null)
+                              'ends_at': endsAt!.toUtc().toIso8601String(),
+                          },
+              ),
+              child: const Text('Save'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              widget.resource == 'aliases'
-                  ? {'local_part': first.text}
-                  : widget.resource == 'forwarders'
-                      ? {'destination': first.text, 'keep_copy': true}
-                      : {
-                          'subject': first.text,
-                          'body': second.text,
-                          'display_name':
-                              context.read<AppState>().account?.displayName ??
-                                  ''
-                        },
-            ),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
     first.dispose();
     second.dispose();
-    if (created == null || !mounted) return;
+    if (result == null || !mounted) return;
     try {
-      await context
-          .read<AppState>()
-          .api
-          .managementCreate(widget.resource, created);
+      final api = context.read<AppState>().api;
+      if (existing != null && widget.resource == 'autoreplies') {
+        await api.managementUpdate(
+            widget.resource, existing['id'].toString(), result);
+      } else {
+        await api.managementCreate(widget.resource, result);
+      }
       setState(_reload);
     } on ApiException catch (error) {
       if (mounted) {
@@ -322,13 +442,46 @@ class _ManagementScreenState extends State<_ManagementScreen> {
     }
   }
 
+  Future<void> _delete(Map<String, dynamic> item) async {
+    final api = context.read<AppState>().api;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete this $_singular?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await api.managementDelete(widget.resource, item['id'].toString());
+      if (mounted) setState(_reload);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
+  static DateTime? _parseDate(dynamic value) {
+    if (value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
             title: Text(widget.resource[0].toUpperCase() +
                 widget.resource.substring(1))),
-        floatingActionButton:
-            FloatingActionButton(onPressed: _add, child: const Icon(Icons.add)),
+        floatingActionButton: FloatingActionButton(
+            onPressed: () => _upsert(), child: const Icon(Icons.add)),
         body: FutureBuilder<List<Map<String, dynamic>>>(
           future: _items,
           builder: (context, snapshot) {
@@ -357,7 +510,21 @@ class _ManagementScreenState extends State<_ManagementScreen> {
                 return ListTile(
                     leading: const Icon(Icons.check_circle_outline),
                     title: Text(title.toString()),
-                    subtitle: Text((row['status'] ?? 'Active').toString()));
+                    subtitle: Text((row['status'] ?? 'Active').toString()),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.resource == 'autoreplies')
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            onPressed: () => _upsert(existing: row),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _delete(row),
+                        ),
+                      ],
+                    ));
               },
             );
           },
@@ -373,7 +540,7 @@ class _SectionTitle extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(text,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Colors.blueGrey, fontWeight: FontWeight.w700)),
+                fontWeight: FontWeight.w700)),
       );
 }
 

@@ -6,7 +6,19 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -43,6 +55,7 @@ from app.schemas.mail import (
     AutoreplyUpsert,
     ContactCreate,
     ContactResponse,
+    ContactUpdate,
     DraftResponse,
     DraftUpsert,
     FlagRequest,
@@ -61,6 +74,7 @@ from app.schemas.mail import (
 )
 from app.services.hostinger_api import HostingerApiError, HostingerManagementClient
 from app.services.mail_client import HostingerMailboxClient, MailConnectionError
+from app.services.mail_watcher import watcher_registry
 
 router = APIRouter(prefix="/mail")
 DBSession = Annotated[Session, Depends(get_db)]
@@ -323,6 +337,26 @@ def change_password(payload: MailPasswordChange, account: CurrentMailAccount, db
     db.commit()
 
 
+@router.websocket("/ws")
+async def mail_events(websocket: WebSocket, account: CurrentMailAccount) -> None:
+    """Push channel replacing Firebase: broadcasts "new_mail" the instant IMAP IDLE sees it."""
+    try:
+        password = decrypt_mail_secret(account.credential_ciphertext)
+    except ValueError:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+    await websocket.accept()
+    account_id = str(account.id)
+    await watcher_registry.subscribe(account_id, account.address, password, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await watcher_registry.unsubscribe(account_id, websocket)
+
+
 @router.get("/folders", response_model=list[FolderResponse])
 def folders(account: CurrentMailAccount) -> list[FolderResponse]:
     try:
@@ -488,6 +522,27 @@ def list_contacts(account: CurrentMailAccount, db: DBSession) -> list[MailContac
 def create_contact(payload: ContactCreate, account: CurrentMailAccount, db: DBSession) -> MailContact:
     contact = MailContact(account_id=account.id, **payload.model_dump())
     db.add(contact)
+    db.commit()
+    db.refresh(contact)
+    return contact
+
+
+@router.patch("/contacts/{contact_id}", response_model=ContactResponse)
+def update_contact(
+    contact_id: uuid.UUID,
+    payload: ContactUpdate,
+    account: CurrentMailAccount,
+    db: DBSession,
+) -> MailContact:
+    contact = db.scalar(
+        select(MailContact).where(MailContact.id == contact_id, MailContact.account_id == account.id)
+    )
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    contact.display_name = payload.display_name
+    contact.phone = payload.phone
+    contact.company = payload.company
+    contact.is_favorite = payload.is_favorite
     db.commit()
     db.refresh(contact)
     return contact

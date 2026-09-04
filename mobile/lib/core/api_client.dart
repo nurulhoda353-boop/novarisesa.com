@@ -3,8 +3,12 @@ import 'dart:io';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:web_socket_channel/io.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'models.dart';
+
+typedef MessagePage = ({List<MailMessage> data, int? nextBeforeUid});
 
 class ApiException implements Exception {
   const ApiException(this.message, {this.statusCode});
@@ -154,16 +158,27 @@ class ApiClient {
         .toList();
   }
 
-  Future<List<MailMessage>> messages(String folder, {String? query}) async {
+  Future<MessagePage> messages(
+    String folder, {
+    String? query,
+    int limit = 30,
+    int? beforeUid,
+  }) async {
     final response = await _request(
       'GET',
       '/mail/messages',
-      query: {'folder': folder, if (query?.isNotEmpty ?? false) 'q': query},
+      query: {
+        'folder': folder,
+        'limit': limit,
+        if (beforeUid != null) 'before_uid': beforeUid,
+        if (query?.isNotEmpty ?? false) 'q': query,
+      },
     );
     final body = _decode(response) as Map<String, dynamic>;
-    return (body['data'] as List<dynamic>)
+    final data = (body['data'] as List<dynamic>)
         .map((row) => MailMessage.fromJson(row as Map<String, dynamic>))
         .toList();
+    return (data: data, nextBeforeUid: body['next_before_uid'] as int?);
   }
 
   Future<MailMessage> message(String folder, int uid) async =>
@@ -276,6 +291,16 @@ class ApiClient {
             body: body)) as Map<String, dynamic>,
       );
 
+  Future<Map<String, dynamic>> managementUpdate(
+          String resource, String id, Map<String, dynamic> body) async =>
+      Map<String, dynamic>.from(
+        _decode(await _request('PUT', '/mail/management/$resource/$id',
+            body: body)) as Map<String, dynamic>,
+      );
+
+  Future<void> managementDelete(String resource, String id) =>
+      _request('DELETE', '/mail/management/$resource/$id');
+
   Future<void> logout() async {
     try {
       await _request('POST', '/mail/auth/logout');
@@ -301,6 +326,22 @@ class ApiClient {
         })) as Map<String, dynamic>,
       );
 
+  Future<MailContact> updateContact(
+    String id, {
+    required String displayName,
+    String? phone,
+    String? company,
+    required bool isFavorite,
+  }) async =>
+      MailContact.fromJson(
+        _decode(await _request('PATCH', '/mail/contacts/$id', body: {
+          'display_name': displayName,
+          'phone': phone,
+          'company': company,
+          'is_favorite': isFavorite,
+        })) as Map<String, dynamic>,
+      );
+
   Future<void> deleteContact(String id) =>
       _request('DELETE', '/mail/contacts/$id');
 
@@ -315,18 +356,40 @@ class ApiClient {
   Future<MailDraft> saveDraft({
     String? id,
     required List<String> to,
+    List<String> cc = const [],
+    List<String> bcc = const [],
     required String subject,
     required String body,
   }) async {
     final response = await _request(
       id == null ? 'POST' : 'PUT',
       id == null ? '/mail/drafts' : '/mail/drafts/$id',
-      body: {'to': to, 'subject': subject, 'text_body': body},
+      body: {
+        'to': to,
+        'cc': cc,
+        'bcc': bcc,
+        'subject': subject,
+        'text_body': body,
+      },
     );
     return MailDraft.fromJson(_decode(response) as Map<String, dynamic>);
   }
 
   Future<void> deleteDraft(String id) => _request('DELETE', '/mail/drafts/$id');
+
+  /// Opens the self-hosted push channel (IMAP IDLE events over WebSocket,
+  /// replacing Firebase Cloud Messaging) for the current session.
+  WebSocketChannel? connectEvents() {
+    if (_accessToken == null) return null;
+    final httpUri = Uri.parse('$baseUrl/mail/ws');
+    final wsUri = httpUri.replace(
+        scheme: httpUri.scheme == 'https' ? 'wss' : 'ws');
+    return IOWebSocketChannel.connect(
+      wsUri,
+      headers: {'Authorization': 'Bearer $_accessToken'},
+      pingInterval: const Duration(seconds: 30),
+    );
+  }
 
   Future<String> _installationId() async {
     final existing = await _storage.read(key: 'mail_installation_id');

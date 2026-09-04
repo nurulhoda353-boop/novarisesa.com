@@ -44,6 +44,7 @@ class MailMessage {
     required this.preview,
     required this.flags,
     required this.recipients,
+    this.cc = const [],
     this.receivedAt,
     this.messageId,
     this.textBody,
@@ -57,6 +58,7 @@ class MailMessage {
   final String subject;
   final MailAddress sender;
   final List<MailAddress> recipients;
+  final List<MailAddress> cc;
   final DateTime? receivedAt;
   final String? messageId;
   final String preview;
@@ -75,6 +77,9 @@ class MailMessage {
         subject: json['subject'] as String? ?? '(No subject)',
         sender: MailAddress.fromJson(json['sender'] as Map<String, dynamic>?),
         recipients: (json['recipients'] as List<dynamic>? ?? const [])
+            .map((item) => MailAddress.fromJson(item as Map<String, dynamic>))
+            .toList(),
+        cc: (json['cc'] as List<dynamic>? ?? const [])
             .map((item) => MailAddress.fromJson(item as Map<String, dynamic>))
             .toList(),
         receivedAt: json['received_at'] == null
@@ -116,14 +121,42 @@ class MailAttachment {
 }
 
 class MailFolder {
-  const MailFolder({required this.name, required this.flags});
+  const MailFolder({
+    required this.name,
+    required this.flags,
+    this.unseen = 0,
+    this.total = 0,
+  });
   final String name;
   final List<String> flags;
+  final int unseen;
+  final int total;
 
   factory MailFolder.fromJson(Map<String, dynamic> json) => MailFolder(
         name: json['name'] as String,
         flags: List<String>.from(json['flags'] as List<dynamic>? ?? const []),
+        unseen: json['unseen'] as int? ?? 0,
+        total: json['total'] as int? ?? 0,
       );
+}
+
+extension MailFolderResolution on List<MailFolder> {
+  /// Finds a real folder name by IMAP special-use flag first (e.g. `\Archive`,
+  /// `\Junk`), falling back to a name heuristic. Servers name folders
+  /// differently (`Junk` vs `Spam`), so callers must never hardcode a guess.
+  String? resolve({
+    required List<String> flagHints,
+    required List<String> nameHints,
+  }) {
+    for (final folder in this) {
+      if (folder.flags.any(flagHints.contains)) return folder.name;
+    }
+    for (final folder in this) {
+      final lower = folder.name.toLowerCase();
+      if (nameHints.any(lower.contains)) return folder.name;
+    }
+    return null;
+  }
 }
 
 class MobileSession {
@@ -144,16 +177,28 @@ class MobileSession {
 }
 
 class MailContact {
-  const MailContact(
-      {required this.id, required this.email, required this.displayName});
+  const MailContact({
+    required this.id,
+    required this.email,
+    required this.displayName,
+    this.phone,
+    this.company,
+    this.isFavorite = false,
+  });
   final String id;
   final String email;
   final String displayName;
+  final String? phone;
+  final String? company;
+  final bool isFavorite;
 
   factory MailContact.fromJson(Map<String, dynamic> json) => MailContact(
         id: json['id'] as String,
         email: json['email'] as String,
         displayName: json['display_name'] as String? ?? '',
+        phone: json['phone'] as String?,
+        company: json['company'] as String?,
+        isFavorite: json['is_favorite'] as bool? ?? false,
       );
 }
 
@@ -164,9 +209,13 @@ class MailDraft {
     required this.subject,
     required this.textBody,
     required this.updatedAt,
+    this.cc = const [],
+    this.bcc = const [],
   });
   final String id;
   final List<String> to;
+  final List<String> cc;
+  final List<String> bcc;
   final String subject;
   final String textBody;
   final DateTime updatedAt;
@@ -174,6 +223,8 @@ class MailDraft {
   factory MailDraft.fromJson(Map<String, dynamic> json) => MailDraft(
         id: json['id'] as String,
         to: List<String>.from(json['to'] as List<dynamic>? ?? const []),
+        cc: List<String>.from(json['cc'] as List<dynamic>? ?? const []),
+        bcc: List<String>.from(json['bcc'] as List<dynamic>? ?? const []),
         subject: json['subject'] as String? ?? '',
         textBody: json['text_body'] as String? ?? '',
         updatedAt: DateTime.parse(json['updated_at'] as String),

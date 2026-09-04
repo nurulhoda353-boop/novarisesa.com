@@ -2,11 +2,14 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_state.dart';
 import '../../core/models.dart';
+import '../../core/theme.dart';
 import 'compose_screen.dart';
 
 class MessageScreen extends StatefulWidget {
@@ -26,15 +29,18 @@ class _MessageScreenState extends State<MessageScreen> {
     _message = context.read<AppState>().getMessage(widget.summary);
   }
 
-  String _readableBody(MailMessage message) {
-    if ((message.textBody ?? '').trim().isNotEmpty) return message.textBody!;
-    return (message.htmlBody ?? '')
-        .replaceAll(RegExp(r'<(br|/p|/div)>', caseSensitive: false), '\n')
-        .replaceAll(RegExp('<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>');
+  Future<bool> _openLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    try {
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not open $url')));
+      }
+      return false;
+    }
   }
 
   Future<void> _download(MailMessage message, MailAttachment attachment) async {
@@ -63,8 +69,48 @@ class _MessageScreenState extends State<MessageScreen> {
     }
   }
 
+  Future<void> _act(BuildContext context, String action, MailMessage message) async {
+    final state = context.read<AppState>();
+    if (action == 'delete') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Delete this email?'),
+          content: const Text('This cannot be undone.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      await state.deleteMessage(message);
+      if (context.mounted) Navigator.pop(context);
+      return;
+    }
+    final destination = action == 'archive'
+        ? state.folders.resolve(
+            flagHints: const [r'\Archive'], nameHints: const ['archive'])
+        : state.folders.resolve(
+            flagHints: const [r'\Junk'], nameHints: const ['spam', 'junk']);
+    if (destination == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(action == 'archive'
+              ? 'No archive folder found on this mailbox'
+              : 'No spam/junk folder found on this mailbox')));
+      return;
+    }
+    await state.move(message, destination);
+    if (context.mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return FutureBuilder<MailMessage>(
       future: _message,
       builder: (context, snapshot) {
@@ -83,26 +129,15 @@ class _MessageScreenState extends State<MessageScreen> {
                     ? Icons.star
                     : Icons.star_border),
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) async {
-                  if (value == 'delete') {
-                    await context
-                        .read<AppState>()
-                        .deleteMessage(message ?? widget.summary);
-                    if (context.mounted) Navigator.pop(context);
-                  } else {
-                    await context
-                        .read<AppState>()
-                        .move(message ?? widget.summary, value);
-                    if (context.mounted) Navigator.pop(context);
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'Archive', child: Text('Archive')),
-                  PopupMenuItem(value: 'Spam', child: Text('Mark as spam')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
-                ],
-              ),
+              if (message != null)
+                PopupMenuButton<String>(
+                  onSelected: (value) => _act(context, value, message),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'archive', child: Text('Archive')),
+                    PopupMenuItem(value: 'spam', child: Text('Mark as spam')),
+                    PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  ],
+                ),
             ],
           ),
           body: snapshot.connectionState != ConnectionState.done
@@ -125,9 +160,13 @@ class _MessageScreenState extends State<MessageScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             CircleAvatar(
-                                child: Text(message.sender.label.isEmpty
-                                    ? '?'
-                                    : message.sender.label[0].toUpperCase())),
+                              backgroundColor:
+                                  AvatarPalette.forSeed(message.sender.email),
+                              foregroundColor: Colors.white,
+                              child: Text(message.sender.label.isEmpty
+                                  ? '?'
+                                  : message.sender.label[0].toUpperCase()),
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -137,9 +176,19 @@ class _MessageScreenState extends State<MessageScreen> {
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w700)),
                                   Text(message.sender.email,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall),
+                                      style: TextStyle(color: colors.subtleText)),
+                                  if (message.recipients.isNotEmpty)
+                                    Text(
+                                      'To: ${message.recipients.map((a) => a.label).join(', ')}',
+                                      style: TextStyle(
+                                          fontSize: 12, color: colors.subtleText),
+                                    ),
+                                  if (message.cc.isNotEmpty)
+                                    Text(
+                                      'Cc: ${message.cc.map((a) => a.label).join(', ')}',
+                                      style: TextStyle(
+                                          fontSize: 12, color: colors.subtleText),
+                                    ),
                                 ],
                               ),
                             ),
@@ -147,12 +196,21 @@ class _MessageScreenState extends State<MessageScreen> {
                               Text(
                                   DateFormat('MMM d, h:mm a')
                                       .format(message.receivedAt!.toLocal()),
-                                  style: Theme.of(context).textTheme.bodySmall),
+                                  style: TextStyle(color: colors.subtleText)),
                           ],
                         ),
                         const Divider(height: 34),
-                        SelectableText(_readableBody(message),
-                            style: const TextStyle(fontSize: 16, height: 1.55)),
+                        if ((message.htmlBody ?? '').trim().isNotEmpty)
+                          HtmlWidget(
+                            message.htmlBody!,
+                            onTapUrl: _openLink,
+                            textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                          )
+                        else
+                          SelectableText(
+                            (message.textBody ?? message.preview).trim(),
+                            style: const TextStyle(fontSize: 16, height: 1.55),
+                          ),
                         if (message.attachments.isNotEmpty) ...[
                           const SizedBox(height: 20),
                           Text('Attachments',
@@ -188,6 +246,17 @@ class _MessageScreenState extends State<MessageScreen> {
                               icon: const Icon(Icons.reply),
                               label: const Text('Reply'),
                             ),
+                            if (message.recipients.length + message.cc.length > 1)
+                              OutlinedButton.icon(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => ComposeScreen(
+                                          replyTo: message, replyAll: true)),
+                                ),
+                                icon: const Icon(Icons.reply_all),
+                                label: const Text('Reply all'),
+                              ),
                             OutlinedButton.icon(
                               onPressed: () => Navigator.push(
                                 context,
