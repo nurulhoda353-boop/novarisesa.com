@@ -26,9 +26,7 @@ class Settings(BaseSettings):
             "https://my.novarisesa.com",
         ]
     )
-    TRUSTED_HOSTS: list[str] = Field(
-        default=["localhost", "127.0.0.1", "testserver", "api.novarisesa.com"]
-    )
+    TRUSTED_HOSTS: list[str] = Field(default=["localhost", "127.0.0.1", "testserver", "api.novarisesa.com"])
     COOKIE_DOMAIN: str | None = None
     ACCESS_TOKEN_MINUTES: int = 15
     REFRESH_TOKEN_DAYS: int = 7
@@ -39,6 +37,16 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "storage/media"
     MEDIA_PUBLIC_BASE_URL: str = "http://localhost:8000/media"
     MEDIA_MAX_UPLOAD_MB: int = 15
+    MAIL_CREDENTIAL_SECRET: str = "development-mail-secret-change-me"
+    MAIL_IMAP_HOST: str = "imap.hostinger.com"
+    MAIL_IMAP_PORT: int = 993
+    MAIL_SMTP_HOST: str = "smtp.hostinger.com"
+    MAIL_SMTP_PORT: int = 465
+    MAIL_CACHE_DAYS: int = 30
+    MAIL_MAX_ATTACHMENT_MB: int = 20
+    MAIL_ALLOWED_DOMAINS: list[str] = Field(default=["novarisesa.com"])
+    HOSTINGER_API_TOKEN: str | None = None
+    HOSTINGER_API_BASE_URL: str = "https://developers.hostinger.com/api/mail/v1"
 
     @field_validator("APP_SECRET_KEY")
     @classmethod
@@ -69,10 +77,7 @@ class Settings(BaseSettings):
     def validate_production_configuration(self) -> "Settings":
         if not self.is_production:
             return self
-        if (
-            len(self.APP_SECRET_KEY) < 32
-            or self.APP_SECRET_KEY == "development-only-change-me-please"
-        ):
+        if len(self.APP_SECRET_KEY) < 32 or self.APP_SECRET_KEY == "development-only-change-me-please":
             raise ValueError(
                 "APP_SECRET_KEY must be a non-default value containing at least 32 characters in production"
             )
@@ -80,9 +85,13 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must not point to localhost in production")
         if not self.MEDIA_PUBLIC_BASE_URL.startswith("https://"):
             raise ValueError("MEDIA_PUBLIC_BASE_URL must use HTTPS in production")
+        if (
+            len(self.MAIL_CREDENTIAL_SECRET) < 32
+            or self.MAIL_CREDENTIAL_SECRET == "development-mail-secret-change-me"
+        ):
+            raise ValueError("MAIL_CREDENTIAL_SECRET must be a unique 32+ character value in production")
         if not self.CORS_ORIGINS or any(
-            origin == "*" or not origin.startswith("https://")
-            for origin in self.CORS_ORIGINS
+            origin == "*" or not origin.startswith("https://") for origin in self.CORS_ORIGINS
         ):
             raise ValueError("CORS_ORIGINS must contain explicit HTTPS origins in production")
         return self

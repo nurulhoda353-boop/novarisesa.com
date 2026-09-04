@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Date,
@@ -122,9 +123,7 @@ class Role(UUIDMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
     users: Mapped[list[User]] = relationship(secondary=user_roles, back_populates="roles")
-    permissions: Mapped[list["Permission"]] = relationship(
-        secondary=role_permissions, back_populates="roles"
-    )
+    permissions: Mapped[list["Permission"]] = relationship(secondary=role_permissions, back_populates="roles")
 
 
 class Permission(UUIDMixin, Base):
@@ -132,9 +131,7 @@ class Permission(UUIDMixin, Base):
 
     code: Mapped[str] = mapped_column(String(120), unique=True)
     description: Mapped[str | None] = mapped_column(Text)
-    roles: Mapped[list[Role]] = relationship(
-        secondary=role_permissions, back_populates="permissions"
-    )
+    roles: Mapped[list[Role]] = relationship(secondary=role_permissions, back_populates="permissions")
 
 
 class RefreshToken(UUIDMixin, Base):
@@ -147,6 +144,91 @@ class RefreshToken(UUIDMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     ip_address: Mapped[str | None] = mapped_column(INET)
     user_agent: Mapped[str | None] = mapped_column(Text)
+
+
+class MailAccount(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "mail_accounts"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    address: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(160), default="")
+    avatar_url: Mapped[str | None] = mapped_column(String(1000))
+    credential_ciphertext: Mapped[str] = mapped_column(Text)
+    credential_type: Mapped[str] = mapped_column(String(32), default="app_password")
+    hostinger_order_id: Mapped[str | None] = mapped_column(String(80), index=True)
+    hostinger_mailbox_id: Mapped[str | None] = mapped_column(String(80), index=True)
+    cache_ttl_days: Mapped[int] = mapped_column(Integer, default=30)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class MailMessageCache(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "mail_message_cache"
+    __table_args__ = (
+        UniqueConstraint("account_id", "folder", "remote_uid", name="uq_mail_cache_remote_message"),
+        Index("ix_mail_cache_account_received", "account_id", "received_at"),
+    )
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    folder: Mapped[str] = mapped_column(String(500))
+    remote_uid: Mapped[int] = mapped_column(BigInteger)
+    message_id: Mapped[str | None] = mapped_column(String(1000), index=True)
+    subject: Mapped[str] = mapped_column(Text, default="")
+    sender: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    recipients: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    preview: Mapped[str] = mapped_column(Text, default="")
+    flags: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    body_ciphertext: Mapped[str | None] = mapped_column(Text)
+    retained_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class MailContact(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "mail_contacts"
+    __table_args__ = (UniqueConstraint("account_id", "email", name="uq_mail_contact_email"),)
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    email: Mapped[str] = mapped_column(String(320))
+    display_name: Mapped[str] = mapped_column(String(160), default="")
+    phone: Mapped[str | None] = mapped_column(String(40))
+    company: Mapped[str | None] = mapped_column(String(255))
+    avatar_url: Mapped[str | None] = mapped_column(String(1000))
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class MailDraft(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "mail_drafts"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    recipients: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    subject: Mapped[str] = mapped_column(Text, default="")
+    text_body: Mapped[str] = mapped_column(Text, default="")
+    html_body: Mapped[str | None] = mapped_column(Text)
+    attachments: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+
+
+class MailDevice(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "mail_devices"
+    __table_args__ = (UniqueConstraint("account_id", "installation_id", name="uq_mail_device_installation"),)
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    installation_id: Mapped[str] = mapped_column(String(255))
+    platform: Mapped[str] = mapped_column(String(32))
+    device_name: Mapped[str | None] = mapped_column(String(255))
+    apns_token: Mapped[str | None] = mapped_column(Text)
+    notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class RateLimitEvent(UUIDMixin, Base):
@@ -175,9 +257,7 @@ class MediaAsset(UUIDMixin, TimestampMixin, Base):
     height: Mapped[int | None]
     alt_text: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
     folder: Mapped[str | None] = mapped_column(String(255), index=True)
-    uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
+    uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
 class SiteSetting(UUIDMixin, TimestampMixin, Base):
@@ -223,9 +303,7 @@ class NavigationItem(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "navigation_items"
 
     location: Mapped[str] = mapped_column(String(40), index=True)
-    parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("navigation_items.id", ondelete="CASCADE")
-    )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("navigation_items.id", ondelete="CASCADE"))
     label: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict)
     url: Mapped[str] = mapped_column(String(500))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -375,9 +453,7 @@ class Post(UUIDMixin, TimestampMixin, Base):
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), index=True
     )
-    author_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
+    author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     featured_media_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("media_assets.id", ondelete="SET NULL")
     )
@@ -417,9 +493,7 @@ class PostDraft(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "post_drafts"
     __table_args__ = (UniqueConstraint("post_id", name="uq_post_draft_post"),)
 
-    post_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("posts.id", ondelete="CASCADE"), nullable=False
-    )
+    post_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
@@ -469,9 +543,7 @@ class EventDraft(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "event_drafts"
     __table_args__ = (UniqueConstraint("event_id", name="uq_event_draft_event"),)
 
-    event_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("events.id", ondelete="CASCADE"), nullable=False
-    )
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
 
 
@@ -496,13 +568,9 @@ class FaqItem(UUIDMixin, TimestampMixin, Base):
 
 class FaqItemTranslation(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "faq_item_translations"
-    __table_args__ = (
-        UniqueConstraint("faq_item_id", "locale", name="uq_faq_item_translation_locale"),
-    )
+    __table_args__ = (UniqueConstraint("faq_item_id", "locale", name="uq_faq_item_translation_locale"),)
 
-    faq_item_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("faq_items.id", ondelete="CASCADE")
-    )
+    faq_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("faq_items.id", ondelete="CASCADE"))
     locale: Mapped[str] = mapped_column(String(10))
     question: Mapped[str] = mapped_column(String(500))
     answer: Mapped[str] = mapped_column(Text)
@@ -535,20 +603,14 @@ class Requirement(UUIDMixin, TimestampMixin, Base):
     contacts: Mapped[list["RequirementContact"]] = relationship(
         back_populates="requirement", cascade="all, delete-orphan"
     )
-    applications: Mapped[list["RequirementApplication"]] = relationship(
-        back_populates="requirement"
-    )
+    applications: Mapped[list["RequirementApplication"]] = relationship(back_populates="requirement")
 
 
 class RequirementTranslation(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "requirement_translations"
-    __table_args__ = (
-        UniqueConstraint("requirement_id", "locale", name="uq_requirement_translation_locale"),
-    )
+    __table_args__ = (UniqueConstraint("requirement_id", "locale", name="uq_requirement_translation_locale"),)
 
-    requirement_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("requirements.id", ondelete="CASCADE")
-    )
+    requirement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("requirements.id", ondelete="CASCADE"))
     locale: Mapped[str] = mapped_column(String(10))
     position: Mapped[str] = mapped_column(String(255))
     approval: Mapped[str | None] = mapped_column(String(255))
@@ -604,9 +666,7 @@ class ContactSubmission(UUIDMixin, TimestampMixin, Base):
     )
     source: Mapped[str] = mapped_column(String(80), default="website")
     locale: Mapped[str] = mapped_column(String(10), default="en")
-    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
+    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     operational_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
     notification_status: Mapped[str] = mapped_column(String(32), default="not_required")
     notification_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -645,9 +705,7 @@ class RFQSubmission(UUIDMixin, TimestampMixin, Base):
         default=SubmissionStatus.NEW,
         index=True,
     )
-    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
+    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     operational_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
     commercial_stage: Mapped[str] = mapped_column(String(32), default="new", index=True)
     notification_status: Mapped[str] = mapped_column(String(32), default="not_required")
@@ -703,9 +761,7 @@ class RequirementApplication(UUIDMixin, TimestampMixin, Base):
         default=SubmissionStatus.NEW,
         index=True,
     )
-    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL")
-    )
+    assigned_to_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     application_stage: Mapped[str] = mapped_column(String(40), default="new", index=True)
     operational_status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
     notification_status: Mapped[str] = mapped_column(String(32), default="not_required")
@@ -745,9 +801,7 @@ class NewsletterSubscriber(UUIDMixin, TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     locale: Mapped[str] = mapped_column(String(10), default="en")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    subscribed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    subscribed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     consent_ip: Mapped[str | None] = mapped_column(INET)
 

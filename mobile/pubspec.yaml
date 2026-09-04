@@ -1,0 +1,38 @@
+name: novarise_mail
+description: Secure first-party mobile client for Novarise mailboxes.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  file_picker: ^10.3.3
+  flutter_secure_storage: ^10.0.0
+  http: ^1.5.0
+  image_picker: ^1.2.0
+  intl: ^0.20.2
+  provider: ^6.1.5+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/novarise-logo-mark.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/novarise-logo-mark.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/novarise-logo-mark.png
+  min_sdk_android: 24
+  remove_alpha_ios: true

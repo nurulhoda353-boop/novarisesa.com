@@ -65,6 +65,7 @@ def test_valid_production_configuration_is_accepted() -> None:
         DATABASE_URL="postgresql+psycopg://novarise:password@database:5432/novarise",
         CORS_ORIGINS=["https://novarisesa.com", "https://my.novarisesa.com"],
         MEDIA_PUBLIC_BASE_URL="https://api.novarisesa.com/media",
+        MAIL_CREDENTIAL_SECRET="production-mail-credential-secret-more-than-32-characters",
     )
 
     assert settings.is_production

@@ -2,6 +2,10 @@
 
 FastAPI and PostgreSQL backend for the NOVARISE public website, CMS, and management dashboard.
 
+The `/api/v1/mail` module also powers the Novarise Mail Android/iOS client. See
+[`docs/NOVARISE_MAIL.md`](../docs/NOVARISE_MAIL.md) for its configuration and
+release checklist.
+
 ## Local development
 
 1. Create a PostgreSQL database named `novarise`.

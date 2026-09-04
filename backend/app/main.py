@@ -18,7 +18,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         if (
             request.method not in {"GET", "HEAD", "OPTIONS"}
             and request.url.path.startswith(
-                (f"{settings.API_V1_PREFIX}/cms", f"{settings.API_V1_PREFIX}/auth")
+                (
+                    f"{settings.API_V1_PREFIX}/cms",
+                    f"{settings.API_V1_PREFIX}/auth",
+                    f"{settings.API_V1_PREFIX}/mail",
+                )
             )
         ):
             origin = request.headers.get("origin")
@@ -38,7 +42,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         path = request.url.path
         if path.startswith(
-            (f"{settings.API_V1_PREFIX}/cms", f"{settings.API_V1_PREFIX}/auth")
+            (
+                f"{settings.API_V1_PREFIX}/cms",
+                f"{settings.API_V1_PREFIX}/auth",
+                f"{settings.API_V1_PREFIX}/mail",
+            )
         ):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Pragma"] = "no-cache"

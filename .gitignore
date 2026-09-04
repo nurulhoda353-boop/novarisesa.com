@@ -37,6 +37,13 @@ next-env.d.ts
 .vscode/*
 !.vscode/extensions.json
 .idea
+.tooling/
+mobile/.dart_tool/
+mobile/build/
+mobile/.flutter-plugins*
+mobile/android/.gradle/
+mobile/ios/Pods/
+releases/*.apk
 .DS_Store
 *.suo
 *.ntvs*
