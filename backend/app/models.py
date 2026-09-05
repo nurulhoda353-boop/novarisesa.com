@@ -275,6 +275,24 @@ class MediaAsset(UUIDMixin, TimestampMixin, Base):
     uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
+class AppRelease(UUIDMixin, TimestampMixin, Base):
+    """The current build for one distributed app (Novamail, and whatever
+    comes after it), keyed by a slug. One row per slug — uploading a new
+    build replaces the previous file and row in place rather than
+    accumulating history, matching the "always the latest" apps page."""
+
+    __tablename__ = "app_releases"
+
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    version: Mapped[str] = mapped_column(String(40))
+    platform: Mapped[str] = mapped_column(String(20), default="android")
+    storage_key: Mapped[str] = mapped_column(String(500))
+    file_url: Mapped[str] = mapped_column(String(1000))
+    file_size: Mapped[int] = mapped_column(Integer)
+    release_notes: Mapped[str | None] = mapped_column(Text)
+
+
 class SiteSetting(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "site_settings"
     __table_args__ = (UniqueConstraint("group_name", "key", name="uq_site_settings_group_key"),)

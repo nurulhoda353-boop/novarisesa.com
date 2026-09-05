@@ -124,6 +124,59 @@ async def save_upload(file: UploadFile, *, folder: str | None = None) -> tuple[s
     return storage_key, public_url_for(storage_key), mime, size
 
 
+RELEASE_EXTENSIONS = {".apk", ".ipa"}
+
+
+async def save_release_upload(
+    file: UploadFile, *, folder: str, max_mb: int
+) -> tuple[str, str, int]:
+    """Like save_upload, but for app release binaries (.apk/.ipa) rather
+    than CMS media — different size ceiling, different signature check
+    (APKs are ZIP archives), and no CMS-media mime allowlist involved."""
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File name is required")
+
+    extension = Path(file.filename).suffix.lower()
+    if extension not in RELEASE_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Unsupported file type — expected .apk or .ipa",
+        )
+
+    max_bytes = max_mb * 1024 * 1024
+    storage_key = build_storage_key(folder, file.filename)
+    destination = media_root() / storage_key
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    size = 0
+    first_chunk = True
+    try:
+        with destination.open("xb") as output:
+            while chunk := await file.read(1024 * 1024):
+                if first_chunk:
+                    first_chunk = False
+                    # .apk and .ipa are both ZIP archives under the hood.
+                    if not chunk.startswith(b"PK\x03\x04"):
+                        raise HTTPException(
+                            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                            detail="File content does not look like a valid app package",
+                        )
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File exceeds {max_mb}MB limit",
+                    )
+                output.write(chunk)
+        if not size:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Empty file")
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
+    return storage_key, public_url_for(storage_key), size
+
+
 def delete_stored_file(storage_key: str) -> None:
     root = media_root().resolve()
     path = (root / storage_key).resolve()

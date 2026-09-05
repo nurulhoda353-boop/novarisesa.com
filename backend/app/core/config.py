@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "storage/media"
     MEDIA_PUBLIC_BASE_URL: str = "http://localhost:8000/media"
     MEDIA_MAX_UPLOAD_MB: int = 15
+    APP_RELEASE_MAX_UPLOAD_MB: int = 300
+    APP_RELEASES_UPLOAD_TOKEN: str | None = None
     MAIL_CREDENTIAL_SECRET: str = "development-mail-secret-change-me"
     MAIL_IMAP_HOST: str = "imap.hostinger.com"
     MAIL_IMAP_PORT: int = 993
