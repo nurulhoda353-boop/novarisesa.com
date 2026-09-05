@@ -7,8 +7,11 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
+import '../../core/attachment_style.dart';
 import '../../core/models.dart';
 import '../../core/rich_text.dart';
+import '../../core/theme.dart';
+import 'recipient_field.dart';
 
 class ComposeScreen extends StatefulWidget {
   const ComposeScreen({
@@ -30,14 +33,21 @@ class ComposeScreen extends StatefulWidget {
 }
 
 class _ComposeScreenState extends State<ComposeScreen> {
-  late final TextEditingController _to;
-  late final TextEditingController _cc;
-  late final TextEditingController _bcc;
+  final _toKey = GlobalKey<RecipientChipFieldState>();
+  final _ccKey = GlobalKey<RecipientChipFieldState>();
+  final _bccKey = GlobalKey<RecipientChipFieldState>();
+  late final List<String> _toInitial;
+  late final List<String> _ccInitial;
+  late final List<String> _bccInitial;
   late final TextEditingController _subject;
   late final TextEditingController _body;
   final List<Map<String, dynamic>> _attachments = [];
   bool _showCcBcc = false;
   Timer? _pendingSendTimer;
+
+  List<String> get _toEmails => _toKey.currentState?.emails ?? _toInitial;
+  List<String> get _ccEmails => _ccKey.currentState?.emails ?? _ccInitial;
+  List<String> get _bccEmails => _bccKey.currentState?.emails ?? _bccInitial;
 
   @override
   void initState() {
@@ -45,12 +55,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
     final reply = widget.replyTo;
     final account = context.read<AppState>().account;
     final selfAddress = account?.address.toLowerCase();
-    _to = TextEditingController(
-      text: widget.draft?.to.join(', ') ??
-          widget.initialTo ??
-          (widget.isForward ? '' : reply?.sender.email) ??
-          '',
-    );
+    _toInitial = widget.draft?.to ??
+        (widget.initialTo != null ? [widget.initialTo!] : null) ??
+        (widget.isForward ? const [] : (reply != null ? [reply.sender.email] : const []));
     final ccPrefill = <String>{};
     if (widget.draft != null) {
       ccPrefill.addAll(widget.draft!.cc);
@@ -63,9 +70,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
         ccPrefill.add(address.email);
       }
     }
-    _cc = TextEditingController(text: ccPrefill.join(', '));
-    _bcc = TextEditingController(text: widget.draft?.bcc.join(', ') ?? '');
-    _showCcBcc = ccPrefill.isNotEmpty || _bcc.text.isNotEmpty;
+    _ccInitial = ccPrefill.toList();
+    _bccInitial = widget.draft?.bcc ?? const [];
+    _showCcBcc = _ccInitial.isNotEmpty || _bccInitial.isNotEmpty;
     _subject = TextEditingController(
       text: widget.draft?.subject ??
           (reply == null
@@ -100,19 +107,10 @@ class _ComposeScreenState extends State<ComposeScreen> {
   @override
   void dispose() {
     _pendingSendTimer?.cancel();
-    _to.dispose();
-    _cc.dispose();
-    _bcc.dispose();
     _subject.dispose();
     _body.dispose();
     super.dispose();
   }
-
-  List<String> _splitAddresses(String value) => value
-      .split(RegExp(r'[,;]'))
-      .map((item) => item.trim())
-      .where((item) => item.isNotEmpty)
-      .toList();
 
   Future<void> _attach() async {
     final result = await FilePicker.platform.pickFiles(
@@ -125,8 +123,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
       for (final file in files) {
         _attachments.add({
           'filename': file.name,
-          'content_type': 'application/octet-stream',
+          'content_type': guessContentType(file.name),
           'content_base64': base64Encode(file.bytes!),
+          'size': file.size,
         });
       }
     });
@@ -204,14 +203,15 @@ class _ComposeScreenState extends State<ComposeScreen> {
   /// send has actually happened, this just gives a window to cancel before
   /// that call is made at all.
   void _send() {
-    final recipients =
-        _splitAddresses(_to.text).where((value) => value.contains('@')).toList();
+    final recipients = _toEmails;
     if (recipients.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Add at least one recipient')));
       return;
     }
     final state = context.read<AppState>();
+    final cc = _ccEmails;
+    final bcc = _bccEmails;
     _pendingSendTimer?.cancel();
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
@@ -230,16 +230,21 @@ class _ComposeScreenState extends State<ComposeScreen> {
     );
     _pendingSendTimer = Timer(const Duration(seconds: 5), () {
       _pendingSendTimer = null;
-      _performSend(state, recipients);
+      _performSend(state, recipients, cc, bcc);
     });
   }
 
-  Future<void> _performSend(AppState state, List<String> recipients) async {
+  Future<void> _performSend(
+    AppState state,
+    List<String> recipients,
+    List<String> cc,
+    List<String> bcc,
+  ) async {
     try {
       await state.send(
         to: recipients,
-        cc: _splitAddresses(_cc.text),
-        bcc: _splitAddresses(_bcc.text),
+        cc: cc,
+        bcc: bcc,
         subject: _subject.text,
         body: _body.text,
         htmlBody: _body.text.trim().isEmpty ? null : markdownLiteToHtml(_body.text),
@@ -267,9 +272,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
     try {
       await context.read<AppState>().api.saveDraft(
             id: widget.draft?.id,
-            to: _splitAddresses(_to.text),
-            cc: _splitAddresses(_cc.text),
-            bcc: _splitAddresses(_bcc.text),
+            to: _toEmails,
+            cc: _ccEmails,
+            bcc: _bccEmails,
             subject: _subject.text,
             body: _body.text,
           );
@@ -285,18 +290,35 @@ class _ComposeScreenState extends State<ComposeScreen> {
   @override
   Widget build(BuildContext context) {
     final busy = context.watch<AppState>().busy;
+    final colors = AppColors.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New message'),
+        title: Text(widget.draft != null
+            ? 'Edit draft'
+            : widget.isForward
+                ? 'Forward'
+                : widget.replyTo != null
+                    ? 'Reply'
+                    : 'New message'),
         actions: [
           IconButton(
               onPressed: busy ? null : _saveDraft,
               tooltip: 'Save draft',
               icon: const Icon(Icons.save_outlined)),
-          IconButton(
-              onPressed: busy ? null : _send,
-              tooltip: 'Send',
-              icon: const Icon(Icons.send_rounded)),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: AppGradients.brand,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                onPressed: busy ? null : _send,
+                tooltip: 'Send',
+                icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -306,12 +328,15 @@ class _ComposeScreenState extends State<ComposeScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: TextField(
-                          controller: _to,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'To')),
+                      child: RecipientChipField(
+                        key: _toKey,
+                        label: 'To',
+                        icon: Icons.person_outline,
+                        initial: _toInitial,
+                      ),
                     ),
                     if (!_showCcBcc)
                       TextButton(
@@ -322,15 +347,19 @@ class _ComposeScreenState extends State<ComposeScreen> {
                 ),
                 if (_showCcBcc) ...[
                   const SizedBox(height: 10),
-                  TextField(
-                      controller: _cc,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Cc')),
+                  RecipientChipField(
+                    key: _ccKey,
+                    label: 'Cc',
+                    icon: Icons.people_outline,
+                    initial: _ccInitial,
+                  ),
                   const SizedBox(height: 10),
-                  TextField(
-                      controller: _bcc,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Bcc')),
+                  RecipientChipField(
+                    key: _bccKey,
+                    label: 'Bcc',
+                    icon: Icons.visibility_off_outlined,
+                    initial: _bccInitial,
+                  ),
                 ],
                 const SizedBox(height: 10),
                 TextField(
@@ -346,13 +375,16 @@ class _ComposeScreenState extends State<ComposeScreen> {
                       hintText: 'Write your message…', alignLabelWithHint: true),
                 ),
                 if (_attachments.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: _attachments
-                        .map((item) => InputChip(
-                              label: Text(item['filename'] as String),
-                              onDeleted: () =>
+                        .map((item) => _AttachmentPreviewChip(
+                              filename: item['filename'] as String,
+                              contentType: item['content_type'] as String,
+                              size: item['size'] as int?,
+                              onRemove: () =>
                                   setState(() => _attachments.remove(item)),
                             ))
                         .toList(),
@@ -361,7 +393,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: colors.divider),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -390,9 +422,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: colors.divider),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             child: Row(
               children: [
                 IconButton(
@@ -406,6 +438,61 @@ class _ComposeScreenState extends State<ComposeScreen> {
                     label: const Text('Send')),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttachmentPreviewChip extends StatelessWidget {
+  const _AttachmentPreviewChip({
+    required this.filename,
+    required this.contentType,
+    required this.size,
+    required this.onRemove,
+  });
+  final String filename;
+  final String contentType;
+  final int? size;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Container(
+      padding: const EdgeInsets.only(left: 10, right: 4, top: 6, bottom: 6),
+      decoration: BoxDecoration(
+        color: colors.chipBackground,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: colors.chipBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(attachmentIcon(contentType), size: 18, color: colors.subtleText),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(filename,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                if (size != null)
+                  Text(formatBytes(size!),
+                      style: TextStyle(fontSize: 11, color: colors.subtleText)),
+              ],
+            ),
+          ),
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: const Icon(Icons.close, size: 16),
+            onPressed: onRemove,
           ),
         ],
       ),

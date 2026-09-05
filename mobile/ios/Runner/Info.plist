@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Novarise Mail</string>
+	<string>Novamail</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,9 +15,9 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Novarise Mail</string>
+	<string>Novamail</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Novarise Mail uses your photo library when you choose a profile photo or email attachment.</string>
+	<string>Novamail uses your photo library when you choose a profile photo or email attachment.</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

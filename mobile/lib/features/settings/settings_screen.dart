@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
+import '../../core/theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -78,67 +79,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Center(
             child: Stack(
               children: [
-                CircleAvatar(
-                  radius: 48,
-                  backgroundImage: account.avatarUrl == null
-                      ? null
-                      : NetworkImage(account.avatarUrl!),
-                  child: account.avatarUrl == null
-                      ? Text(
-                          (account.displayName.isEmpty
-                                  ? account.address
-                                  : account.displayName)[0]
-                              .toUpperCase(),
-                          style: const TextStyle(fontSize: 30))
-                      : null,
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppGradients.brand,
+                  ),
+                  child: CircleAvatar(
+                    radius: 46,
+                    backgroundImage: account.avatarUrl == null
+                        ? null
+                        : NetworkImage(account.avatarUrl!),
+                    child: account.avatarUrl == null
+                        ? Text(
+                            (account.displayName.isEmpty
+                                    ? account.address
+                                    : account.displayName)[0]
+                                .toUpperCase(),
+                            style: const TextStyle(
+                                fontSize: 30, fontWeight: FontWeight.w700))
+                        : null,
+                  ),
                 ),
                 Positioned(
                   right: 0,
                   bottom: 0,
-                  child: IconButton.filledTonal(
+                  child: IconButton.filled(
                       onPressed: _pickAvatar,
                       icon: const Icon(Icons.camera_alt_outlined, size: 19)),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          Text(
+              account.displayName.isEmpty ? account.address : account.displayName,
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           Text(account.address,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 28),
-          TextField(
-              controller: _name,
-              decoration: const InputDecoration(
-                  labelText: 'Sender name',
-                  prefixIcon: Icon(Icons.badge_outlined))),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _signature,
-            minLines: 2,
-            maxLines: 5,
-            decoration: const InputDecoration(
-                labelText: 'Email signature',
-                hintText: 'Added to the end of new messages',
-                alignLabelWithHint: true,
-                prefixIcon: Icon(Icons.draw_outlined)),
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 24),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                      controller: _name,
+                      decoration: const InputDecoration(
+                          labelText: 'Sender name',
+                          prefixIcon: Icon(Icons.badge_outlined))),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _signature,
+                    minLines: 2,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                        labelText: 'Email signature',
+                        hintText: 'Added to the end of new messages',
+                        alignLabelWithHint: true,
+                        prefixIcon: Icon(Icons.draw_outlined)),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<int>(
+                    initialValue: _cacheDays,
+                    decoration: const InputDecoration(labelText: 'Email body cache'),
+                    items: const [
+                      DropdownMenuItem(value: 7, child: Text('7 days')),
+                      DropdownMenuItem(value: 14, child: Text('14 days')),
+                      DropdownMenuItem(value: 30, child: Text('30 days')),
+                      DropdownMenuItem(value: 90, child: Text('90 days')),
+                    ],
+                    onChanged: (value) => setState(() => _cacheDays = value ?? 30),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                      onPressed: state.busy ? null : _save,
+                      child: const Text('Save changes')),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 14),
-          DropdownButtonFormField<int>(
-            initialValue: _cacheDays,
-            decoration: const InputDecoration(labelText: 'Email body cache'),
-            items: const [
-              DropdownMenuItem(value: 7, child: Text('7 days')),
-              DropdownMenuItem(value: 14, child: Text('14 days')),
-              DropdownMenuItem(value: 30, child: Text('30 days')),
-              DropdownMenuItem(value: 90, child: Text('90 days')),
-            ],
-            onChanged: (value) => setState(() => _cacheDays = value ?? 30),
-          ),
-          const SizedBox(height: 18),
-          FilledButton(
-              onPressed: state.busy ? null : _save,
-              child: const Text('Save changes')),
           const SizedBox(height: 26),
           const _SectionTitle('Appearance'),
           Card(
@@ -226,7 +251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsTile(
             icon: Icons.logout,
             title: 'Sign out from all devices',
-            subtitle: 'Revokes active Novarise Mail sessions',
+            subtitle: 'Revokes active Novamail sessions',
             onTap: () async {
               await state.logout();
               if (context.mounted) {

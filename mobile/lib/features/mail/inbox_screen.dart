@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
@@ -29,6 +30,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
   final Set<String> _selectedKeys = {};
   String? _selectionFolder;
   MessageFilter _filter = const MessageFilter();
+  bool _fabExtended = true;
 
   bool get _selectionMode => _selectedKeys.isNotEmpty;
 
@@ -59,6 +61,12 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
     if (_scrollController.position.pixels >
         _scrollController.position.maxScrollExtent - 400) {
       context.read<AppState>().loadMore();
+    }
+    final direction = _scrollController.position.userScrollDirection;
+    if (direction == ScrollDirection.reverse && _fabExtended) {
+      setState(() => _fabExtended = false);
+    } else if (direction == ScrollDirection.forward && !_fabExtended) {
+      setState(() => _fabExtended = true);
     }
   }
 
@@ -103,6 +111,34 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
   List<MailMessage> _selectedMessages(List<MailMessage> all) =>
       all.where((message) => _selectedKeys.contains(_keyFor(message))).toList();
 
+  String _dateLabel(DateTime? date) {
+    if (date == null) return 'Undated';
+    final local = date.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff > 1 && diff < 7) return DateFormat('EEEE').format(local);
+    if (local.year == now.year) return DateFormat('MMMM d').format(local);
+    return DateFormat('MMMM d, yyyy').format(local);
+  }
+
+  List<Object> _buildRows(List<MailThread> threads) {
+    final rows = <Object>[];
+    String? lastLabel;
+    for (final thread in threads) {
+      final label = _dateLabel(thread.latest.receivedAt);
+      if (label != lastLabel) {
+        rows.add(label);
+        lastLabel = label;
+      }
+      rows.add(thread);
+    }
+    return rows;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -111,7 +147,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
       _selectionFolder = null;
     }
     final threads = groupIntoThreads(state.messages);
-    final threadLatestMessages = [for (final thread in threads) thread.latest];
+    final rows = _buildRows(threads);
     return Scaffold(
       appBar: _selectionMode
           ? _SelectionAppBar(
@@ -183,14 +219,14 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                   onPressed: () => _openAccountSwitcher(context, state),
                   icon: _avatar(state.account),
                 ),
+                const SizedBox(width: 4),
               ],
             ),
       drawer: _MailboxDrawer(state: state),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _GradientFab(
+        extended: _fabExtended,
         onPressed: () => Navigator.push(
             context, MaterialPageRoute(builder: (_) => const ComposeScreen())),
-        icon: const Icon(Icons.edit_outlined),
-        label: const Text('Compose'),
       ),
       body: Column(
         children: [
@@ -247,17 +283,17 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
             child: state.busy && state.messages.isEmpty
                 ? const _InboxSkeleton()
                 : state.messages.isEmpty
-                    ? _EmptyFolder(name: _folderTitle(state.currentFolder))
+                    ? _EmptyFolder(
+                        name: _folderTitle(state.currentFolder),
+                        folder: state.currentFolder)
                     : RefreshIndicator(
                         onRefresh: state.loadMessages,
-                        child: ListView.separated(
+                        child: ListView.builder(
                           controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
-                          itemCount: threads.length + (state.hasMore ? 1 : 0),
-                          separatorBuilder: (_, __) =>
-                              const Divider(height: 1, indent: 72),
+                          itemCount: rows.length + (state.hasMore ? 1 : 0),
                           itemBuilder: (context, index) {
-                            if (index >= threads.length) {
+                            if (index >= rows.length) {
                               return const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 20),
                                 child: Center(
@@ -268,13 +304,26 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
                                             strokeWidth: 2))),
                               );
                             }
-                            final thread = threads[index];
-                            final latest = threadLatestMessages[index];
-                            return _MessageTile(
+                            final row = rows[index];
+                            if (row is String) {
+                              return _DateHeader(label: row);
+                            }
+                            final thread = row as MailThread;
+                            final latest = thread.latest;
+                            final tile = _MessageTile(
                               thread: thread,
                               selectionMode: _selectionMode,
                               selected: _selectedKeys.contains(_keyFor(latest)),
                               onToggleSelect: () => _toggleSelect(latest),
+                            );
+                            final nextIsHeaderOrEnd = index + 1 >= rows.length ||
+                                rows[index + 1] is String;
+                            if (nextIsHeaderOrEnd) return tile;
+                            return Column(
+                              children: [
+                                tile,
+                                const Divider(height: 1, indent: 72),
+                              ],
                             );
                           },
                         ),
@@ -302,12 +351,83 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
         : account?.address ?? 'N';
     return CircleAvatar(
         radius: 15,
-        child:
-            Text(label[0].toUpperCase(), style: const TextStyle(fontSize: 12)));
+        backgroundColor: NovariseTheme.blue,
+        foregroundColor: Colors.white,
+        child: Text(label[0].toUpperCase(),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)));
   }
 
   String _folderTitle(String folder) =>
       folder.split('.').last.replaceAll('INBOX', 'Inbox');
+}
+
+class _DateHeader extends StatelessWidget {
+  const _DateHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
+        child: Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.6,
+            color: AppColors.of(context).subtleText,
+          ),
+        ),
+      );
+}
+
+/// A compose FAB with the brand gradient that collapses to an icon-only
+/// circle while scrolling down and re-expands at rest — the same premium
+/// touch Gmail's own compose button has.
+class _GradientFab extends StatelessWidget {
+  const _GradientFab({required this.extended, required this.onPressed});
+  final bool extended;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      height: 56,
+      width: extended ? 152 : 56,
+      decoration: BoxDecoration(
+        gradient: AppGradients.brand,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: NovariseTheme.blue.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          onTap: onPressed,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.edit_outlined, color: Colors.white),
+              if (extended) ...[
+                const SizedBox(width: 10),
+                const Text('Compose',
+                    style:
+                        TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _FilterSheet extends StatefulWidget {
@@ -438,68 +558,103 @@ class _AccountSwitcherSheet extends StatelessWidget {
   final AppState state;
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final address in state.savedAccounts)
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: address == state.account?.address
-                      ? NovariseTheme.blue
-                      : AppColors.of(context).subtleText,
-                  foregroundColor: Colors.white,
-                  child: Text(address.isEmpty ? '?' : address[0].toUpperCase()),
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Row(
+              children: [
+                Text('Accounts',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ),
+          for (final address in state.savedAccounts)
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: address == state.account?.address
+                      ? AppGradients.brand
+                      : null,
                 ),
-                title: Text(address),
-                trailing: address == state.account?.address
-                    ? const Icon(Icons.check_circle, color: NovariseTheme.blue)
-                    : IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Remove account',
-                        onPressed: () async {
-                          Navigator.pop(context);
-                          await state.removeAccount(address);
-                        },
-                      ),
-                onTap: address == state.account?.address
-                    ? null
-                    : () async {
-                        Navigator.pop(context);
-                        final ok = await state.switchAccount(address);
-                        if (!ok && context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'That account needs you to sign in again')),
-                          );
-                        }
-                      },
+                child: CircleAvatar(
+                  backgroundColor: address == state.account?.address
+                      ? null
+                      : colors.chipBackground,
+                  foregroundColor: address == state.account?.address
+                      ? Colors.white
+                      : colors.subtleText,
+                  child: Text(address.isEmpty ? '?' : address[0].toUpperCase(),
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
               ),
-            ListTile(
-              leading: const Icon(Icons.person_add_alt_1),
-              title: const Text('Add account'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const LoginScreen(addingAccount: true)));
-              },
+              title: Text(address,
+                  style: TextStyle(
+                      fontWeight: address == state.account?.address
+                          ? FontWeight.w700
+                          : FontWeight.w400)),
+              trailing: address == state.account?.address
+                  ? const Icon(Icons.check_circle, color: NovariseTheme.blue)
+                  : IconButton(
+                      icon: const Icon(Icons.close),
+                      tooltip: 'Remove account',
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await state.removeAccount(address);
+                      },
+                    ),
+              onTap: address == state.account?.address
+                  ? null
+                  : () async {
+                      Navigator.pop(context);
+                      final ok = await state.switchAccount(address);
+                      if (!ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text(
+                                  'That account needs you to sign in again')),
+                        );
+                      }
+                    },
             ),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Profile & settings'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()));
-              },
+          const Divider(height: 1),
+          ListTile(
+            leading: const CircleAvatar(
+              child: Icon(Icons.person_add_alt_1, size: 20),
             ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      );
+            title: const Text('Add account'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const LoginScreen(addingAccount: true)));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Profile & settings'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()));
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
 }
 
 class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -601,78 +756,95 @@ class _MessageTile extends StatelessWidget {
     final unread = thread.unreadCount > 0;
     final weight = unread ? FontWeight.w700 : FontWeight.w400;
     final state = context.read<AppState>();
-    final row = Material(
-      color: selected
-          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
-          : (unread ? colors.unreadTint : null),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        onLongPress: onToggleSelect,
-        leading: GestureDetector(
-          onTap: onToggleSelect,
-          child: selectionMode
-              ? CircleAvatar(
-                  backgroundColor:
-                      selected ? NovariseTheme.blue : colors.subtleText,
-                  foregroundColor: Colors.white,
-                  child: selected ? const Icon(Icons.check, size: 18) : null,
-                )
-              : CircleAvatar(
-                  backgroundColor: AvatarPalette.forSeed(message.sender.email),
-                  foregroundColor: Colors.white,
-                  child: Text(message.sender.label.isEmpty
-                      ? '?'
-                      : message.sender.label[0].toUpperCase()),
-                ),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-                child: Text(message.sender.label,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: weight))),
-            if (message.receivedAt != null)
-              Text(_date(message.receivedAt!),
-                  style: TextStyle(fontSize: 11, fontWeight: weight)),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                      thread.messages.length > 1
-                          ? '${message.subject}  (${thread.messages.length})'
-                          : message.subject,
-                      maxLines: 1,
+    final row = Container(
+      decoration: BoxDecoration(
+        border: unread && !selected
+            ? Border(left: BorderSide(color: NovariseTheme.blue, width: 3))
+            : const Border(left: BorderSide(color: Colors.transparent, width: 3)),
+      ),
+      child: Material(
+        color: selected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.10)
+            : (unread ? colors.unreadTint : null),
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.only(left: 13, right: 16, top: 8, bottom: 8),
+          onLongPress: onToggleSelect,
+          leading: GestureDetector(
+            onTap: onToggleSelect,
+            child: selectionMode
+                ? CircleAvatar(
+                    radius: 21,
+                    backgroundColor:
+                        selected ? NovariseTheme.blue : colors.subtleText,
+                    foregroundColor: Colors.white,
+                    child: selected ? const Icon(Icons.check, size: 18) : null,
+                  )
+                : CircleAvatar(
+                    radius: 21,
+                    backgroundColor: AvatarPalette.forSeed(message.sender.email),
+                    foregroundColor: Colors.white,
+                    child: Text(message.sender.label.isEmpty
+                        ? '?'
+                        : message.sender.label[0].toUpperCase(),
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                  child: Text(message.sender.label,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontWeight: weight)),
+                      style: TextStyle(fontWeight: weight, fontSize: 15))),
+              if (message.receivedAt != null)
+                Text(_date(message.receivedAt!),
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: weight,
+                        color: unread ? NovariseTheme.blue : colors.subtleText)),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                          thread.messages.length > 1
+                              ? '${message.subject}  (${thread.messages.length})'
+                              : message.subject,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: weight, fontSize: 13.5)),
+                    ),
+                    if (message.hasAttachments) ...[
+                      const SizedBox(width: 6),
+                      Icon(Icons.attach_file, size: 14, color: colors.subtleText),
+                    ],
+                  ],
                 ),
-                if (message.hasAttachments) ...[
-                  const SizedBox(width: 6),
-                  Icon(Icons.attach_file, size: 14, color: colors.subtleText),
-                ],
+                Text(message.preview,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.subtleText, fontSize: 13)),
               ],
             ),
-            Text(message.preview,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: colors.subtleText)),
-          ],
+          ),
+          trailing: selectionMode
+              ? null
+              : Icon(thread.hasStarred ? Icons.star : Icons.star_border,
+                  color: thread.hasStarred ? colors.star : colors.subtleText,
+                  size: 21),
+          onTap: selectionMode
+              ? onToggleSelect
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => ThreadScreen(thread: thread))),
         ),
-        trailing: selectionMode
-            ? null
-            : Icon(thread.hasStarred ? Icons.star : Icons.star_border,
-                color: thread.hasStarred ? colors.star : colors.subtleText,
-                size: 21),
-        onTap: selectionMode
-            ? onToggleSelect
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => ThreadScreen(thread: thread))),
       ),
     );
     if (selectionMode) return row;
@@ -788,11 +960,19 @@ class _MailboxDrawer extends StatelessWidget {
         DrawerHeader(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Image.asset('assets/novarise-icon-mark.png', width: 42),
-              const SizedBox(height: 10),
-              const Text('Novarise Mail',
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Image.asset('assets/novarise-icon-mark.png', width: 32),
+              ),
+              const SizedBox(height: 12),
+              const Text('Novamail',
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
               Text(state.account?.address ?? '',
                   style: Theme.of(context).textTheme.bodySmall),
             ],
@@ -870,20 +1050,37 @@ class _MailboxDrawer extends StatelessWidget {
 }
 
 class _EmptyFolder extends StatelessWidget {
-  const _EmptyFolder({required this.name});
+  const _EmptyFolder({required this.name, required this.folder});
   final String name;
+  final String folder;
+
+  (IconData, String) _content() {
+    final value = folder.toLowerCase();
+    if (value.contains('trash')) return (Icons.delete_outline, '$name is empty');
+    if (value.contains('spam') || value.contains('junk')) {
+      return (Icons.shield_outlined, 'No spam here — nice and clean');
+    }
+    if (value.contains('draft')) return (Icons.drafts_outlined, 'No drafts saved');
+    if (value.contains('sent')) return (Icons.send_outlined, 'Nothing sent yet');
+    if (value.contains('snooze')) return (Icons.snooze_outlined, 'No snoozed mail');
+    if (value == 'inbox') {
+      return (Icons.mark_email_read_outlined, 'You\'re all caught up');
+    }
+    return (Icons.folder_outlined, '$name is empty');
+  }
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.mark_email_read_outlined,
-                size: 58, color: AppColors.of(context).subtleText),
-            const SizedBox(height: 14),
-            Text('$name is empty',
-                style: Theme.of(context).textTheme.titleMedium),
-          ],
-        ),
-      );
+  Widget build(BuildContext context) {
+    final (icon, message) = _content();
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 58, color: AppColors.of(context).subtleText),
+          const SizedBox(height: 14),
+          Text(message, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
+    );
+  }
 }

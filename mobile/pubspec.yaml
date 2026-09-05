@@ -1,7 +1,7 @@
 name: novarise_mail
 description: Secure first-party mobile client for Novarise mailboxes.
 publish_to: none
-version: 1.3.0+6
+version: 1.4.0+7
 
 environment:
   sdk: ">=3.6.0 <4.0.0"

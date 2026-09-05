@@ -11,7 +11,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_state.dart';
+import '../../core/attachment_style.dart';
 import '../../core/models.dart';
+import '../../core/theme.dart';
 
 /// Renders a message's body (HTML with inline `cid:` images resolved, or
 /// plain text) plus its attachment list with Open/Save actions. Shared by
@@ -50,7 +52,28 @@ class MessageBodyView extends StatelessWidget {
     return _CidImage(message: message, attachment: attachment);
   }
 
+  void _showDownloading(BuildContext context, String filename) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 30),
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Text('Downloading $filename…')),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _download(BuildContext context, MailAttachment attachment) async {
+    _showDownloading(context, attachment.filename);
     try {
       final bytes = await context.read<AppState>().api.downloadAttachment(
             message.folder,
@@ -63,12 +86,14 @@ class MessageBodyView extends StatelessWidget {
         bytes: Uint8List.fromList(bytes),
       );
       if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${attachment.filename} saved')),
         );
       }
     } catch (error) {
       if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not save attachment: $error')),
         );
@@ -77,6 +102,7 @@ class MessageBodyView extends StatelessWidget {
   }
 
   Future<void> _open(BuildContext context, MailAttachment attachment) async {
+    _showDownloading(context, attachment.filename);
     try {
       final bytes = await context.read<AppState>().api.downloadAttachment(
             message.folder,
@@ -88,6 +114,7 @@ class MessageBodyView extends StatelessWidget {
           attachment.filename.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final file = File('${dir.path}/$safeName');
       await file.writeAsBytes(bytes);
+      if (context.mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
       final result = await OpenFilex.open(file.path);
       if (result.type != ResultType.done && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,11 +122,89 @@ class MessageBodyView extends StatelessWidget {
       }
     } catch (error) {
       if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not open attachment: $error')),
         );
       }
     }
+  }
+
+  Widget _buildAttachments(BuildContext context) {
+    final colors = AppColors.of(context);
+    final images = message.attachments.where((a) => isImageContentType(a.contentType)).toList();
+    final files = message.attachments.where((a) => !isImageContentType(a.contentType)).toList();
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${message.attachments.length} attachment${message.attachments.length == 1 ? '' : 's'}',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          if (images.isNotEmpty)
+            SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: images.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  child: SizedBox(
+                    width: 96,
+                    height: 96,
+                    child: GestureDetector(
+                      onTap: () => _open(context, images[index]),
+                      child: _CidImage(message: message, attachment: images[index]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          if (images.isNotEmpty && files.isNotEmpty) const SizedBox(height: 10),
+          for (final attachment in files)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.elevatedSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: colors.divider),
+                ),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md)),
+                  leading: Icon(attachmentIcon(attachment.contentType)),
+                  title: Text(attachment.filename,
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(attachment.size != null
+                      ? formatBytes(attachment.size!)
+                      : attachment.contentType),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Open',
+                        icon: const Icon(Icons.open_in_new),
+                        onPressed: () => _open(context, attachment),
+                      ),
+                      IconButton(
+                        tooltip: 'Save',
+                        icon: const Icon(Icons.download_rounded),
+                        onPressed: () => _download(context, attachment),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -119,35 +224,7 @@ class MessageBodyView extends StatelessWidget {
             (message.textBody ?? message.preview).trim(),
             style: const TextStyle(fontSize: 16, height: 1.55),
           ),
-        if (message.attachments.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Text('Attachments', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...message.attachments.map(
-            (attachment) => Card(
-              child: ListTile(
-                leading: const Icon(Icons.attach_file),
-                title: Text(attachment.filename),
-                subtitle: Text(attachment.contentType),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: 'Open',
-                      icon: const Icon(Icons.open_in_new),
-                      onPressed: () => _open(context, attachment),
-                    ),
-                    IconButton(
-                      tooltip: 'Save',
-                      icon: const Icon(Icons.download_rounded),
-                      onPressed: () => _download(context, attachment),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
+        if (message.attachments.isNotEmpty) _buildAttachments(context),
       ],
     );
   }

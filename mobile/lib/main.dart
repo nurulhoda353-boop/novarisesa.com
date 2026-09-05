@@ -45,7 +45,7 @@ class NovariseMailApp extends StatelessWidget {
       child: Consumer<AppState>(
         builder: (context, state, _) => MaterialApp(
           navigatorKey: navigatorKey,
-          title: 'Novarise Mail',
+          title: 'Novamail',
           debugShowCheckedModeBanner: false,
           theme: NovariseTheme.light(),
           darkTheme: NovariseTheme.dark(),

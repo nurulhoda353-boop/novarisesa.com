@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      'Novarise Mail',
+                      'Novamail',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: 30,

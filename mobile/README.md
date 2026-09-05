@@ -1,4 +1,4 @@
-# Novarise Mail Mobile
+# Novamail Mobile
 
 Flutter client for Android and iOS. It connects only to the Novarise FastAPI
 gateway; mailbox credentials are never used directly by Flutter's UI.
