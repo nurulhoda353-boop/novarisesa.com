@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Lock } from "lucide-react";
 
 export function AppsPasswordGate() {
@@ -39,36 +40,62 @@ export function AppsPasswordGate() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-navy px-6 py-16">
-      <div className="w-full max-w-sm rounded-2xl bg-card p-8 shadow-2xl">
-        <div className="mb-7 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-navy/5">
-            <Lock className="h-6 w-6 text-gold" />
+    <main
+      className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-16 sm:px-6"
+      style={{ background: "var(--gradient-hero)" }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full opacity-20 blur-3xl"
+        style={{ background: "var(--gradient-gold)" }}
+      />
+
+      <div className="relative w-full max-w-sm overflow-hidden rounded-3xl bg-card shadow-2xl">
+        <div className="h-1.5 w-full" style={{ background: "var(--gradient-gold)" }} />
+        <div className="p-7 sm:p-8">
+          <div className="mb-7 flex flex-col items-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2.5 shadow-md ring-1 ring-border">
+              <Image
+                src="/apps/novamail-icon.png"
+                alt="NOVARISE"
+                width={64}
+                height={64}
+                className="h-full w-full object-contain"
+                priority
+              />
+            </div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gold">
+              NOVARISE
+            </p>
+            <h1 className="mt-1 font-display text-xl font-semibold text-foreground">
+              App Downloads
+            </h1>
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Lock className="h-3.5 w-3.5" />
+              Enter the access password to continue
+            </p>
           </div>
-          <h1 className="font-display text-xl font-semibold text-foreground">NOVARISE Apps</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            Enter the access password to view app downloads
-          </p>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Password"
+              autoFocus
+              autoComplete="off"
+              className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold"
+            />
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <button
+              type="submit"
+              disabled={loading || !password}
+              className="w-full rounded-xl px-4 py-3.5 text-sm font-semibold text-navy-foreground shadow-md transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ background: "var(--navy)" }}
+            >
+              {loading ? "Checking…" : "Unlock"}
+            </button>
+          </form>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Password"
-            autoFocus
-            autoComplete="off"
-            className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold"
-          />
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading || !password}
-            className="w-full rounded-xl bg-navy px-4 py-3.5 text-sm font-semibold text-navy-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? "Checking…" : "Unlock"}
-          </button>
-        </form>
       </div>
     </main>
   );
