@@ -163,6 +163,56 @@ class MailAccount(UUIDMixin, TimestampMixin, Base):
     signature: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # "admin" mailboxes can switch into any "member" mailbox without its
+    # password, reset any member's password/profile, and see every
+    # mailbox's audit trail. A "member" mailbox can only read/send its own
+    # mail and must route password/name/avatar changes through a
+    # MailChangeRequest for an admin to approve. See docs/NOVARISE_MAIL.md.
+    role: Mapped[str] = mapped_column(String(20), default="member")
+
+
+class MailChangeRequest(UUIDMixin, Base):
+    """A member-submitted password/display-name/avatar change awaiting
+    admin approval - members can't apply these directly. `payload_ciphertext`
+    holds an encrypted pending password (same cipher as mailbox credentials);
+    `payload_text` holds a pending display name; `payload_url` holds an
+    already-uploaded pending avatar file. Exactly one of the three is set,
+    matching `request_type`."""
+
+    __tablename__ = "mail_change_requests"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    request_type: Mapped[str] = mapped_column(String(20))
+    payload_ciphertext: Mapped[str | None] = mapped_column(Text)
+    payload_text: Mapped[str | None] = mapped_column(String(500))
+    payload_url: Mapped[str | None] = mapped_column(String(1000))
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(500))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MailAuditLog(UUIDMixin, Base):
+    """Every admin action against a mailbox - a switch, a password reset, a
+    change-request decision - so the admin panel can show "who did what to
+    whom, when" across all mailboxes, not just the acting admin's own."""
+
+    __tablename__ = "mail_audit_log"
+
+    actor_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="SET NULL"), index=True
+    )
+    target_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="SET NULL"), index=True
+    )
+    action: Mapped[str] = mapped_column(String(60))
+    detail: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class MailMessageCache(UUIDMixin, TimestampMixin, Base):

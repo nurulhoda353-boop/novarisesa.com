@@ -13,10 +13,12 @@ from app.core.security import (
     decode_mobile_token,
     decode_token,
 )
-from app.models import MailRule, MailSnooze
+from app.models import MailAuditLog, MailChangeRequest, MailRule, MailSnooze
 from app.schemas.mail import (
     ContactUpdate,
     FolderResponse,
+    MailAccountResponse,
+    MailChangeRequestCreate,
     MailLoginRequest,
     MailProfileUpdate,
     MailRuleUpsert,
@@ -325,6 +327,63 @@ def test_rule_matches_requires_all_set_conditions() -> None:
     rule = MailRule(from_contains="stripe.com", subject_contains="invoice")
     assert rule_matches(rule, sender="billing@stripe.com", subject="your invoice is ready")
     assert not rule_matches(rule, sender="billing@stripe.com", subject="welcome to stripe")
+
+
+def test_mail_change_request_model_has_the_expected_columns() -> None:
+    columns = {column.name for column in MailChangeRequest.__table__.columns}
+    assert columns == {
+        "id",
+        "account_id",
+        "request_type",
+        "payload_ciphertext",
+        "payload_text",
+        "payload_url",
+        "status",
+        "rejection_reason",
+        "resolved_at",
+        "resolved_by_account_id",
+        "created_at",
+    }
+
+
+def test_mail_audit_log_model_has_the_expected_columns() -> None:
+    columns = {column.name for column in MailAuditLog.__table__.columns}
+    assert columns == {
+        "id",
+        "actor_account_id",
+        "target_account_id",
+        "action",
+        "detail",
+        "created_at",
+    }
+
+
+def test_mail_account_response_defaults_role_to_member() -> None:
+    # Regression: role was bolted onto an existing, widely-used response
+    # schema - a missing default would break every call site that builds
+    # this response without explicitly passing a role.
+    response = MailAccountResponse(
+        id="00000000-0000-0000-0000-000000000001",
+        address="info@novarisesa.com",
+        display_name="Info",
+        avatar_url=None,
+        cache_ttl_days=30,
+        hostinger_mailbox_id=None,
+    )
+    assert response.role == "member"
+
+
+def test_change_request_rejects_a_short_pending_password() -> None:
+    # A member's requested password still has to meet the same minimum the
+    # self-service change-password endpoint enforces - otherwise an admin
+    # approving it would hand back a mailbox password Hostinger itself
+    # would refuse.
+    with pytest.raises(ValueError):
+        MailChangeRequestCreate(request_type="password", value="short")
+    request = MailChangeRequestCreate(request_type="password", value="a-fine-password")
+    assert request.value == "a-fine-password"
+    # display_name has no such minimum
+    assert MailChangeRequestCreate(request_type="display_name", value="A").value == "A"
 
 
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:

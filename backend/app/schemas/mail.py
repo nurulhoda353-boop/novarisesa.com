@@ -33,6 +33,7 @@ class MailAccountResponse(BaseModel):
     cache_ttl_days: int
     hostinger_mailbox_id: str | None
     signature: str | None = None
+    role: str = "member"
 
 
 class MailProfileUpdate(BaseModel):
@@ -212,6 +213,73 @@ class AutoreplyUpsert(BaseModel):
     display_name: str = Field(default="", max_length=160)
     starts_at: datetime | None = None
     ends_at: datetime | None = None
+
+
+class MailChangeRequestCreate(BaseModel):
+    """A member's own request to change something an admin must approve."""
+
+    request_type: str = Field(pattern="^(password|display_name)$")
+    value: str = Field(min_length=1, max_length=500)
+
+    @field_validator("value")
+    @classmethod
+    def password_min_length(cls, value: str, info) -> str:  # noqa: ANN001
+        if info.data.get("request_type") == "password" and len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return value
+
+
+class MailChangeRequestResponse(BaseModel):
+    id: uuid.UUID
+    request_type: str
+    status: str
+    rejection_reason: str | None = None
+    created_at: datetime
+    resolved_at: datetime | None = None
+
+
+class AdminAccountSummary(BaseModel):
+    id: uuid.UUID
+    address: EmailStr
+    display_name: str
+    avatar_url: str | None
+    role: str
+    is_active: bool
+    last_connected_at: datetime | None = None
+
+
+class AdminSetPassword(BaseModel):
+    new_password: str = Field(min_length=8, max_length=50)
+
+
+class AdminSetProfile(BaseModel):
+    display_name: str = Field(min_length=1, max_length=160)
+
+
+class AdminChangeRequestDecision(BaseModel):
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class AdminChangeRequestResponse(BaseModel):
+    id: uuid.UUID
+    account_id: uuid.UUID
+    account_address: EmailStr
+    request_type: str
+    preview: str | None = None
+    status: str
+    rejection_reason: str | None = None
+    created_at: datetime
+    resolved_at: datetime | None = None
+    resolved_by_address: EmailStr | None = None
+
+
+class AdminAuditLogEntry(BaseModel):
+    id: uuid.UUID
+    actor_address: EmailStr | None = None
+    target_address: EmailStr | None = None
+    action: str
+    detail: str | None = None
+    created_at: datetime
 
 
 MobileSessionResponse.model_rebuild()
