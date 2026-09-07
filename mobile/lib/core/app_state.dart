@@ -369,6 +369,7 @@ class AppState extends ChangeNotifier {
     String? htmlBody,
     String? replyToMessageId,
     List<Map<String, dynamic>> attachments = const [],
+    String? fromAddress,
   }) async {
     await _guard(() async {
       await api.send(
@@ -380,6 +381,7 @@ class AppState extends ChangeNotifier {
         htmlBody: htmlBody,
         replyToMessageId: replyToMessageId,
         attachments: attachments,
+        fromAddress: fromAddress,
       );
     });
   }

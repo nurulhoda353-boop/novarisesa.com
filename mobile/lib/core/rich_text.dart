@@ -1,5 +1,5 @@
 /// Lightweight compose formatting: markdown-lite syntax (**bold**,
-/// *italic*, "- " / "1. " lists, [text](url) links) typed or inserted via a
+/// *italic*, __underline__, "- " / "1. " lists, [text](url) links) typed or inserted via a
 /// toolbar, converted to real HTML at send time alongside the plain-text
 /// body. Deliberately not a full markdown implementation — just enough to
 /// give compose real formatting without pulling in a heavy rich-text editor
@@ -55,6 +55,8 @@ String _inline(String line) {
   var result = line;
   result = result.replaceAllMapped(
       RegExp(r'\*\*(.+?)\*\*'), (match) => '<b>${match.group(1)}</b>');
+  result = result.replaceAllMapped(
+      RegExp(r'__(.+?)__'), (match) => '<u>${match.group(1)}</u>');
   result = result.replaceAllMapped(
       RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)'),
       (match) => '<i>${match.group(1)}</i>');

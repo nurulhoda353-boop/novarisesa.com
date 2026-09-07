@@ -18,9 +18,37 @@ import '../../core/theme.dart';
 /// Renders a message's body (HTML with inline `cid:` images resolved, or
 /// plain text) plus its attachment list with Open/Save actions. Shared by
 /// [MessageScreen] and [ThreadScreen] so both stay in sync.
-class MessageBodyView extends StatelessWidget {
+///
+/// Remote (non-`cid:`, non-`data:`) images are blocked by default, the same
+/// Gmail-style privacy behavior the web client's sanitizeEmailHtml() applies
+/// - a sender can otherwise use a remote image as a read-receipt/tracking
+/// pixel the instant the body renders. A bar above the body lets the user
+/// opt back in for this message.
+class MessageBodyView extends StatefulWidget {
   const MessageBodyView({super.key, required this.message});
   final MailMessage message;
+
+  @override
+  State<MessageBodyView> createState() => _MessageBodyViewState();
+}
+
+class _MessageBodyViewState extends State<MessageBodyView> {
+  bool _allowRemoteImages = false;
+
+  MailMessage get message => widget.message;
+
+  static final _imgSrcPattern =
+      RegExp(r'''<img\b[^>]*\bsrc\s*=\s*["']([^"']*)["']''', caseSensitive: false);
+
+  bool get _hasRemoteImages {
+    final html = message.htmlBody;
+    if (html == null || html.isEmpty) return false;
+    for (final match in _imgSrcPattern.allMatches(html)) {
+      final src = match.group(1) ?? '';
+      if (!src.startsWith('cid:') && !src.startsWith('data:')) return true;
+    }
+    return false;
+  }
 
   Future<bool> _openLink(BuildContext context, String url) async {
     final uri = Uri.tryParse(url);
@@ -39,17 +67,22 @@ class MessageBodyView extends StatelessWidget {
   Widget? _inlineImage(dom.Element element) {
     if (element.localName != 'img') return null;
     final src = element.attributes['src'] ?? '';
-    if (!src.startsWith('cid:')) return null;
-    final cid = src.substring(4);
-    MailAttachment? attachment;
-    for (final candidate in message.attachments) {
-      if (candidate.contentId == cid) {
-        attachment = candidate;
-        break;
+    if (src.startsWith('cid:')) {
+      final cid = src.substring(4);
+      MailAttachment? attachment;
+      for (final candidate in message.attachments) {
+        if (candidate.contentId == cid) {
+          attachment = candidate;
+          break;
+        }
       }
+      if (attachment == null) return null;
+      return _CidImage(message: message, attachment: attachment);
     }
-    if (attachment == null) return null;
-    return _CidImage(message: message, attachment: attachment);
+    if (!_allowRemoteImages && !src.startsWith('data:')) {
+      return const _BlockedRemoteImage();
+    }
+    return null;
   }
 
   void _showDownloading(BuildContext context, String filename) {
@@ -212,6 +245,8 @@ class MessageBodyView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (!_allowRemoteImages && _hasRemoteImages)
+          _RemoteImageBar(onShow: () => setState(() => _allowRemoteImages = true)),
         if ((message.htmlBody ?? '').trim().isNotEmpty)
           HtmlWidget(
             message.htmlBody!,
@@ -226,6 +261,59 @@ class MessageBodyView extends StatelessWidget {
           ),
         if (message.attachments.isNotEmpty) _buildAttachments(context),
       ],
+    );
+  }
+}
+
+class _RemoteImageBar extends StatelessWidget {
+  const _RemoteImageBar({required this.onShow});
+  final VoidCallback onShow;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.unreadTint,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.image_outlined, size: 18, color: colors.subtleText),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Images are hidden to protect your privacy',
+              style: TextStyle(fontSize: 12.5, color: colors.subtleText),
+            ),
+          ),
+          TextButton(
+            onPressed: onShow,
+            child: const Text('Show images'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlockedRemoteImage extends StatelessWidget {
+  const _BlockedRemoteImage();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: colors.elevatedSurface,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Icon(Icons.image_outlined, size: 18, color: colors.subtleText),
     );
   }
 }

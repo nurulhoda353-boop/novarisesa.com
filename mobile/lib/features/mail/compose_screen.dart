@@ -44,6 +44,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
   final List<Map<String, dynamic>> _attachments = [];
   bool _showCcBcc = false;
   Timer? _pendingSendTimer;
+  List<String> _sendAddresses = const [];
+  late String _fromAddress;
 
   List<String> get _toEmails => _toKey.currentState?.emails ?? _toInitial;
   List<String> get _ccEmails => _ccKey.currentState?.emails ?? _ccInitial;
@@ -55,6 +57,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
     final reply = widget.replyTo;
     final account = context.read<AppState>().account;
     final selfAddress = account?.address.toLowerCase();
+    _fromAddress = account?.address ?? '';
+    _sendAddresses = [if (account != null) account.address];
+    _loadSendAddresses();
     _toInitial = widget.draft?.to ??
         (widget.initialTo != null ? [widget.initialTo!] : null) ??
         (widget.isForward ? const [] : (reply != null ? [reply.sender.email] : const []));
@@ -110,6 +115,27 @@ class _ComposeScreenState extends State<ComposeScreen> {
     _subject.dispose();
     _body.dispose();
     super.dispose();
+  }
+
+  /// Populates the "From" picker with the account's aliases, matching the
+  /// web client's send-as feature - mirrors AliasesTab's field name
+  /// ("address"), which is what Hostinger's management API returns.
+  Future<void> _loadSendAddresses() async {
+    final account = context.read<AppState>().account;
+    if (account == null) return;
+    try {
+      final aliases = await context.read<AppState>().api.managementList('aliases');
+      final addresses = aliases
+          .map((item) => item['address']?.toString())
+          .whereType<String>()
+          .where((address) => address.isNotEmpty)
+          .toList();
+      if (mounted && addresses.isNotEmpty) {
+        setState(() => _sendAddresses = [account.address, ...addresses]);
+      }
+    } catch (_) {
+      // The picker just stays hidden if aliases can't be loaded.
+    }
   }
 
   Future<void> _attach() async {
@@ -241,6 +267,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
     List<String> bcc,
   ) async {
     try {
+      final account = state.account;
       await state.send(
         to: recipients,
         cc: cc,
@@ -250,6 +277,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
         htmlBody: _body.text.trim().isEmpty ? null : markdownLiteToHtml(_body.text),
         replyToMessageId: widget.isForward ? null : widget.replyTo?.messageId,
         attachments: _attachments,
+        fromAddress: account != null && _fromAddress != account.address ? _fromAddress : null,
       );
       if (widget.draft != null) {
         await state.api.deleteDraft(widget.draft!.id);
@@ -327,6 +355,32 @@ class _ComposeScreenState extends State<ComposeScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (_sendAddresses.length > 1) ...[
+                  Row(
+                    children: [
+                      Text('From', style: TextStyle(color: colors.subtleText, fontSize: 13)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _fromAddress,
+                            isExpanded: true,
+                            items: _sendAddresses
+                                .map((address) => DropdownMenuItem(
+                                      value: address,
+                                      child: Text(address, overflow: TextOverflow.ellipsis),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) setState(() => _fromAddress = value);
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -407,6 +461,10 @@ class _ComposeScreenState extends State<ComposeScreen> {
                     onPressed: () => _applyWrap('*', '*'),
                     tooltip: 'Italic',
                     icon: const Icon(Icons.format_italic)),
+                IconButton(
+                    onPressed: () => _applyWrap('__', '__'),
+                    tooltip: 'Underline',
+                    icon: const Icon(Icons.format_underlined)),
                 IconButton(
                     onPressed: () => _applyLinePrefix('- '),
                     tooltip: 'Bullet list',

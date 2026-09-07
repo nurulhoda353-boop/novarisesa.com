@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_state.dart';
 import '../../core/models.dart';
+import '../../core/push_service.dart';
 import '../../core/theme.dart';
 import '../../core/thread_utils.dart';
 import 'compose_screen.dart';
@@ -48,6 +49,101 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   Future<MailMessage> _resolvedLatest() =>
       _details[_summaries.last.uid] ?? Future.value(_summaries.last);
+
+  /// Real (server-side) snooze for the newest message in the thread -
+  /// mirrors the web client's SnoozePopover presets (Later today / Tomorrow
+  /// morning / This weekend / Next week / custom). A local notification is
+  /// also scheduled so the device pings at the right moment, alongside the
+  /// backend's own scheduler moving the message back on its own.
+  static DateTime _atHour(DateTime base, int hour) =>
+      DateTime(base.year, base.month, base.day, hour);
+
+  static DateTime _nextWeekday(DateTime base, int isoWeekday) {
+    final diff = (isoWeekday - base.weekday + 7) % 7;
+    final target = base.add(Duration(days: diff == 0 ? 7 : diff));
+    return _atHour(target, 9);
+  }
+
+  Future<DateTime?> _pickSnoozeTime() async {
+    final now = DateTime.now();
+    final tomorrow = now.add(const Duration(days: 1));
+    final presets = <String, DateTime>{
+      'Later today': now.add(const Duration(hours: 3)),
+      'Tomorrow morning': _atHour(tomorrow, 9),
+      'This weekend': _nextWeekday(now, DateTime.saturday),
+      'Next week': _nextWeekday(now, DateTime.monday),
+    };
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in presets.entries)
+              ListTile(
+                leading: const Icon(Icons.snooze_outlined),
+                title: Text(entry.key),
+                trailing: Text(DateFormat('MMM d, h:mm a').format(entry.value)),
+                onTap: () => Navigator.pop(context, entry.key),
+              ),
+            ListTile(
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: const Text('Pick date & time'),
+              onTap: () => Navigator.pop(context, 'custom'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return null;
+    if (choice != 'custom') return presets[choice];
+    if (!mounted) return null;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return null;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+    );
+    if (time == null) return null;
+    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+  }
+
+  Future<void> _snoozeThread() async {
+    final message = _summaries.last;
+    final target = await _pickSnoozeTime();
+    if (target == null || !mounted) return;
+    if (target.isBefore(DateTime.now())) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Pick a time in the future')));
+      return;
+    }
+    final state = context.read<AppState>();
+    try {
+      await state.snoozeMessage(message, target);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not snooze this email. Please retry.')));
+      }
+      return;
+    }
+    await scheduleReminder(
+      id: message.uid,
+      delay: target.difference(DateTime.now()),
+      title: message.sender.label.isEmpty ? 'Snoozed mail' : message.sender.label,
+      body: message.subject,
+    );
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Snoozed until ${DateFormat('MMM d, h:mm a').format(target)}')));
+    }
+  }
 
   Future<void> _archiveThread() async {
     final state = context.read<AppState>();
@@ -96,6 +192,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 : latest.subject,
             overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+              tooltip: 'Snooze',
+              onPressed: _snoozeThread,
+              icon: const Icon(Icons.snooze_outlined)),
           IconButton(
               tooltip: 'Archive',
               onPressed: _archiveThread,

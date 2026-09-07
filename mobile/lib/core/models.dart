@@ -261,6 +261,35 @@ class MailContact {
       );
 }
 
+/// A server-side auto-filing rule: new mail matching [fromContains] and/or
+/// [subjectContains] is moved into [destinationFolder] the moment it
+/// arrives (see the IMAP IDLE watcher). Mirrors the web client's RulesTab.
+class MailRule {
+  const MailRule({
+    required this.id,
+    required this.name,
+    this.fromContains,
+    this.subjectContains,
+    required this.destinationFolder,
+    this.isEnabled = true,
+  });
+  final String id;
+  final String name;
+  final String? fromContains;
+  final String? subjectContains;
+  final String destinationFolder;
+  final bool isEnabled;
+
+  factory MailRule.fromJson(Map<String, dynamic> json) => MailRule(
+        id: json['id'] as String,
+        name: json['name'] as String? ?? '',
+        fromContains: json['from_contains'] as String?,
+        subjectContains: json['subject_contains'] as String?,
+        destinationFolder: json['destination_folder'] as String,
+        isEnabled: json['is_enabled'] as bool? ?? true,
+      );
+}
+
 class MailDraft {
   const MailDraft({
     required this.id,

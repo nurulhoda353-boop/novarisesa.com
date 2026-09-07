@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
 import '../../core/theme.dart';
+import '../mail/organizer_screens.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -240,6 +241,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 MaterialPageRoute(
                     builder: (_) =>
                         const _ManagementScreen(resource: 'autoreplies'))),
+          ),
+          _SettingsTile(
+            icon: Icons.rule_outlined,
+            title: 'Rules',
+            subtitle: 'Auto-file new mail by From or Subject',
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const RulesScreen())),
           ),
           const SizedBox(height: 22),
           const _SectionTitle('Security'),

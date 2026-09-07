@@ -318,6 +318,7 @@ class ApiClient {
     List<String> bcc = const [],
     String? replyToMessageId,
     List<Map<String, dynamic>> attachments = const [],
+    String? fromAddress,
   }) async {
     await _request('POST', '/mail/messages/send', body: {
       'to': to,
@@ -328,6 +329,7 @@ class ApiClient {
       'html_body': htmlBody,
       'reply_to_message_id': replyToMessageId,
       'attachments': attachments,
+      'from_address': fromAddress,
     });
   }
 
@@ -436,6 +438,50 @@ class ApiClient {
 
   Future<void> deleteContact(String id) =>
       _request('DELETE', '/mail/contacts/$id');
+
+  Future<List<MailRule>> rules() async {
+    final rows = _decode(await _request('GET', '/mail/rules')) as List<dynamic>;
+    return rows
+        .map((row) => MailRule.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<MailRule> createRule({
+    required String name,
+    String? fromContains,
+    String? subjectContains,
+    required String destinationFolder,
+    bool isEnabled = true,
+  }) async =>
+      MailRule.fromJson(
+        _decode(await _request('POST', '/mail/rules', body: {
+          'name': name,
+          'from_contains': fromContains,
+          'subject_contains': subjectContains,
+          'destination_folder': destinationFolder,
+          'is_enabled': isEnabled,
+        })) as Map<String, dynamic>,
+      );
+
+  Future<MailRule> updateRule(
+    String id, {
+    required String name,
+    String? fromContains,
+    String? subjectContains,
+    required String destinationFolder,
+    required bool isEnabled,
+  }) async =>
+      MailRule.fromJson(
+        _decode(await _request('PUT', '/mail/rules/$id', body: {
+          'name': name,
+          'from_contains': fromContains,
+          'subject_contains': subjectContains,
+          'destination_folder': destinationFolder,
+          'is_enabled': isEnabled,
+        })) as Map<String, dynamic>,
+      );
+
+  Future<void> deleteRule(String id) => _request('DELETE', '/mail/rules/$id');
 
   Future<List<MailDraft>> drafts() async {
     final rows =

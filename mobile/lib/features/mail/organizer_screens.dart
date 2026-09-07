@@ -201,6 +201,225 @@ class _ContactsScreenState extends State<ContactsScreen> {
       );
 }
 
+/// Server-side auto-filing rules: new mail matching a From/Subject
+/// condition is moved into a destination folder the moment it arrives.
+/// Mirrors the web client's RulesTab (same destination presets, same
+/// "first enabled rule wins" behavior against the shared `/mail/rules`
+/// endpoints), since mobile had no equivalent screen before this.
+class RulesScreen extends StatefulWidget {
+  const RulesScreen({super.key});
+  @override
+  State<RulesScreen> createState() => _RulesScreenState();
+}
+
+class _RulesScreenState extends State<RulesScreen> {
+  late Future<List<MailRule>> _rules;
+
+  static const _destinationPresets = [
+    ('INBOX.Archive', 'Archive'),
+    ('INBOX.Junk', 'Spam'),
+    ('INBOX.Trash', 'Trash'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() => _rules = context.read<AppState>().api.rules();
+
+  String _folderLabel(String destination) {
+    for (final preset in _destinationPresets) {
+      if (preset.$1 == destination) return preset.$2;
+    }
+    return destination.replaceFirst(RegExp(r'^INBOX\.'), '');
+  }
+
+  Future<void> _toggle(MailRule rule) async {
+    try {
+      await context.read<AppState>().api.updateRule(
+            rule.id,
+            name: rule.name,
+            fromContains: rule.fromContains,
+            subjectContains: rule.subjectContains,
+            destinationFolder: rule.destinationFolder,
+            isEnabled: !rule.isEnabled,
+          );
+      if (mounted) setState(_reload);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$error')));
+      }
+    }
+  }
+
+  Future<void> _addRule() async {
+    final api = context.read<AppState>().api;
+    final fromContains = TextEditingController();
+    final subjectContains = TextEditingController();
+    final customLabel = TextEditingController();
+    var destinationPreset = _destinationPresets.first.$1;
+    var useCustom = false;
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('New rule'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                    controller: fromContains,
+                    decoration:
+                        const InputDecoration(labelText: 'From contains')),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: subjectContains,
+                    decoration:
+                        const InputDecoration(labelText: 'Subject contains')),
+                const SizedBox(height: 16),
+                const Text('Move matching mail to'),
+                for (final preset in _destinationPresets)
+                  RadioListTile<String>(
+                    contentPadding: EdgeInsets.zero,
+                    value: preset.$1,
+                    groupValue: useCustom ? null : destinationPreset,
+                    title: Text(preset.$2),
+                    onChanged: (value) => setDialogState(() {
+                      useCustom = false;
+                      destinationPreset = value!;
+                    }),
+                  ),
+                RadioListTile<bool>(
+                  contentPadding: EdgeInsets.zero,
+                  value: true,
+                  groupValue: useCustom,
+                  title: const Text('Custom folder…'),
+                  onChanged: (_) => setDialogState(() => useCustom = true),
+                ),
+                if (useCustom)
+                  TextField(
+                      controller: customLabel,
+                      decoration:
+                          const InputDecoration(labelText: 'Folder name')),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Add rule')),
+          ],
+        ),
+      ),
+    );
+    if (save == true) {
+      if (fromContains.text.trim().isEmpty && subjectContains.text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Add a From or Subject condition first')));
+        }
+      } else if (useCustom && customLabel.text.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Name the custom folder first')));
+        }
+      } else {
+        final destination = useCustom
+            ? 'INBOX.${customLabel.text.trim().replaceAll(RegExp(r'[^a-zA-Z0-9 _-]'), '').replaceAll(RegExp(r'\s+'), '-')}'
+            : destinationPreset;
+        try {
+          await api.createRule(
+            name: fromContains.text.trim().isNotEmpty
+                ? fromContains.text.trim()
+                : subjectContains.text.trim(),
+            fromContains:
+                fromContains.text.trim().isEmpty ? null : fromContains.text.trim(),
+            subjectContains: subjectContains.text.trim().isEmpty
+                ? null
+                : subjectContains.text.trim(),
+            destinationFolder: destination,
+          );
+          if (mounted) setState(_reload);
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text('$error')));
+          }
+        }
+      }
+    }
+    fromContains.dispose();
+    subjectContains.dispose();
+    customLabel.dispose();
+  }
+
+  Future<void> _delete(MailRule rule) async {
+    await context.read<AppState>().api.deleteRule(rule.id);
+    if (mounted) setState(_reload);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Rules')),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _addRule,
+          child: const Icon(Icons.add),
+        ),
+        body: FutureBuilder<List<MailRule>>(
+          future: _rules,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('${snapshot.error}'));
+            }
+            final rows = snapshot.data ?? const [];
+            return ListView(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'New mail matching a rule is filed automatically the moment it '
+                    'arrives — the first enabled rule that matches wins.',
+                  ),
+                ),
+                if (rows.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('No rules yet.'),
+                  ),
+                for (final rule in rows)
+                  ListTile(
+                    leading: Switch(
+                        value: rule.isEnabled, onChanged: (_) => _toggle(rule)),
+                    title: Text([
+                      if (rule.fromContains != null)
+                        'From contains "${rule.fromContains}"',
+                      if (rule.subjectContains != null)
+                        'Subject contains "${rule.subjectContains}"',
+                    ].join(' and ')),
+                    subtitle: Text('Move to ${_folderLabel(rule.destinationFolder)}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _delete(rule),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+}
+
 class DraftsScreen extends StatefulWidget {
   const DraftsScreen({super.key});
   @override
