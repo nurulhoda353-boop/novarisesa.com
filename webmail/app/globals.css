@@ -335,8 +335,11 @@ html.dark .rail-item:hover { background: var(--surface2); }
   position: relative;
   transition: background var(--t-fast), box-shadow var(--t-fast);
 }
-.message-row:hover { box-shadow: var(--shadow-sm); z-index: 1; }
+.message-row:hover { background: var(--bg); box-shadow: var(--shadow-sm); z-index: 1; }
+html.dark .message-row:hover { background: var(--surface2); }
 .message-row.unread { background: var(--unread-tint); font-weight: 700; color: var(--ink); }
+.message-row.unread:hover, .message-row.selected:hover { background: var(--chip-bg); }
+html.dark .message-row.unread:hover, html.dark .message-row.selected:hover { background: var(--chip-bg); }
 .message-row.selected { background: var(--chip-bg); }
 .message-row .col-center { display: flex; align-items: center; justify-content: center; }
 .message-row .star-btn { color: var(--muted2); }
