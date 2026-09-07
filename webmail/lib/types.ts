@@ -1,0 +1,158 @@
+export interface MailAddress {
+  name: string;
+  email: string;
+}
+
+export interface MailMessageSummary {
+  uid: number;
+  folder: string;
+  message_id: string | null;
+  in_reply_to: string | null;
+  references: string[];
+  subject: string;
+  sender: MailAddress;
+  recipients: MailAddress[];
+  received_at: string | null;
+  flags: string[];
+  preview: string;
+  size_bytes: number | null;
+  has_attachments: boolean;
+}
+
+export interface MailAttachmentInfo {
+  part: string;
+  filename: string;
+  content_type: string;
+  content_id: string | null;
+  size: number | null;
+}
+
+export interface MailMessageDetail extends MailMessageSummary {
+  text_body: string;
+  html_body: string | null;
+  cc: MailAddress[];
+  attachments: MailAttachmentInfo[];
+}
+
+export interface MailMessageList {
+  data: MailMessageSummary[];
+  folder: string;
+  next_before_uid: number | null;
+}
+
+export interface FolderInfo {
+  name: string;
+  delimiter: string | null;
+  flags: string[];
+  unseen: number;
+  total: number;
+}
+
+export interface MailAccount {
+  id: string;
+  address: string;
+  display_name: string;
+  avatar_url: string | null;
+  cache_ttl_days: number;
+  hostinger_mailbox_id: string | null;
+  signature: string | null;
+}
+
+export interface MobileSession {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  account: MailAccount;
+}
+
+export interface SendAttachment {
+  filename: string;
+  content_type: string;
+  content_base64: string;
+}
+
+export interface SendMailRequest {
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  text_body: string;
+  html_body: string | null;
+  reply_to_message_id: string | null;
+  attachments: SendAttachment[];
+}
+
+export interface ContactInfo {
+  id: string;
+  email: string;
+  display_name: string;
+  phone: string | null;
+  company: string | null;
+  is_favorite: boolean;
+}
+
+export interface DraftInfo {
+  id: string;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  text_body: string;
+  html_body: string | null;
+  attachments: Record<string, unknown>[];
+  updated_at: string;
+}
+
+export interface SnoozeInfo {
+  id: string;
+  message_id: string;
+  subject: string;
+  original_folder: string;
+  wake_at: string;
+}
+
+export interface AliasInfo {
+  id: string;
+  address: string;
+  local_part?: string;
+}
+
+export interface ForwarderInfo {
+  id: string;
+  destination: string;
+  is_keep_copy_enabled: boolean;
+}
+
+export interface AutoreplyInfo {
+  id: string;
+  subject: string;
+  body: string;
+  display_name: string;
+  starts_at: string | null;
+  ends_at: string | null;
+}
+
+export const SYSTEM_FOLDERS = {
+  inbox: "INBOX",
+  starred: "__starred__",
+  snoozed: "INBOX.Snoozed",
+  sent: "INBOX.Sent",
+  drafts: "__drafts__",
+  archive: "INBOX.Archive",
+  spam: "INBOX.Junk",
+  trash: "INBOX.Trash",
+} as const;
+
+export type ComposeMode = "new" | "reply" | "replyAll" | "forward";
+
+export interface ComposeInitial {
+  mode: ComposeMode;
+  to?: string[];
+  cc?: string[];
+  subject?: string;
+  bodyHtml?: string;
+  quoteHtml?: string;
+  replyToMessageId?: string | null;
+  draftId?: string | null;
+}

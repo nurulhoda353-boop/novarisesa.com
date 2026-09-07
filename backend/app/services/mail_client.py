@@ -214,6 +214,7 @@ class HostingerMailboxClient:
         since: date | None = None,
         before: date | None = None,
         has_attachment: bool | None = None,
+        starred: bool | None = None,
     ) -> list[dict[str, Any]]:
         with self.imap() as client:
             status, _ = client.select(folder, readonly=True)
@@ -229,6 +230,8 @@ class HostingerMailboxClient:
                 clauses.append(f"SINCE {since.strftime('%d-%b-%Y')}")
             if before:
                 clauses.append(f"BEFORE {before.strftime('%d-%b-%Y')}")
+            if starred:
+                clauses.append("FLAGGED")
             criterion = " ".join(clauses) or "ALL"
             status, data = client.uid("search", None, criterion)
             if status != "OK" or not data:
@@ -321,6 +324,7 @@ class HostingerMailboxClient:
                 raise MailConnectionError("Message could not be updated")
 
     def move(self, folder: str, uid: int, destination: str) -> None:
+        self.ensure_folder(destination)
         with self.imap() as client:
             status, _ = client.select(folder)
             if status != "OK":

@@ -382,6 +382,7 @@ def list_messages(
     since: Annotated[date | None, Query()] = None,
     before: Annotated[date | None, Query()] = None,
     has_attachment: bool | None = Query(default=None),
+    starred: bool | None = Query(default=None),
 ) -> MailMessageList:
     try:
         rows = mailbox_client(account).messages(
@@ -393,6 +394,7 @@ def list_messages(
             since=since,
             before=before,
             has_attachment=has_attachment,
+            starred=starred,
         )
     except MailConnectionError as exc:
         raise mail_error(exc) from exc

@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -14,15 +14,21 @@ from app.models import MailAccount, User
 def get_mobile_user(
     db: Annotated[Session, Depends(get_db)],
     authorization: Annotated[str | None, Header()] = None,
+    access_token: Annotated[str | None, Query()] = None,
 ) -> User:
+    """Accepts the access token via the Authorization header (used by every
+    HTTP call) or an `access_token` query parameter — browsers cannot set
+    custom headers on a WebSocket handshake, so the web client's /mail/ws
+    connection relies on the query-parameter fallback."""
     unauthorized = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Mobile authentication required",
     )
-    if not authorization or not authorization.startswith("Bearer "):
+    token = authorization[7:] if authorization and authorization.startswith("Bearer ") else access_token
+    if not token:
         raise unauthorized
     try:
-        payload = decode_mobile_token(authorization[7:], "access")
+        payload = decode_mobile_token(token, "access")
         user_id = uuid.UUID(payload["sub"])
     except (jwt.InvalidTokenError, KeyError, ValueError) as exc:
         raise unauthorized from exc
