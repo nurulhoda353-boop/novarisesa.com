@@ -75,9 +75,12 @@ export function LoginScreen({
 
   return (
     <main className="login-screen">
-      <div className="login-grid" aria-hidden />
       <div className="login-glow login-glow-a" aria-hidden />
       <div className="login-glow login-glow-b" aria-hidden />
+      <div className="login-line login-line-v a" aria-hidden />
+      <div className="login-line login-line-v b" aria-hidden />
+      <div className="login-line login-line-h a" aria-hidden />
+      <div className="login-line login-line-h b" aria-hidden />
       <div className="login-brand">
         <img src="/novamail-icon.png" alt="Novamail" />
         <span>Novamail</span>
@@ -105,7 +108,6 @@ export function LoginScreen({
             {loading ? "Signing in…" : "Sign in"}
           </button>
         </form>
-        <p className="login-footer-dark">The NOVARISE email workspace</p>
       </div>
     </main>
   );

@@ -572,37 +572,37 @@ html.dark .form-input, html.dark .form-textarea { background: var(--surface2); }
 .login-screen {
   position: relative;
   min-height: 100vh;
-  display: grid;
-  grid-template-rows: 1fr auto auto 1.4fr;
-  align-items: center;
-  justify-items: center;
-  padding: 24px;
   background: #060911;
   overflow: hidden;
   color: #fff;
 }
-.login-grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
-  background-size: 120px 120px;
-  pointer-events: none;
-}
+/* Four sparse structural lines (not a dense mesh) — a 3x3 layout grid,
+   exactly as many lines as the reference has, at the same proportions. */
+.login-line { position: absolute; background: rgba(255, 255, 255, 0.14); pointer-events: none; }
+.login-line-v { top: 0; bottom: 0; width: 1px; }
+.login-line-v.a { left: 33%; }
+.login-line-v.b { left: 67%; }
+.login-line-h { left: 0; right: 0; height: 1px; }
+.login-line-h.a { top: 31%; }
+.login-line-h.b { top: 76%; }
+
 .login-glow {
   position: absolute;
+  top: 50%;
   border-radius: 50%;
-  filter: blur(120px);
+  filter: blur(130px);
   pointer-events: none;
+  transform: translateY(-50%);
 }
-.login-glow-a { width: 620px; height: 620px; background: #1c335c; opacity: 0.65; bottom: -220px; left: -180px; }
-.login-glow-b { width: 560px; height: 560px; background: #dfa247; opacity: 0.22; top: -160px; right: -160px; }
+.login-glow-a { width: 680px; height: 680px; background: #1c335c; opacity: 0.75; left: 8%; transform: translate(-50%, -50%); }
+.login-glow-b { width: 620px; height: 620px; background: #dfa247; opacity: 0.16; left: 62%; transform: translate(-50%, -50%); }
 
 .login-brand {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  grid-row: 2;
+  top: 15.5%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -611,12 +611,12 @@ html.dark .form-input, html.dark .form-textarea { background: var(--surface2); }
 .login-brand span { font-size: 23px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
 
 .login-panel {
-  position: relative;
+  position: absolute;
   z-index: 1;
-  grid-row: 3;
-  width: 100%;
-  max-width: 420px;
-  margin-top: 48px;
+  top: 38%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(360px, 84vw);
 }
 .login-panel h2 { font-size: 19px; font-weight: 600; color: #fff; margin-bottom: 22px; letter-spacing: -0.01em; }
 .login-panel form { display: flex; flex-direction: column; gap: 14px; }
@@ -658,7 +658,6 @@ html.dark .form-input, html.dark .form-textarea { background: var(--surface2); }
   padding: 10px 14px;
   border-radius: var(--r-md);
 }
-.login-footer-dark { margin-top: 56px; font-size: 11.5px; color: rgba(255, 255, 255, 0.35); text-align: center; }
 
 /* ============================================================
    RESPONSIVE
