@@ -53,6 +53,13 @@
 
   --glass-bg: rgba(255, 255, 255, 0.5);
   --glass-bg-strong: rgba(255, 255, 255, 0.68);
+  /* For floating surfaces stacked on top of other readable content
+     (compose dock, modals, popovers, the attachment lightbox) - unlike
+     --glass-bg-strong, this can't rely on the blur alone to keep the
+     text behind it unreadable: on top of an inbox list, --glass-bg-strong
+     let message rows show through legibly. Near-opaque, blur is just a
+     finishing touch here, not the thing doing the work. */
+  --glass-overlay: rgba(255, 255, 255, 0.94);
   --glass-border: rgba(255, 255, 255, 0.6);
   --glass-blur: blur(22px);
 
@@ -108,6 +115,7 @@ html.dark {
 
   --glass-bg: rgba(20, 27, 44, 0.62);
   --glass-bg-strong: rgba(20, 27, 44, 0.8);
+  --glass-overlay: rgba(20, 27, 44, 0.94);
   --glass-border: rgba(255, 255, 255, 0.08);
 
   color-scheme: dark;
@@ -460,7 +468,7 @@ html.dark .btn-ghost:hover { background: var(--surface2); }
 .compose-dock {
   position: fixed; bottom: 0; right: 24px; z-index: 60;
   width: 512px; max-width: calc(100vw - 32px);
-  background: var(--glass-bg-strong);
+  background: var(--glass-overlay);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-bottom: none;
@@ -521,7 +529,7 @@ html.dark .compose-editor-toolbar button:hover { background: var(--surface2); }
    POPOVERS / MODALS
    ============================================================ */
 .popover {
-  position: absolute; z-index: 80; background: var(--glass-bg-strong);
+  position: absolute; z-index: 80; background: var(--glass-overlay);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border); border-radius: var(--r-md);
   box-shadow: var(--shadow-lg); padding: 6px; min-width: 220px;
@@ -541,7 +549,7 @@ html.dark .popover-item:hover { background: var(--surface2); }
   padding: 24px; backdrop-filter: blur(2px);
 }
 .modal {
-  background: var(--glass-bg-strong);
+  background: var(--glass-overlay);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-xl);
@@ -785,7 +793,7 @@ html.dark .password-toggle:hover { background: var(--surface2); }
    ATTACHMENT LIGHTBOX
    ============================================================ */
 .lightbox {
-  background: var(--glass-bg-strong);
+  background: var(--glass-overlay);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-xl); box-shadow: var(--shadow-lg);
@@ -812,7 +820,7 @@ select.form-input { appearance: none; cursor: pointer; }
    RESPONSIVE
    ============================================================ */
 @media (max-width: 980px) {
-  .rail { position: fixed; top: 64px; bottom: 0; left: 0; z-index: 40; background: var(--glass-bg-strong); box-shadow: var(--shadow-lg); }
+  .rail { position: fixed; top: 64px; bottom: 0; left: 0; z-index: 40; background: var(--glass-overlay); box-shadow: var(--shadow-lg); }
   .rail:not(.mobile-open) { display: none; }
   .main-panel { border-radius: 0; border: none; }
   .brand-mark span { display: none; }
