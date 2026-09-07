@@ -75,39 +75,51 @@ export function LoginScreen({
 
   return (
     <main className="login-screen">
-      <div className="login-glow login-glow-a" aria-hidden />
-      <div className="login-glow login-glow-b" aria-hidden />
-      <div className="login-line login-line-v a" aria-hidden />
-      <div className="login-line login-line-v b" aria-hidden />
-      <div className="login-line login-line-h a" aria-hidden />
-      <div className="login-line login-line-h b" aria-hidden />
-      <div className="login-brand">
-        <img src="/novamail-icon.png" alt="Novamail" />
-        <span>Novamail</span>
-      </div>
-      <div className="login-panel">
-        <h2>Sign in to your account</h2>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            autoFocus
-            autoComplete="username"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-          />
-          {error && <div className="login-error-dark">{error}</div>}
-          <button type="submit" className="login-submit" disabled={loading || !email || !password}>
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
+      <div className="login-stage">
+        <div className="login-glow login-glow-a" aria-hidden />
+        <div className="login-glow login-glow-b" aria-hidden />
+        <div className="login-line login-line-v a" aria-hidden />
+        <div className="login-line login-line-v b" aria-hidden />
+        <div className="login-line login-line-h a" aria-hidden />
+        <div className="login-line login-line-h b" aria-hidden />
+        <div className="login-brand">
+          <span className="login-icon-badge">
+            <img src="/novamail-icon.png" alt="" />
+          </span>
+          <span>Novamail</span>
+        </div>
+        <div className="login-panel">
+          <h2>Sign in to your account</h2>
+          <form onSubmit={handleSubmit}>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoFocus
+              autoComplete="username"
+            />
+            <div>
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+              <a
+                className="login-forgot"
+                href="mailto:official@novarisesa.com?subject=Mailbox%20password%20reset%20request"
+              >
+                Forgot password?
+              </a>
+            </div>
+            {error && <div className="login-error-dark">{error}</div>}
+            <button type="submit" className="login-submit" disabled={loading || !email || !password}>
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   );
