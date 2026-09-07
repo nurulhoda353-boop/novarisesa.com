@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Columns2, Keyboard, ListFilter, Menu, Moon, RefreshCw, Rows2, Search, Settings, Sun, X } from "lucide-react";
+import { Columns2, Keyboard, ListFilter, Menu, Moon, RefreshCw, Rows2, Search, Settings, ShieldCheck, Sun, X } from "lucide-react";
 import type { MailAccount } from "@/lib/types";
 import type { StoredAccount } from "@/lib/api";
 import type { ThemeMode } from "@/lib/theme";
@@ -29,6 +29,7 @@ export function TopBar({
   splitMode,
   onToggleSplitMode,
   onShowShortcuts,
+  onOpenAdmin,
 }: {
   account: MailAccount;
   accounts: StoredAccount[];
@@ -49,6 +50,7 @@ export function TopBar({
   splitMode: SplitMode;
   onToggleSplitMode: () => void;
   onShowShortcuts: () => void;
+  onOpenAdmin: () => void;
 }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const filtersActive = hasActiveFilters(filters);
@@ -123,6 +125,11 @@ export function TopBar({
         <button className="icon-btn" onClick={onOpenSettings} title="Settings">
           <Settings size={19} />
         </button>
+        {account.role === "admin" && (
+          <button className="icon-btn" onClick={onOpenAdmin} title="Admin panel">
+            <ShieldCheck size={19} />
+          </button>
+        )}
         <AccountSwitcherMenu
           account={account}
           accounts={accounts}

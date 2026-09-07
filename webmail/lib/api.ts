@@ -1,4 +1,7 @@
 import type {
+  AdminAccountInfo,
+  AdminAuditLogEntry,
+  AdminChangeRequestInfo,
   AliasInfo,
   AutoreplyInfo,
   ContactInfo,
@@ -6,6 +9,7 @@ import type {
   FolderInfo,
   ForwarderInfo,
   MailAccount,
+  MailChangeRequestInfo,
   MailMessageDetail,
   MailMessageList,
   MailRuleInfo,
@@ -266,6 +270,55 @@ export const uploadAvatar = (file: File) => {
   form.append("avatar", file);
   return api<MailAccount>("/mail/account/avatar", { method: "POST", body: form });
 };
+
+// ---- Change requests (member self-service, needs admin approval) ----
+export const requestChange = (requestType: "password" | "display_name", value: string) =>
+  api<MailChangeRequestInfo>("/mail/account/change-request", {
+    method: "POST",
+    body: JSON.stringify({ request_type: requestType, value }),
+  });
+export const myChangeRequests = () => api<MailChangeRequestInfo[]>("/mail/account/change-requests");
+
+// ---- Admin panel ----
+export const adminListAccounts = () => api<AdminAccountInfo[]>("/mail/admin/accounts");
+export const adminSetPassword = (accountId: string, newPassword: string) =>
+  api<void>(`/mail/admin/accounts/${accountId}/password`, {
+    method: "POST",
+    body: JSON.stringify({ new_password: newPassword }),
+  });
+export const adminSetProfile = (accountId: string, displayName: string) =>
+  api<AdminAccountInfo>(`/mail/admin/accounts/${accountId}/profile`, {
+    method: "PATCH",
+    body: JSON.stringify({ display_name: displayName }),
+  });
+export const adminSetAvatar = (accountId: string, file: File) => {
+  const form = new FormData();
+  form.append("avatar", file);
+  return api<AdminAccountInfo>(`/mail/admin/accounts/${accountId}/avatar`, { method: "POST", body: form });
+};
+export const adminListChangeRequests = (status: "pending" | "all" = "pending") =>
+  api<AdminChangeRequestInfo[]>(`/mail/admin/change-requests?status=${status}`);
+export const adminApproveChangeRequest = (requestId: string) =>
+  api<void>(`/mail/admin/change-requests/${requestId}/approve`, { method: "POST" });
+export const adminRejectChangeRequest = (requestId: string, reason?: string) =>
+  api<void>(`/mail/admin/change-requests/${requestId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+export const adminAuditLog = (limit = 100) => api<AdminAuditLogEntry[]>(`/mail/admin/audit-log?limit=${limit}`);
+
+/** Switches the active session into a member mailbox without its
+ * password - the same "saved account" storage the manual switch-account
+ * flow already uses, so AccountSwitcherMenu and everything else just
+ * works afterward. */
+export async function adminSwitchToAccount(accountId: string): Promise<MailAccount> {
+  const session = await api<MobileSession>(`/mail/admin/accounts/${accountId}/switch`, { method: "POST" });
+  accessToken = session.access_token;
+  rememberAccount(session.account.address, session.refresh_token, session.account);
+  setActiveAddress(session.account.address);
+  onSessionChange?.(session.account);
+  return session.account;
+}
 
 // ---- Folders / Messages ----
 export const listFolders = () => api<FolderInfo[]>("/mail/folders");

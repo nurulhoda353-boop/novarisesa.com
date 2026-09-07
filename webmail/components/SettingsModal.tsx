@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Star, Trash2, X } from "lucide-react";
 import * as api from "@/lib/api";
-import type { AliasInfo, AutoreplyInfo, ContactInfo, ForwarderInfo, MailAccount, MailRuleInfo } from "@/lib/types";
+import type { AliasInfo, AutoreplyInfo, ContactInfo, ForwarderInfo, MailAccount, MailChangeRequestInfo, MailRuleInfo } from "@/lib/types";
 import { initials } from "@/lib/format";
 import { useToast } from "@/lib/toast";
 
@@ -39,7 +39,7 @@ export function SettingsModal({
         </div>
         <div className="modal-body">
           {tab === "profile" && <ProfileTab account={account} onAccountUpdated={onAccountUpdated} />}
-          {tab === "security" && <SecurityTab />}
+          {tab === "security" && <SecurityTab account={account} />}
           {tab === "contacts" && <ContactsTab />}
           {tab === "aliases" && <AliasesTab />}
           {tab === "forwarders" && <ForwardersTab />}
@@ -64,18 +64,37 @@ function labelFor(tab: Tab): string {
 }
 
 function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAccountUpdated: (account: MailAccount) => void }) {
+  const isMember = account.role === "member";
   const [displayName, setDisplayName] = useState(account.display_name);
   const [signature, setSignature] = useState(account.signature ?? "");
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [pending, setPending] = useState<MailChangeRequestInfo[]>([]);
   const toast = useToast();
+
+  useEffect(() => {
+    if (!isMember) return;
+    api.myChangeRequests().then((rows) => setPending(rows.filter((row) => row.status === "pending"))).catch(() => {});
+  }, [isMember]);
+
+  const nameChanged = displayName !== account.display_name;
+  const namePending = pending.some((row) => row.request_type === "display_name");
 
   async function save() {
     setSaving(true);
     try {
-      const updated = await api.updateAccount({ display_name: displayName, cache_ttl_days: account.cache_ttl_days || 30, signature: signature || null });
+      if (isMember && nameChanged) {
+        await api.requestChange("display_name", displayName);
+        setPending((prev) => [...prev, { id: "pending", request_type: "display_name", status: "pending", rejection_reason: null, created_at: "", resolved_at: null }]);
+        toast.show("Name change sent for admin approval");
+      }
+      const updated = await api.updateAccount({
+        display_name: isMember ? account.display_name : displayName,
+        cache_ttl_days: account.cache_ttl_days || 30,
+        signature: signature || null,
+      });
       onAccountUpdated(updated);
-      toast.show("Profile updated");
+      if (!(isMember && nameChanged)) toast.show("Profile updated");
     } catch {
       toast.show("Could not save your profile");
     } finally {
@@ -91,7 +110,7 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
     try {
       const updated = await api.uploadAvatar(file);
       onAccountUpdated(updated);
-      toast.show("Profile photo updated");
+      toast.show(updated.avatar_url !== account.avatar_url ? "Profile photo updated" : "Photo sent for admin approval");
     } catch {
       toast.show("Could not upload that photo");
     } finally {
@@ -117,6 +136,11 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
       <div className="form-group">
         <label>Display name</label>
         <input className="form-input" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+        {isMember && (
+          <p className="form-hint">
+            {namePending ? "A name change is waiting for admin approval." : "Changing this needs admin approval."}
+          </p>
+        )}
       </div>
       <div className="form-group">
         <label>Signature</label>
@@ -129,21 +153,37 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
   );
 }
 
-function SecurityTab() {
+function SecurityTab({ account }: { account: MailAccount }) {
+  const isMember = account.role === "member";
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState(false);
   const toast = useToast();
+
+  useEffect(() => {
+    if (!isMember) return;
+    api
+      .myChangeRequests()
+      .then((rows) => setPending(rows.some((row) => row.request_type === "password" && row.status === "pending")))
+      .catch(() => {});
+  }, [isMember]);
 
   async function submit() {
     setSaving(true);
     try {
-      await api.changePassword({ current_password: currentPassword, new_password: newPassword });
-      toast.show("Password changed");
-      setCurrentPassword("");
+      if (isMember) {
+        await api.requestChange("password", newPassword);
+        setPending(true);
+        toast.show("Password change sent for admin approval");
+      } else {
+        await api.changePassword({ current_password: currentPassword, new_password: newPassword });
+        toast.show("Password changed");
+        setCurrentPassword("");
+      }
       setNewPassword("");
     } catch {
-      toast.show("Could not change your password — check the current password");
+      toast.show(isMember ? "Could not send that request" : "Could not change your password — check the current password");
     } finally {
       setSaving(false);
     }
@@ -151,17 +191,29 @@ function SecurityTab() {
 
   return (
     <div>
-      <div className="form-group">
-        <label>Current password</label>
-        <input className="form-input" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
-      </div>
+      {isMember ? (
+        <p className="form-hint" style={{ marginBottom: 16 }}>
+          {pending
+            ? "A password change is waiting for admin approval."
+            : "Password changes need admin approval — pick a new one below and send it for review."}
+        </p>
+      ) : (
+        <div className="form-group">
+          <label>Current password</label>
+          <input className="form-input" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+        </div>
+      )}
       <div className="form-group">
         <label>New password</label>
         <input className="form-input" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
         <p className="form-hint">At least 8 characters.</p>
       </div>
-      <button className="btn btn-primary" onClick={submit} disabled={saving || !currentPassword || newPassword.length < 8}>
-        {saving ? "Updating…" : "Change password"}
+      <button
+        className="btn btn-primary"
+        onClick={submit}
+        disabled={saving || (!isMember && !currentPassword) || newPassword.length < 8}
+      >
+        {saving ? "Sending…" : isMember ? "Send for approval" : "Change password"}
       </button>
     </div>
   );

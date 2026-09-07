@@ -56,6 +56,48 @@ export interface MailAccount {
   cache_ttl_days: number;
   hostinger_mailbox_id: string | null;
   signature: string | null;
+  role: "admin" | "member";
+}
+
+export interface MailChangeRequestInfo {
+  id: string;
+  request_type: "password" | "display_name" | "avatar";
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface AdminAccountInfo {
+  id: string;
+  address: string;
+  display_name: string;
+  avatar_url: string | null;
+  role: "admin" | "member";
+  is_active: boolean;
+  last_connected_at: string | null;
+}
+
+export interface AdminChangeRequestInfo {
+  id: string;
+  account_id: string;
+  account_address: string;
+  request_type: "password" | "display_name" | "avatar";
+  preview: string | null;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by_address: string | null;
+}
+
+export interface AdminAuditLogEntry {
+  id: string;
+  actor_address: string | null;
+  target_address: string | null;
+  action: string;
+  detail: string | null;
+  created_at: string;
 }
 
 export interface MobileSession {
