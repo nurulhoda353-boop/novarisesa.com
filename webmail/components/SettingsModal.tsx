@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, X } from "lucide-react";
 import * as api from "@/lib/api";
-import type { AliasInfo, AutoreplyInfo, ForwarderInfo, MailAccount } from "@/lib/types";
+import type { AliasInfo, AutoreplyInfo, ForwarderInfo, MailAccount, MailRuleInfo } from "@/lib/types";
 import { useToast } from "@/lib/toast";
 
-type Tab = "profile" | "security" | "aliases" | "forwarders" | "autoreply";
+type Tab = "profile" | "security" | "aliases" | "forwarders" | "autoreply" | "rules";
 
 export function SettingsModal({
   account,
@@ -30,7 +30,7 @@ export function SettingsModal({
           </button>
         </div>
         <div className="modal-tabs">
-          {(["profile", "security", "aliases", "forwarders", "autoreply"] as Tab[]).map((item) => (
+          {(["profile", "security", "aliases", "forwarders", "autoreply", "rules"] as Tab[]).map((item) => (
             <button key={item} className={`modal-tab ${tab === item ? "active" : ""}`} onClick={() => setTab(item)}>
               {labelFor(item)}
             </button>
@@ -42,6 +42,7 @@ export function SettingsModal({
           {tab === "aliases" && <AliasesTab />}
           {tab === "forwarders" && <ForwardersTab />}
           {tab === "autoreply" && <AutoreplyTab />}
+          {tab === "rules" && <RulesTab />}
         </div>
       </div>
     </div>
@@ -49,7 +50,14 @@ export function SettingsModal({
 }
 
 function labelFor(tab: Tab): string {
-  return { profile: "Profile", security: "Security", aliases: "Aliases", forwarders: "Forwarders", autoreply: "Auto-reply" }[tab];
+  return {
+    profile: "Profile",
+    security: "Security",
+    aliases: "Aliases",
+    forwarders: "Forwarders",
+    autoreply: "Auto-reply",
+    rules: "Rules",
+  }[tab];
 }
 
 function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAccountUpdated: (account: MailAccount) => void }) {
@@ -308,6 +316,140 @@ function AutoreplyTab() {
       </div>
       <button className="btn btn-primary" onClick={add}>
         <Plus size={15} /> Turn on auto-reply
+      </button>
+    </div>
+  );
+}
+
+const DESTINATION_PRESETS = [
+  { value: "INBOX.Archive", label: "Archive" },
+  { value: "INBOX.Junk", label: "Spam" },
+  { value: "INBOX.Trash", label: "Trash" },
+  { value: "__custom__", label: "Custom folder…" },
+];
+
+function folderLabel(destination: string): string {
+  const preset = DESTINATION_PRESETS.find((item) => item.value === destination);
+  if (preset) return preset.label;
+  return destination.replace(/^INBOX\./, "");
+}
+
+function RulesTab() {
+  const [rules, setRules] = useState<MailRuleInfo[] | null>(null);
+  const [fromContains, setFromContains] = useState("");
+  const [subjectContains, setSubjectContains] = useState("");
+  const [destinationPreset, setDestinationPreset] = useState(DESTINATION_PRESETS[0].value);
+  const [customLabel, setCustomLabel] = useState("");
+  const toast = useToast();
+
+  useEffect(() => {
+    api.listRules().then(setRules).catch(() => setRules([]));
+  }, []);
+
+  async function add() {
+    if (!fromContains.trim() && !subjectContains.trim()) {
+      toast.show("Add a From or Subject condition first");
+      return;
+    }
+    const destination =
+      destinationPreset === "__custom__"
+        ? `INBOX.${customLabel.trim().replace(/[^a-zA-Z0-9 _-]/g, "").replace(/\s+/g, "-")}`
+        : destinationPreset;
+    if (destinationPreset === "__custom__" && !customLabel.trim()) {
+      toast.show("Name the custom folder first");
+      return;
+    }
+    try {
+      const created = await api.createRule({
+        name: fromContains || subjectContains,
+        from_contains: fromContains.trim() || null,
+        subject_contains: subjectContains.trim() || null,
+        destination_folder: destination,
+        is_enabled: true,
+      });
+      setRules((prev) => [...(prev ?? []), created]);
+      setFromContains("");
+      setSubjectContains("");
+      setCustomLabel("");
+    } catch {
+      toast.show("Could not save that rule");
+    }
+  }
+
+  async function toggle(rule: MailRuleInfo) {
+    try {
+      const updated = await api.updateRule(rule.id, {
+        name: rule.name,
+        from_contains: rule.from_contains,
+        subject_contains: rule.subject_contains,
+        destination_folder: rule.destination_folder,
+        is_enabled: !rule.is_enabled,
+      });
+      setRules((prev) => (prev ?? []).map((item) => (item.id === rule.id ? updated : item)));
+    } catch {
+      toast.show("Could not update that rule");
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await api.deleteRule(id);
+      setRules((prev) => (prev ?? []).filter((item) => item.id !== id));
+    } catch {
+      toast.show("Could not remove that rule");
+    }
+  }
+
+  if (rules === null) return <p>Loading…</p>;
+
+  return (
+    <div>
+      <p className="form-hint" style={{ marginBottom: 16 }}>
+        New mail matching a rule is filed automatically the moment it arrives — the first enabled rule that matches wins.
+      </p>
+      {rules.length === 0 && <p className="form-hint">No rules yet.</p>}
+      {rules.map((rule) => (
+        <div className="list-item-row" key={rule.id}>
+          <input type="checkbox" checked={rule.is_enabled} onChange={() => toggle(rule)} />
+          <div className="grow">
+            <strong>
+              {rule.from_contains && `From contains "${rule.from_contains}"`}
+              {rule.from_contains && rule.subject_contains && " and "}
+              {rule.subject_contains && `Subject contains "${rule.subject_contains}"`}
+            </strong>
+            <span>Move to {folderLabel(rule.destination_folder)}</span>
+          </div>
+          <button className="icon-btn" onClick={() => remove(rule.id)}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ))}
+      <div className="form-group" style={{ marginTop: 16 }}>
+        <label>From contains</label>
+        <input className="form-input" placeholder="billing@example.com" value={fromContains} onChange={(event) => setFromContains(event.target.value)} />
+      </div>
+      <div className="form-group">
+        <label>Subject contains</label>
+        <input className="form-input" placeholder="invoice" value={subjectContains} onChange={(event) => setSubjectContains(event.target.value)} />
+      </div>
+      <div className="form-group">
+        <label>Move matching mail to</label>
+        <select className="form-input" value={destinationPreset} onChange={(event) => setDestinationPreset(event.target.value)}>
+          {DESTINATION_PRESETS.map((preset) => (
+            <option key={preset.value} value={preset.value}>
+              {preset.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {destinationPreset === "__custom__" && (
+        <div className="form-group">
+          <label>Folder name</label>
+          <input className="form-input" placeholder="Receipts" value={customLabel} onChange={(event) => setCustomLabel(event.target.value)} />
+        </div>
+      )}
+      <button className="btn btn-primary" onClick={add}>
+        <Plus size={15} /> Add rule
       </button>
     </div>
   );

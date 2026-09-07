@@ -8,6 +8,7 @@ import type {
   MailAccount,
   MailMessageDetail,
   MailMessageList,
+  MailRuleInfo,
   MobileSession,
   SendMailRequest,
   SnoozeInfo,
@@ -359,3 +360,18 @@ export const createAutoreply = (payload: Partial<AutoreplyInfo>) =>
 export const updateAutoreply = (id: string, payload: Partial<AutoreplyInfo>) =>
   api<AutoreplyInfo>(`/mail/management/autoreplies/${id}`, { method: "PUT", body: JSON.stringify(payload) });
 export const deleteAutoreply = (id: string) => api<void>(`/mail/management/autoreplies/${id}`, { method: "DELETE" });
+
+// ---- Rules ----
+export interface MailRuleUpsert {
+  name: string;
+  from_contains: string | null;
+  subject_contains: string | null;
+  destination_folder: string;
+  is_enabled: boolean;
+}
+export const listRules = () => api<MailRuleInfo[]>("/mail/rules");
+export const createRule = (payload: MailRuleUpsert) =>
+  api<MailRuleInfo>("/mail/rules", { method: "POST", body: JSON.stringify(payload) });
+export const updateRule = (id: string, payload: MailRuleUpsert) =>
+  api<MailRuleInfo>(`/mail/rules/${id}`, { method: "PUT", body: JSON.stringify(payload) });
+export const deleteRule = (id: string) => api<void>(`/mail/rules/${id}`, { method: "DELETE" });

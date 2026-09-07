@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MailOpen } from "lucide-react";
 import * as api from "@/lib/api";
 import type { StoredAccount } from "@/lib/api";
-import type { ComposeInitial, FolderInfo, MailAccount, MailMessageSummary } from "@/lib/types";
+import type { ComposeInitial, FolderInfo, MailAccount, MailMessageSummary, SendMailRequest } from "@/lib/types";
 import { SYSTEM_FOLDERS } from "@/lib/types";
 import { groupIntoThreads, type MailThread } from "@/lib/threads";
+import { buildReplyInitial } from "@/lib/compose-helpers";
 import { useTheme } from "@/lib/theme";
 import { ToastProvider, useToast } from "@/lib/toast";
 import { LoginScreen } from "./LoginScreen";
@@ -17,12 +19,23 @@ import { DraftsList } from "./DraftsList";
 import { ComposeWindow, type ComposeWindowHandle } from "./ComposeWindow";
 import { SettingsModal } from "./SettingsModal";
 import { SnoozePopover } from "./SnoozePopover";
+import { ShortcutsHelpModal } from "./ShortcutsHelpModal";
+import { EMPTY_FILTERS, type SearchFilters } from "./SearchFilterPopover";
 
 const PAGE_SIZE = 30;
+const SPLIT_MODE_KEY = "novamail-split-mode";
+const UNDO_SEND_MS = 5000;
+
+export type SplitMode = "none" | "right";
 
 function imapFolderFor(key: string): string {
   if (key === SYSTEM_FOLDERS.starred) return SYSTEM_FOLDERS.inbox;
   return key;
+}
+
+interface PendingSend {
+  id: number;
+  timer: number;
 }
 
 export function MailApp() {
@@ -51,15 +64,21 @@ function MailAppInner() {
   const [openThread, setOpenThread] = useState<MailThread | null>(null);
   const [search, setSearch] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
+  const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
+  const [activeFilters, setActiveFilters] = useState<SearchFilters>(EMPTY_FILTERS);
   const [draftsRefreshKey, setDraftsRefreshKey] = useState(0);
   const [snoozeCount, setSnoozeCount] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
 
   const [composeWindows, setComposeWindows] = useState<ComposeWindowHandle[]>([]);
   const composeCounter = useRef(0);
+  const pendingSendCounter = useRef(0);
+  const pendingSends = useRef<Map<number, PendingSend>>(new Map());
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [snoozeTarget, setSnoozeTarget] = useState<{ anchor: HTMLElement; apply: (date: Date) => void } | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
+  const [splitMode, setSplitMode] = useState<SplitMode>("none");
 
   const wsRef = useRef<WebSocket | null>(null);
   const wsRetryRef = useRef(0);
@@ -71,17 +90,25 @@ function MailAppInner() {
   }, []);
 
   const loadMessages = useCallback(
-    async (folder: string, options: { append?: boolean; beforeUid?: number; q?: string } = {}) => {
+    async (
+      folder: string,
+      options: { append?: boolean; beforeUid?: number; q?: string; filters?: SearchFilters } = {},
+    ) => {
       if (folder === SYSTEM_FOLDERS.drafts) return;
       const setBusy = options.append ? setLoadingMore : setLoading;
       setBusy(true);
       try {
+        const activeFilterSet = options.filters ?? EMPTY_FILTERS;
         const result = await api.listMessages({
           folder: imapFolderFor(folder),
           limit: PAGE_SIZE,
           before_uid: options.beforeUid,
           q: options.q || undefined,
           starred: folder === SYSTEM_FOLDERS.starred ? true : undefined,
+          from_contains: activeFilterSet.from_contains || undefined,
+          has_attachment: activeFilterSet.has_attachment || undefined,
+          since: activeFilterSet.since || undefined,
+          before: activeFilterSet.before || undefined,
         });
         setMessages((prev) => (options.append ? [...prev, ...result.data] : result.data));
         setNextBeforeUid(result.next_before_uid);
@@ -95,9 +122,9 @@ function MailAppInner() {
   );
 
   const refreshCurrent = useCallback(() => {
-    loadMessages(activeFolder, { q: activeSearch });
+    loadMessages(activeFolder, { q: activeSearch, filters: activeFilters });
     loadFolders();
-  }, [activeFolder, activeSearch, loadMessages, loadFolders]);
+  }, [activeFolder, activeSearch, activeFilters, loadMessages, loadFolders]);
 
   // ---- Bootstrapping ----
   useEffect(() => {
@@ -120,6 +147,8 @@ function MailAppInner() {
     setSelected(new Set());
     setActiveSearch("");
     setSearch("");
+    setActiveFilters(EMPTY_FILTERS);
+    setFilters(EMPTY_FILTERS);
     if (activeFolder === SYSTEM_FOLDERS.drafts) {
       setDraftsRefreshKey((v) => v + 1);
     } else {
@@ -127,6 +156,15 @@ function MailAppInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, activeFolder]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(SPLIT_MODE_KEY);
+      if (stored === "right") setSplitMode("right");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     if (!account) return;
@@ -179,7 +217,28 @@ function MailAppInner() {
   function handleSearchSubmit() {
     setActiveSearch(search);
     setOpenThread(null);
-    loadMessages(activeFolder, { q: search });
+    loadMessages(activeFolder, { q: search, filters: activeFilters });
+  }
+
+  function handleFiltersChange(next: SearchFilters, apply: boolean) {
+    setFilters(next);
+    if (apply) {
+      setActiveFilters(next);
+      setOpenThread(null);
+      loadMessages(activeFolder, { q: activeSearch, filters: next });
+    }
+  }
+
+  function toggleSplitMode() {
+    setSplitMode((prev) => {
+      const next = prev === "right" ? "none" : "right";
+      try {
+        window.localStorage.setItem(SPLIT_MODE_KEY, next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   }
 
   function toggleSelect(uid: number) {
@@ -303,6 +362,17 @@ function MailAppInner() {
     }
   }
 
+  async function replyToOpenThread(mode: "reply" | "replyAll" | "forward") {
+    if (!openThread || !account) return;
+    const latestMessage = openThread.messages[openThread.messages.length - 1];
+    try {
+      const detail = await api.getMessage(imapFolderFor(activeFolder), latestMessage.uid);
+      openCompose(buildReplyInitial(detail, mode, account.address));
+    } catch {
+      toast.show("Could not open a reply for this message");
+    }
+  }
+
   function openCompose(initial: ComposeInitial) {
     composeCounter.current += 1;
     setComposeWindows((prev) => [...prev, { id: composeCounter.current, initial }].slice(-3));
@@ -311,6 +381,36 @@ function MailAppInner() {
     setComposeWindows((prev) => prev.filter((item) => item.id !== id));
     if (activeFolder === SYSTEM_FOLDERS.drafts) setDraftsRefreshKey((v) => v + 1);
     loadFolders();
+  }
+
+  function handleSendRequest(
+    payload: SendMailRequest,
+    meta: { draftId: string | null; files: File[]; initial: ComposeInitial },
+  ) {
+    pendingSendCounter.current += 1;
+    const id = pendingSendCounter.current;
+
+    async function actuallySend() {
+      try {
+        await api.sendMessage(payload);
+        if (meta.draftId) await api.deleteDraft(meta.draftId).catch(() => {});
+        loadFolders();
+      } catch {
+        toast.show("Could not send the message — it was not sent");
+      }
+      pendingSends.current.delete(id);
+    }
+
+    const timer = window.setTimeout(actuallySend, UNDO_SEND_MS);
+    pendingSends.current.set(id, { id, timer });
+    toast.show("Sending…", {
+      actionLabel: "Undo",
+      onAction: () => {
+        window.clearTimeout(timer);
+        pendingSends.current.delete(id);
+        openCompose({ ...meta.initial, draftId: meta.draftId, attachmentFiles: meta.files });
+      },
+    });
   }
 
   async function handleAddAccount(nextAccount: MailAccount) {
@@ -342,6 +442,70 @@ function MailAppInner() {
     }
   }
 
+  // ---- Keyboard shortcuts ----
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false;
+      if (target.isContentEditable) return true;
+      return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      if (settingsOpen || shortcutsOpen || snoozeTarget || addingAccount) {
+        if (event.key === "Escape") {
+          setSettingsOpen(false);
+          setShortcutsOpen(false);
+          setSnoozeTarget(null);
+        }
+        return;
+      }
+      switch (event.key) {
+        case "c":
+          event.preventDefault();
+          openCompose({ mode: "new" });
+          break;
+        case "/":
+          event.preventDefault();
+          document.getElementById("mail-search-input")?.focus();
+          break;
+        case "u":
+          setOpenThread(null);
+          break;
+        case "e":
+          if (openThread) handleThreadAction("archive");
+          break;
+        case "#":
+          if (openThread) handleThreadAction("trash");
+          break;
+        case "r":
+          if (openThread) replyToOpenThread("reply");
+          break;
+        case "a":
+          if (openThread) replyToOpenThread("replyAll");
+          break;
+        case "f":
+          if (openThread) replyToOpenThread("forward");
+          break;
+        case "?":
+          setShortcutsOpen(true);
+          break;
+        case "Escape":
+          if (composeWindows.length > 0) {
+            closeCompose(composeWindows[composeWindows.length - 1].id);
+          } else if (openThread) {
+            setOpenThread(null);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openThread, composeWindows, settingsOpen, shortcutsOpen, snoozeTarget, addingAccount, activeFolder, account]);
+
   const inboxUnread = useMemo(() => folders.find((f) => f.name === SYSTEM_FOLDERS.inbox)?.unseen ?? 0, [folders]);
 
   if (booting) return null;
@@ -358,6 +522,8 @@ function MailAppInner() {
         search={search}
         onSearchChange={setSearch}
         onSearchSubmit={handleSearchSubmit}
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
         onRefresh={refreshCurrent}
         refreshing={loading}
         theme={theme}
@@ -367,6 +533,9 @@ function MailAppInner() {
         onAddAccount={() => setAddingAccount(true)}
         onLogout={handleLogout}
         onOpenSettings={() => setSettingsOpen(true)}
+        splitMode={splitMode}
+        onToggleSplitMode={toggleSplitMode}
+        onShowShortcuts={() => setShortcutsOpen(true)}
       />
       <div className="body-row">
         <Sidebar
@@ -383,6 +552,50 @@ function MailAppInner() {
         <div className="main-panel">
           {activeFolder === SYSTEM_FOLDERS.drafts ? (
             <DraftsList onOpenDraft={openCompose} refreshKey={draftsRefreshKey} />
+          ) : splitMode === "right" ? (
+            <div className="split-view">
+              <div className="split-list-pane">
+                <MessageList
+                  folder={imapFolderFor(activeFolder)}
+                  messages={messages}
+                  selected={selected}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectAll={toggleSelectAll}
+                  onOpen={openMessage}
+                  onToggleStar={handleToggleStar}
+                  onArchive={handleArchive}
+                  onDelete={handleDelete}
+                  onSnooze={openSnoozeFor}
+                  onMarkRead={handleMarkRead}
+                  hasMore={nextBeforeUid !== null}
+                  loadingMore={loadingMore}
+                  onLoadMore={() =>
+                    nextBeforeUid &&
+                    loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch, filters: activeFilters })
+                  }
+                  loading={loading}
+                />
+              </div>
+              <div className="split-reading-pane">
+                {openThread ? (
+                  <MessageView
+                    thread={openThread}
+                    folder={imapFolderFor(activeFolder)}
+                    account={account}
+                    onBack={() => setOpenThread(null)}
+                    onThreadAction={handleThreadAction}
+                    onSnoozeRequest={(anchor) => openSnoozeFor(openThread.messages[openThread.messages.length - 1], anchor)}
+                    onCompose={openCompose}
+                  />
+                ) : (
+                  <div className="empty-state">
+                    <MailOpen size={48} strokeWidth={1.2} />
+                    <h3>Select a conversation</h3>
+                    <p>Choose a message from the list to read it here.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           ) : openThread ? (
             <MessageView
               thread={openThread}
@@ -408,7 +621,10 @@ function MailAppInner() {
               onMarkRead={handleMarkRead}
               hasMore={nextBeforeUid !== null}
               loadingMore={loadingMore}
-              onLoadMore={() => nextBeforeUid && loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch })}
+              onLoadMore={() =>
+                nextBeforeUid &&
+                loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch, filters: activeFilters })
+              }
               loading={loading}
             />
           )}
@@ -416,7 +632,7 @@ function MailAppInner() {
       </div>
 
       {composeWindows.map((handle) => (
-        <ComposeWindow key={handle.id} handle={handle} account={account} onClose={closeCompose} />
+        <ComposeWindow key={handle.id} handle={handle} account={account} onClose={closeCompose} onSendRequest={handleSendRequest} />
       ))}
 
       {settingsOpen && (
@@ -426,6 +642,8 @@ function MailAppInner() {
           onAccountUpdated={(updated) => setAccount(updated)}
         />
       )}
+
+      {shortcutsOpen && <ShortcutsHelpModal onClose={() => setShortcutsOpen(false)} />}
 
       {snoozeTarget && (
         <SnoozePopover anchor={snoozeTarget.anchor} onPick={snoozeTarget.apply} onClose={() => setSnoozeTarget(null)} />

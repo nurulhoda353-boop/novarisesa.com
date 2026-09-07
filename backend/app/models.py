@@ -231,6 +231,24 @@ class MailSnooze(UUIDMixin, TimestampMixin, Base):
     woken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class MailRule(UUIDMixin, TimestampMixin, Base):
+    """A filter applied to new INBOX mail by the IMAP watcher (see
+    mail_watcher.MailboxWatcher._apply_rules) — first enabled rule whose
+    conditions match wins and the message is moved to destination_folder."""
+
+    __tablename__ = "mail_rules"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(160), default="")
+    from_contains: Mapped[str | None] = mapped_column(String(255))
+    subject_contains: Mapped[str | None] = mapped_column(String(255))
+    destination_folder: Mapped[str] = mapped_column(String(500))
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class MailDevice(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "mail_devices"
     __table_args__ = (UniqueConstraint("account_id", "installation_id", name="uq_mail_device_installation"),)

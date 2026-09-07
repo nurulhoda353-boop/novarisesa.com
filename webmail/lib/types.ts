@@ -81,6 +81,7 @@ export interface SendMailRequest {
   html_body: string | null;
   reply_to_message_id: string | null;
   attachments: SendAttachment[];
+  from_address?: string | null;
 }
 
 export interface ContactInfo {
@@ -133,6 +134,16 @@ export interface AutoreplyInfo {
   ends_at: string | null;
 }
 
+export interface MailRuleInfo {
+  id: string;
+  name: string;
+  from_contains: string | null;
+  subject_contains: string | null;
+  destination_folder: string;
+  is_enabled: boolean;
+  sort_order: number;
+}
+
 export const SYSTEM_FOLDERS = {
   inbox: "INBOX",
   starred: "__starred__",
@@ -155,4 +166,6 @@ export interface ComposeInitial {
   quoteHtml?: string;
   replyToMessageId?: string | null;
   draftId?: string | null;
+  fromAddress?: string | null;
+  attachmentFiles?: File[];
 }

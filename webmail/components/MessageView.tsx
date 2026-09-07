@@ -23,9 +23,11 @@ import type { MailThread } from "@/lib/threads";
 import { avatarColorFor } from "@/lib/avatar";
 import { displayName, formatBytes, fullTimestamp, initials } from "@/lib/format";
 import { attachmentIcon, isImageContentType } from "@/lib/attachment-style";
+import { buildReplyInitial } from "@/lib/compose-helpers";
 import { replaceCidSources, sanitizeEmailHtml, wrapForIframe } from "@/lib/sanitize";
 import { saveBlob } from "@/lib/download";
 import { useToast } from "@/lib/toast";
+import { AttachmentLightbox } from "./AttachmentLightbox";
 
 export function MessageView({
   thread,
@@ -129,6 +131,7 @@ function MessageCard({
   const [hadRemoteImages, setHadRemoteImages] = useState(false);
   const [iframeSrc, setIframeSrc] = useState("");
   const [iframeHeight, setIframeHeight] = useState(80);
+  const [preview, setPreview] = useState<{ url: string; filename: string; blob: Blob } | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const toast = useToast();
 
@@ -188,40 +191,14 @@ function MessageCard({
     if (doc?.body) setIframeHeight(Math.min(Math.max(doc.body.scrollHeight + 24, 60), 4000));
   }
 
-  const quoteHtml = detail
-    ? `<br/><br/><div>On ${fullTimestamp(detail.received_at)}, ${displayName(detail.sender.name, detail.sender.email)} &lt;${detail.sender.email}&gt; wrote:</div><blockquote>${detail.html_body ?? `<p>${escapeHtml(detail.text_body)}</p>`}</blockquote>`
-    : "";
-
   function reply() {
-    if (!detail) return;
-    onCompose({
-      mode: "reply",
-      to: [detail.sender.email],
-      subject: prefixSubject(detail.subject, "Re:"),
-      quoteHtml,
-      replyToMessageId: detail.message_id,
-    });
+    if (detail) onCompose(buildReplyInitial(detail, "reply", account.address));
   }
   function replyAll() {
-    if (!detail) return;
-    const others = [...detail.recipients, ...(detail.cc ?? [])]
-      .map((item) => item.email)
-      .filter((email) => email.toLowerCase() !== account.address.toLowerCase());
-    onCompose({
-      mode: "replyAll",
-      to: [detail.sender.email, ...others],
-      subject: prefixSubject(detail.subject, "Re:"),
-      quoteHtml,
-      replyToMessageId: detail.message_id,
-    });
+    if (detail) onCompose(buildReplyInitial(detail, "replyAll", account.address));
   }
   function forward() {
-    if (!detail) return;
-    onCompose({
-      mode: "forward",
-      subject: prefixSubject(detail.subject, "Fwd:"),
-      quoteHtml,
-    });
+    if (detail) onCompose(buildReplyInitial(detail, "forward", account.address));
   }
 
   async function handleDownload(attachment: MailAttachmentInfo) {
@@ -231,6 +208,35 @@ function MessageCard({
     } catch {
       toast.show("Could not download the attachment");
     }
+  }
+
+  async function handleAttachmentClick(attachment: MailAttachmentInfo) {
+    if (isImageContentType(attachment.content_type)) {
+      try {
+        const { blob, filename } = await api.downloadAttachment(folder, message.uid, attachment.part);
+        setPreview({ url: URL.createObjectURL(blob), filename: filename || attachment.filename, blob });
+      } catch {
+        toast.show("Could not preview the attachment");
+      }
+      return;
+    }
+    if (attachment.content_type === "application/pdf") {
+      try {
+        const { blob } = await api.downloadAttachment(folder, message.uid, attachment.part);
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank", "noopener");
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch {
+        toast.show("Could not open the attachment");
+      }
+      return;
+    }
+    handleDownload(attachment);
+  }
+
+  function closePreview() {
+    if (preview) URL.revokeObjectURL(preview.url);
+    setPreview(null);
   }
 
   const from = message.sender;
@@ -287,7 +293,7 @@ function MessageCard({
                       const Icon = attachmentIcon(attachment.content_type);
                       const isImage = isImageContentType(attachment.content_type);
                       return (
-                        <button key={attachment.part} className="attachment-card" onClick={() => handleDownload(attachment)}>
+                        <button key={attachment.part} className="attachment-card" onClick={() => handleAttachmentClick(attachment)}>
                           {!isImage && (
                             <span className="icon">
                               <Icon size={17} />
@@ -297,7 +303,14 @@ function MessageCard({
                             <span className="name">{attachment.filename}</span>
                             <span className="size">{formatBytes(attachment.size)}</span>
                           </span>
-                          <Download size={15} className="download" />
+                          <Download
+                            size={15}
+                            className="download"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDownload(attachment);
+                            }}
+                          />
                         </button>
                       );
                     })}
@@ -318,17 +331,9 @@ function MessageCard({
           )}
         </div>
       )}
+      {preview && (
+        <AttachmentLightbox url={preview.url} filename={preview.filename} blob={preview.blob} onClose={closePreview} />
+      )}
     </div>
   );
-}
-
-function prefixSubject(subject: string, prefix: string): string {
-  if (new RegExp(`^${prefix}`, "i").test(subject.trim())) return subject;
-  return `${prefix} ${subject}`;
-}
-
-function escapeHtml(value: string): string {
-  const div = document.createElement("div");
-  div.textContent = value;
-  return div.innerHTML;
 }

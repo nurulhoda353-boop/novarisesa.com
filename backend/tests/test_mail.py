@@ -13,17 +13,18 @@ from app.core.security import (
     decode_mobile_token,
     decode_token,
 )
-from app.models import MailSnooze
+from app.models import MailRule, MailSnooze
 from app.schemas.mail import (
     ContactUpdate,
     FolderResponse,
     MailLoginRequest,
     MailProfileUpdate,
+    MailRuleUpsert,
     SnoozeRequest,
 )
 from app.services.mail_client import _attachment_from_raw, _summary
 from app.services.mail_snooze import SNOOZE_FOLDER
-from app.services.mail_watcher import WatcherRegistry
+from app.services.mail_watcher import WatcherRegistry, rule_matches
 
 
 def test_mail_credentials_are_encrypted_and_round_trip() -> None:
@@ -199,6 +200,54 @@ def test_snooze_folder_is_namespaced_under_inbox() -> None:
     # ...) seen from the live folder list, so it nests under Inbox in most
     # mail clients instead of appearing as an unrelated top-level folder.
     assert SNOOZE_FOLDER == "INBOX.Snoozed"
+
+
+def test_mail_rule_model_has_the_expected_columns() -> None:
+    columns = {column.name for column in MailRule.__table__.columns}
+    assert columns == {
+        "id",
+        "account_id",
+        "name",
+        "from_contains",
+        "subject_contains",
+        "destination_folder",
+        "is_enabled",
+        "sort_order",
+        "created_at",
+        "updated_at",
+    }
+
+
+def test_mail_rule_upsert_requires_a_condition() -> None:
+    with pytest.raises(ValueError):
+        MailRuleUpsert(destination_folder="INBOX.Receipts")
+    rule = MailRuleUpsert(from_contains="billing@", destination_folder="INBOX.Receipts")
+    assert rule.subject_contains is None
+
+
+def test_rule_matches_requires_at_least_one_condition() -> None:
+    empty_rule = MailRule(from_contains=None, subject_contains=None)
+    assert not rule_matches(empty_rule, sender="anyone@example.com", subject="anything")
+
+
+def test_rule_matches_checks_from_contains() -> None:
+    rule = MailRule(from_contains="billing@stripe.com", subject_contains=None)
+    assert rule_matches(rule, sender="stripe receipts <billing@stripe.com>", subject="your invoice")
+    assert not rule_matches(rule, sender="someone else <hello@example.com>", subject="your invoice")
+
+
+def test_rule_matches_is_case_insensitive_via_the_watcher_contract() -> None:
+    # _apply_rules lower-cases sender/subject before calling rule_matches;
+    # the rule's own condition text is lowered here too, so mixed-case
+    # conditions still match against the already-lowered input.
+    rule = MailRule(from_contains="Stripe.com", subject_contains=None)
+    assert rule_matches(rule, sender="billing@stripe.com", subject="invoice")
+
+
+def test_rule_matches_requires_all_set_conditions() -> None:
+    rule = MailRule(from_contains="stripe.com", subject_contains="invoice")
+    assert rule_matches(rule, sender="billing@stripe.com", subject="your invoice is ready")
+    assert not rule_matches(rule, sender="billing@stripe.com", subject="welcome to stripe")
 
 
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:

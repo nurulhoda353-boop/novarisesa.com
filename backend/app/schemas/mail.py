@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class MailLoginRequest(BaseModel):
@@ -111,6 +111,7 @@ class SendMailRequest(BaseModel):
     html_body: str | None = None
     reply_to_message_id: str | None = Field(default=None, max_length=1000)
     attachments: list[SendAttachment] = Field(default=[], max_length=20)
+    from_address: EmailStr | None = None
 
 
 class ContactCreate(BaseModel):
@@ -170,6 +171,30 @@ class SnoozeResponse(BaseModel):
     subject: str
     original_folder: str
     wake_at: datetime
+
+
+class MailRuleUpsert(BaseModel):
+    name: str = Field(default="", max_length=160)
+    from_contains: str | None = Field(default=None, max_length=255)
+    subject_contains: str | None = Field(default=None, max_length=255)
+    destination_folder: str = Field(min_length=1, max_length=500)
+    is_enabled: bool = True
+
+    @model_validator(mode="after")
+    def require_a_condition(self) -> "MailRuleUpsert":
+        if not self.from_contains and not self.subject_contains:
+            raise ValueError("A rule needs at least a From or Subject condition")
+        return self
+
+
+class MailRuleResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    from_contains: str | None
+    subject_contains: str | None
+    destination_folder: str
+    is_enabled: bool
+    sort_order: int
 
 
 class AliasCreate(BaseModel):

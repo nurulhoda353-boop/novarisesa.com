@@ -11,21 +11,36 @@ import asyncio
 import contextlib
 import logging
 import threading
+import uuid
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from imapclient import IMAPClient
+from sqlalchemy import select
 
 from app.core.config import settings
 
 if TYPE_CHECKING:
     from starlette.websockets import WebSocket
 
+    from app.models import MailRule
+
 logger = logging.getLogger("novarise.mail_watcher")
 
 IDLE_POLL_TIMEOUT = 60
 INITIAL_BACKOFF_SECONDS = 5
 MAX_BACKOFF_SECONDS = 120
+
+
+def rule_matches(rule: MailRule, sender: str, subject: str) -> bool:
+    """Pure predicate behind MailboxWatcher._apply_rules — `sender` and
+    `subject` are expected already lower-cased. A rule with no conditions
+    at all never matches (guards against accidentally filing everything)."""
+    if not rule.from_contains and not rule.subject_contains:
+        return False
+    if rule.from_contains and rule.from_contains.lower() not in sender:
+        return False
+    return not (rule.subject_contains and rule.subject_contains.lower() not in subject)
 
 
 class MailboxWatcher:
@@ -100,6 +115,8 @@ class MailboxWatcher:
                     continue
                 current_uid = self._max_uid(client)
                 if current_uid is not None and (last_uid is None or current_uid > last_uid):
+                    with contextlib.suppress(Exception):
+                        self._apply_rules(current_uid)
                     self._emit({"event": "new_mail", "folder": "INBOX", "uid": current_uid})
                 last_uid = current_uid
 
@@ -107,6 +124,36 @@ class MailboxWatcher:
     def _max_uid(client: IMAPClient) -> int | None:
         uids = client.search("ALL")
         return max(uids) if uids else None
+
+    def _apply_rules(self, uid: int) -> None:
+        """Auto-files a just-arrived INBOX message if it matches one of this
+        account's mail rules (first enabled match wins). Runs on the watcher
+        thread, so it opens its own short-lived DB session and IMAP
+        connection rather than sharing the idle one still in use above."""
+        # Imported lazily to avoid a mail_watcher <-> mail_client/models
+        # import cycle at module load time.
+        from app.core.database import SessionLocal
+        from app.models import MailRule
+        from app.services.mail_client import HostingerMailboxClient
+
+        with SessionLocal() as db:
+            rules = list(
+                db.scalars(
+                    select(MailRule)
+                    .where(MailRule.account_id == uuid.UUID(self.account_id), MailRule.is_enabled.is_(True))
+                    .order_by(MailRule.sort_order)
+                )
+            )
+        if not rules:
+            return
+        mail_client = HostingerMailboxClient(self.address, self.password)
+        detail = mail_client.message("INBOX", uid)
+        sender = f"{detail['sender'].get('name', '')} {detail['sender'].get('email', '')}".lower()
+        subject = detail.get("subject", "").lower()
+        for rule in rules:
+            if rule_matches(rule, sender, subject):
+                mail_client.move("INBOX", uid, rule.destination_folder)
+                return
 
     def _emit(self, payload: dict[str, Any]) -> None:
         with contextlib.suppress(RuntimeError):

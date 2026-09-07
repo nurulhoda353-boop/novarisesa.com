@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Bold,
+  ChevronDown,
   Italic,
   Link as LinkIcon,
   List,
@@ -17,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import * as api from "@/lib/api";
-import type { ComposeInitial, MailAccount, SendAttachment } from "@/lib/types";
+import type { ComposeInitial, MailAccount, SendAttachment, SendMailRequest } from "@/lib/types";
 import { formatBytes } from "@/lib/format";
 import { attachmentIcon } from "@/lib/attachment-style";
 import { useToast } from "@/lib/toast";
@@ -32,10 +33,12 @@ export function ComposeWindow({
   handle,
   account,
   onClose,
+  onSendRequest,
 }: {
   handle: ComposeWindowHandle;
   account: MailAccount;
   onClose: (id: number) => void;
+  onSendRequest: (payload: SendMailRequest, meta: { draftId: string | null; files: File[]; initial: ComposeInitial }) => void;
 }) {
   const { initial } = handle;
   const [to, setTo] = useState<string[]>(initial.to ?? []);
@@ -44,11 +47,13 @@ export function ComposeWindow({
   const [showCc, setShowCc] = useState((initial.cc?.length ?? 0) > 0);
   const [showBcc, setShowBcc] = useState(false);
   const [subject, setSubject] = useState(initial.subject ?? "");
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachments, setAttachments] = useState<File[]>(initial.attachmentFiles ?? []);
   const [minimized, setMinimized] = useState(false);
   const [maximized, setMaximized] = useState(false);
-  const [sending, setSending] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(initial.draftId ?? null);
+  const [sendAddresses, setSendAddresses] = useState<string[]>([account.address]);
+  const [fromAddress, setFromAddress] = useState(initial.fromAddress ?? account.address);
+  const [showFromPicker, setShowFromPicker] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
@@ -57,6 +62,17 @@ export function ComposeWindow({
     if (!editorRef.current) return;
     const signature = account.signature ? `<br/><br/>${account.signature.replace(/\n/g, "<br/>")}` : "";
     editorRef.current.innerHTML = `${initial.bodyHtml ?? ""}${signature}${initial.quoteHtml ?? ""}`;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    api
+      .listAliases()
+      .then((aliases) => {
+        const addresses = aliases.map((item) => item.address).filter((value): value is string => !!value);
+        if (addresses.length > 0) setSendAddresses([account.address, ...addresses]);
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -93,35 +109,32 @@ export function ComposeWindow({
       toast.show("Add at least one recipient");
       return;
     }
-    setSending(true);
-    try {
-      const htmlBody = editorRef.current?.innerHTML ?? "";
-      const textBody = editorRef.current?.innerText ?? "";
-      const sendAttachments: SendAttachment[] = await Promise.all(
-        attachments.map(async (file) => ({
-          filename: file.name,
-          content_type: file.type || "application/octet-stream",
-          content_base64: await fileToBase64(file),
-        })),
-      );
-      await api.sendMessage({
-        to,
-        cc,
-        bcc,
-        subject,
-        text_body: textBody,
-        html_body: htmlBody,
-        reply_to_message_id: initial.replyToMessageId ?? null,
-        attachments: sendAttachments,
-      });
-      if (draftId) await api.deleteDraft(draftId).catch(() => {});
-      toast.show("Message sent");
-      onClose(handle.id);
-    } catch {
-      toast.show("Could not send the message. It's still here — try again.");
-    } finally {
-      setSending(false);
-    }
+    const htmlBody = editorRef.current?.innerHTML ?? "";
+    const textBody = editorRef.current?.innerText ?? "";
+    const sendAttachments: SendAttachment[] = await Promise.all(
+      attachments.map(async (file) => ({
+        filename: file.name,
+        content_type: file.type || "application/octet-stream",
+        content_base64: await fileToBase64(file),
+      })),
+    );
+    const payload: SendMailRequest = {
+      to,
+      cc,
+      bcc,
+      subject,
+      text_body: textBody,
+      html_body: htmlBody,
+      reply_to_message_id: initial.replyToMessageId ?? null,
+      attachments: sendAttachments,
+      from_address: fromAddress !== account.address ? fromAddress : null,
+    };
+    onSendRequest(payload, {
+      draftId,
+      files: attachments,
+      initial: { ...initial, to, cc, subject, bodyHtml: htmlBody, fromAddress, attachmentFiles: attachments },
+    });
+    onClose(handle.id);
   }
 
   async function handleDiscard() {
@@ -171,6 +184,31 @@ export function ComposeWindow({
       </div>
       {!minimized && (
         <div className="compose-body">
+          {sendAddresses.length > 1 && (
+            <div className="field-row" style={{ position: "relative" }}>
+              <label>From</label>
+              <button className="from-picker" onClick={() => setShowFromPicker((v) => !v)}>
+                {fromAddress}
+                <ChevronDown size={13} />
+              </button>
+              {showFromPicker && (
+                <div className="popover" style={{ top: "calc(100% + 4px)", left: 40 }}>
+                  {sendAddresses.map((address) => (
+                    <button
+                      key={address}
+                      className="popover-item"
+                      onClick={() => {
+                        setFromAddress(address);
+                        setShowFromPicker(false);
+                      }}
+                    >
+                      {address}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <ChipInput
             label="To"
             values={to}
@@ -222,8 +260,8 @@ export function ComposeWindow({
             <button onClick={insertLink} title="Insert link"><LinkIcon size={16} /></button>
           </div>
           <div className="compose-footer">
-            <button className="btn btn-primary" onClick={handleSend} disabled={sending}>
-              <Send size={15} /> {sending ? "Sending…" : "Send"}
+            <button className="btn btn-primary" onClick={handleSend}>
+              <Send size={15} /> Send
             </button>
             <button className="icon-btn" title="Attach files" onClick={() => fileInputRef.current?.click()}>
               <Paperclip size={18} />

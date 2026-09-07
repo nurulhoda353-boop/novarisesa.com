@@ -381,10 +381,11 @@ class HostingerMailboxClient:
             uids = [int(value) for value in data[0].split()]
             return uids[0] if uids else None
 
-    def send(self, payload: dict[str, Any], display_name: str) -> str:
+    def send(self, payload: dict[str, Any], display_name: str, from_address: str | None = None) -> str:
+        sender_address = from_address or self.address
         message = EmailMessage()
         message["Message-ID"] = make_msgid(domain=self.address.rsplit("@", 1)[-1])
-        message["From"] = f"{display_name} <{self.address}>" if display_name else self.address
+        message["From"] = f"{display_name} <{sender_address}>" if display_name else sender_address
         message["To"] = ", ".join(str(value) for value in payload["to"])
         if payload.get("cc"):
             message["Cc"] = ", ".join(str(value) for value in payload["cc"])
@@ -419,7 +420,7 @@ class HostingerMailboxClient:
             ) as smtp:
                 smtp.login(self.address, self.password)
                 smtp.send_message(
-                    message, from_addr=self.address, to_addrs=[str(value) for value in recipients]
+                    message, from_addr=sender_address, to_addrs=[str(value) for value in recipients]
                 )
         except (smtplib.SMTPException, OSError, ssl.SSLError) as exc:
             raise MailConnectionError("Email could not be sent") from exc

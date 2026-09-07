@@ -19,7 +19,7 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -47,6 +47,7 @@ from app.models import (
     MailDevice,
     MailDraft,
     MailMessageCache,
+    MailRule,
     MailSnooze,
     RefreshToken,
     User,
@@ -68,6 +69,8 @@ from app.schemas.mail import (
     MailMessageList,
     MailPasswordChange,
     MailProfileUpdate,
+    MailRuleResponse,
+    MailRuleUpsert,
     MobileRefreshRequest,
     MobileSessionResponse,
     MoveRequest,
@@ -584,9 +587,21 @@ def cancel_snooze(snooze_id: uuid.UUID, account: CurrentMailAccount, db: DBSessi
 
 
 @router.post("/messages/send")
-def send_message(payload: SendMailRequest, account: CurrentMailAccount) -> dict[str, str]:
+def send_message(payload: SendMailRequest, account: CurrentMailAccount, db: DBSession) -> dict[str, str]:
+    from_address = str(payload.from_address).lower() if payload.from_address else None
+    if from_address and from_address != account.address.lower():
+        client = management_client(account, db)
+        try:
+            aliases = owned_items(client.list_aliases(account.hostinger_order_id or ""), account)
+        except HostingerApiError as exc:
+            raise mail_error(exc) from exc
+        alias_addresses = {str(item.get("address", "")).lower() for item in aliases}
+        if from_address not in alias_addresses:
+            raise HTTPException(status_code=400, detail="That address isn't one of your aliases")
     try:
-        message_id = mailbox_client(account).send(payload.model_dump(mode="json"), account.display_name)
+        message_id = mailbox_client(account).send(
+            payload.model_dump(mode="json"), account.display_name, from_address=from_address
+        )
     except (MailConnectionError, ValueError) as exc:
         raise mail_error(exc) from exc
     return {"status": "sent", "message_id": message_id}
@@ -866,3 +881,49 @@ def delete_autoreply(
         client.delete_autoreply(autoreply_id)
     except HostingerApiError as exc:
         raise mail_error(exc) from exc
+
+
+@router.get("/rules", response_model=list[MailRuleResponse])
+def list_rules(account: CurrentMailAccount, db: DBSession) -> list[MailRule]:
+    return list(
+        db.scalars(
+            select(MailRule)
+            .where(MailRule.account_id == account.id)
+            .order_by(MailRule.sort_order, MailRule.created_at)
+        )
+    )
+
+
+@router.post("/rules", response_model=MailRuleResponse, status_code=status.HTTP_201_CREATED)
+def create_rule(payload: MailRuleUpsert, account: CurrentMailAccount, db: DBSession) -> MailRule:
+    max_order = db.scalar(
+        select(func.max(MailRule.sort_order)).where(MailRule.account_id == account.id)
+    )
+    rule = MailRule(account_id=account.id, sort_order=(max_order or 0) + 1, **payload.model_dump())
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.put("/rules/{rule_id}", response_model=MailRuleResponse)
+def update_rule(
+    rule_id: uuid.UUID, payload: MailRuleUpsert, account: CurrentMailAccount, db: DBSession
+) -> MailRule:
+    rule = db.scalar(select(MailRule).where(MailRule.id == rule_id, MailRule.account_id == account.id))
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    for key, value in payload.model_dump().items():
+        setattr(rule, key, value)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_rule(rule_id: uuid.UUID, account: CurrentMailAccount, db: DBSession) -> None:
+    rule = db.scalar(select(MailRule).where(MailRule.id == rule_id, MailRule.account_id == account.id))
+    if not rule:
+        raise HTTPException(status_code=404, detail="Rule not found")
+    db.delete(rule)
+    db.commit()

@@ -1,10 +1,13 @@
 "use client";
 
-import { Menu, Moon, RefreshCw, Search, Settings, Sun, X } from "lucide-react";
+import { useState } from "react";
+import { Columns2, Keyboard, ListFilter, Menu, Moon, RefreshCw, Rows2, Search, Settings, Sun, X } from "lucide-react";
 import type { MailAccount } from "@/lib/types";
 import type { StoredAccount } from "@/lib/api";
 import type { ThemeMode } from "@/lib/theme";
 import { AccountSwitcherMenu } from "./AccountSwitcherMenu";
+import { hasActiveFilters, SearchFilterPopover, type SearchFilters } from "./SearchFilterPopover";
+import type { SplitMode } from "./MailApp";
 
 export function TopBar({
   account,
@@ -12,6 +15,8 @@ export function TopBar({
   search,
   onSearchChange,
   onSearchSubmit,
+  filters,
+  onFiltersChange,
   onRefresh,
   refreshing,
   theme,
@@ -21,12 +26,17 @@ export function TopBar({
   onAddAccount,
   onLogout,
   onOpenSettings,
+  splitMode,
+  onToggleSplitMode,
+  onShowShortcuts,
 }: {
   account: MailAccount;
   accounts: StoredAccount[];
   search: string;
   onSearchChange: (value: string) => void;
   onSearchSubmit: () => void;
+  filters: SearchFilters;
+  onFiltersChange: (filters: SearchFilters, apply: boolean) => void;
   onRefresh: () => void;
   refreshing: boolean;
   theme: ThemeMode;
@@ -36,7 +46,13 @@ export function TopBar({
   onAddAccount: () => void;
   onLogout: () => void;
   onOpenSettings: () => void;
+  splitMode: SplitMode;
+  onToggleSplitMode: () => void;
+  onShowShortcuts: () => void;
 }) {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filtersActive = hasActiveFilters(filters);
+
   return (
     <header className="topbar">
       <button className="icon-btn" onClick={onToggleMobileRail} title="Menu" style={{ display: "none" }} id="mobile-menu-btn">
@@ -55,6 +71,7 @@ export function TopBar({
       >
         <Search size={17} />
         <input
+          id="mail-search-input"
           placeholder="Search mail"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
@@ -64,8 +81,39 @@ export function TopBar({
             <X size={16} />
           </button>
         )}
+        <div style={{ position: "relative" }}>
+          <button
+            type="button"
+            className={`icon-btn ${filtersActive ? "active" : ""}`}
+            title="Search filters"
+            onClick={(event) => {
+              event.stopPropagation();
+              setFilterOpen((v) => !v);
+            }}
+          >
+            <ListFilter size={16} />
+          </button>
+          {filterOpen && (
+            <SearchFilterPopover
+              filters={filters}
+              onChange={(next) => onFiltersChange(next, false)}
+              onApply={() => onFiltersChange(filters, true)}
+              onClose={() => setFilterOpen(false)}
+            />
+          )}
+        </div>
       </form>
       <div className="topbar-actions">
+        <button className="icon-btn" onClick={onShowShortcuts} title="Keyboard shortcuts (?)">
+          <Keyboard size={19} />
+        </button>
+        <button
+          className="icon-btn"
+          onClick={onToggleSplitMode}
+          title={splitMode === "right" ? "Switch to single view" : "Switch to split view"}
+        >
+          {splitMode === "right" ? <Rows2 size={19} /> : <Columns2 size={19} />}
+        </button>
         <button className="icon-btn" onClick={onRefresh} title="Refresh" disabled={refreshing}>
           <RefreshCw size={19} style={refreshing ? { animation: "spin 0.8s linear infinite" } : undefined} />
         </button>
