@@ -27,6 +27,14 @@ class HostingerManagementClient:
                 "Authorization": f"Bearer {settings.HOSTINGER_API_TOKEN}",
                 "Accept": "application/json",
                 "Content-Type": "application/json",
+                # Cloudflare's bot protection in front of this API blocks
+                # urllib's default "Python-urllib/x.y" user agent outright
+                # (Error 1010 "browser_signature_banned") — a normal-looking
+                # user agent is required, not just cosmetic.
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ),
             },
         )
         try:

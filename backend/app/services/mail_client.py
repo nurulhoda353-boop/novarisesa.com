@@ -216,6 +216,11 @@ class HostingerMailboxClient:
         has_attachment: bool | None = None,
         starred: bool | None = None,
     ) -> list[dict[str, Any]]:
+        # Folders like Archive are created lazily on first use (see move());
+        # viewing one before that has happened should read as empty, not a
+        # connection error.
+        if folder != "INBOX":
+            self.ensure_folder(folder)
         with self.imap() as client:
             status, _ = client.select(folder, readonly=True)
             if status != "OK":
