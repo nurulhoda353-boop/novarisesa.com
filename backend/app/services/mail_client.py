@@ -99,7 +99,8 @@ def _references(message: Message) -> list[str]:
 def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | None = None) -> dict[str, Any]:
     message = BytesParser(policy=policy.default).parsebytes(raw)
     text, html, attachments = _body_parts(message)
-    preview_source = text or re.sub(r"<[^>]+>", " ", html or "")
+    html_without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", html or "")
+    preview_source = text or re.sub(r"<[^>]+>", " ", html_without_style)
     preview = re.sub(r"\s+", " ", preview_source).strip()[:220]
     senders = _addresses(message, ["From"])
     return {
