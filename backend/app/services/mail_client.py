@@ -210,6 +210,42 @@ def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | No
     }
 
 
+def _list_summary(
+    uid: int,
+    folder: str,
+    header_bytes: bytes,
+    text_snippet: bytes,
+    flags: list[str],
+    size: int | None,
+    has_attachments: bool,
+) -> dict[str, Any]:
+    """Builds a message-list row from a header-only fetch instead of the full
+    raw message _summary() needs. Used by messages() so listing an inbox
+    doesn't pull every message's full body - attachments included - over the
+    wire just to show a subject line and a snippet."""
+    message = BytesParser(policy=policy.default).parsebytes(header_bytes)
+    decoded_snippet = text_snippet.decode("utf-8", errors="replace")
+    without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", decoded_snippet)
+    preview_source = html_lib.unescape(re.sub(r"<[^>]+>", " ", without_style))
+    preview = re.sub(r"\s+", " ", preview_source).strip()[:220]
+    senders = _addresses(message, ["From"])
+    return {
+        "uid": uid,
+        "folder": folder,
+        "message_id": message.get("Message-ID"),
+        "in_reply_to": message.get("In-Reply-To"),
+        "references": _references(message),
+        "subject": _decode_header(message.get("Subject")),
+        "sender": senders[0] if senders else {"name": "", "email": ""},
+        "recipients": _addresses(message, ["To"]),
+        "received_at": _date(message.get("Date")),
+        "flags": flags,
+        "preview": preview,
+        "size_bytes": size or 0,
+        "has_attachments": has_attachments,
+    }
+
+
 def _attachment_from_raw(raw: bytes, part_number: str) -> tuple[str, str, bytes]:
     message = BytesParser(policy=policy.default).parsebytes(raw)
     for index, part in enumerate(message.walk() if message.is_multipart() else [message], start=1):
@@ -369,24 +405,48 @@ class HostingerMailboxClient:
                 if len(results) >= limit or scan_budget <= 0:
                     break
                 scan_budget -= 1
-                fetch_status, rows = client.uid("fetch", str(uid), "(FLAGS RFC822.SIZE BODY.PEEK[])")
+                # Only headers + a bounded preview snippet + BODYSTRUCTURE (to
+                # tell if there's a real attachment) - never the full body.
+                # A list row used to fetch BODY.PEEK[] (the entire raw
+                # message, attachments included) for every candidate, which
+                # meant listing an inbox with a few large attachments could
+                # pull tens of megabytes over IMAP just to render subject
+                # lines. message() below still fetches the full body, but
+                # only for the one message actually being opened.
+                fetch_status, rows = client.uid(
+                    "fetch",
+                    str(uid),
+                    "(FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[TEXT]<0.4000>)",
+                )
                 if fetch_status != "OK" or not rows:
                     continue
-                raw = b""
                 metadata = b""
+                header_bytes = b""
+                text_bytes = b""
                 for row in rows:
                     if isinstance(row, tuple):
-                        metadata += row[0]
-                        raw += row[1]
-                if not raw:
+                        marker, literal = row
+                        metadata += marker
+                        if b"HEADER" in marker:
+                            header_bytes += literal
+                        elif b"TEXT" in marker:
+                            text_bytes += literal
+                    elif isinstance(row, bytes):
+                        metadata += row
+                if not header_bytes:
                     continue
                 flags_match = re.search(rb"FLAGS \(([^)]*)\)", metadata)
                 size_match = re.search(rb"RFC822\.SIZE (\d+)", metadata)
                 flags = flags_match.group(1).decode("ascii", errors="ignore").split() if flags_match else []
                 size = int(size_match.group(1)) if size_match else None
-                summary = _summary(uid, folder, raw, flags, size)
-                if has_attachment and not summary["has_attachments"]:
+                # A real (non-inline) attachment always carries an explicit
+                # "attachment" disposition in BODYSTRUCTURE from every
+                # mainstream MTA; inline cid: images use "inline" instead, so
+                # this can't mistake a signature logo for an attachment.
+                message_has_attachment = bool(re.search(rb'"attachment"', metadata, re.IGNORECASE))
+                if has_attachment and not message_has_attachment:
                     continue
+                summary = _list_summary(uid, folder, header_bytes, text_bytes, flags, size, message_has_attachment)
                 results.append(summary)
             return results
 

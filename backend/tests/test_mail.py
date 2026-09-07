@@ -22,7 +22,7 @@ from app.schemas.mail import (
     MailRuleUpsert,
     SnoozeRequest,
 )
-from app.services.mail_client import _attachment_from_raw, _summary
+from app.services.mail_client import HostingerMailboxClient, _attachment_from_raw, _summary
 from app.services.mail_snooze import SNOOZE_FOLDER
 from app.services.mail_watcher import WatcherRegistry, rule_matches
 
@@ -161,6 +161,83 @@ def test_message_summary_ignores_inline_cid_images_for_has_attachments() -> None
     )
     parsed_with_attachment = _summary(45, "INBOX", with_real_attachment.as_bytes(), [])
     assert parsed_with_attachment["has_attachments"] is True
+
+
+class _FakeListFetchImap:
+    """Stands in for imaplib.IMAP4_SSL for messages()'s IMAP calls: select,
+    uid("search", ...), uid("fetch", ...). Only what messages() touches."""
+
+    def __init__(self, fetch_by_uid: dict[str, tuple[str, list]]) -> None:
+        self._fetch_by_uid = fetch_by_uid
+
+    def select(self, folder, readonly=False):  # noqa: ANN001, ARG002
+        return "OK", [b"1"]
+
+    def uid(self, command, *args):  # noqa: ANN001
+        if command == "search":
+            return "OK", [" ".join(self._fetch_by_uid.keys()).encode()]
+        if command == "fetch":
+            # messages() calls client.uid("fetch", str(uid), ...) - a plain
+            # str, unlike the bytes imaplib itself hands back from "search".
+            return self._fetch_by_uid[args[0]]
+        raise AssertionError(f"unexpected uid command {command}")
+
+
+def test_messages_list_fetches_headers_only_and_detects_real_attachments(monkeypatch) -> None:
+    # Regression: messages() used to fetch BODY.PEEK[] - the entire raw
+    # message, attachments included - for every row just to build a subject
+    # line and a preview snippet. For an inbox with any large attachments
+    # that made listing it agonizingly slow (the "stuck on Loading" bug).
+    # This pins down that the list fetch only asks for headers, a bounded
+    # preview snippet, and BODYSTRUCTURE - never the full body - and that
+    # has_attachments still comes out right from BODYSTRUCTURE alone.
+    plain_headers = b"From: Jane Doe <jane@example.com>\r\nTo: info@novarisesa.com\r\nSubject: Hello\r\n\r\n"
+    plain_bodystructure = b'("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 20 1)'
+    attachment_headers = b"From: Billing <billing@example.com>\r\nTo: info@novarisesa.com\r\nSubject: Invoice\r\n\r\n"
+    attachment_bodystructure = (
+        b'(("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 20 1)'
+        b'("APPLICATION" "PDF" ("NAME" "invoice.pdf") NIL NIL "BASE64" 5000 NIL '
+        b'("attachment" ("FILENAME" "invoice.pdf")) NIL NIL) "MIXED")'
+    )
+    inline_image_headers = b"From: Team <team@novarisesa.com>\r\nTo: info@novarisesa.com\r\nSubject: Newsletter\r\n\r\n"
+    inline_image_bodystructure = (
+        b'(("TEXT" "PLAIN" ("CHARSET" "UTF-8") NIL NIL "7BIT" 20 1)'
+        b'("IMAGE" "PNG" ("NAME" "logo.png") "<logo123>" NIL "BASE64" 3000 NIL '
+        b'("inline" ("FILENAME" "logo.png")) NIL NIL) "RELATED")'
+    )
+
+    def _fetch_response(uid: str, headers: bytes, bodystructure: bytes, preview: bytes) -> tuple[str, list]:
+        marker = (
+            f"{uid} (FLAGS (\\Seen) RFC822.SIZE 500 BODYSTRUCTURE ".encode()
+            + bodystructure
+            + b" BODY[HEADER] {N}"
+        )
+        return "OK", [(marker, headers), (b" BODY[TEXT]<0> {N}", preview), b")"]
+
+    fake_client = _FakeListFetchImap(
+        {
+            "101": _fetch_response("101", plain_headers, plain_bodystructure, b"Hello there"),
+            "102": _fetch_response("102", attachment_headers, attachment_bodystructure, b"See attached file"),
+            "103": _fetch_response(
+                "103", inline_image_headers, inline_image_bodystructure, b"See the logo below"
+            ),
+        }
+    )
+    monkeypatch.setattr(HostingerMailboxClient, "_connect", lambda self: fake_client)  # noqa: ARG005
+
+    mailbox = HostingerMailboxClient("list-fetch-test@novarisesa.com", "secret")
+    results = mailbox.messages(folder="INBOX", limit=10)
+
+    by_uid = {row["uid"]: row for row in results}
+    assert set(by_uid) == {101, 102, 103}
+    assert by_uid[101]["subject"] == "Hello"
+    assert by_uid[101]["preview"] == "Hello there"
+    assert by_uid[101]["has_attachments"] is False
+    assert by_uid[102]["subject"] == "Invoice"
+    assert by_uid[102]["has_attachments"] is True
+    # An inline cid: image (a signature logo, say) carries "inline" disposition,
+    # not "attachment" - it must not trip the has_attachments paperclip icon.
+    assert by_uid[103]["has_attachments"] is False
 
 
 def test_mail_profile_update_accepts_optional_signature() -> None:
