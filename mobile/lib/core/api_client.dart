@@ -483,6 +483,98 @@ class ApiClient {
 
   Future<void> deleteRule(String id) => _request('DELETE', '/mail/rules/$id');
 
+  // --- Change requests (member self-service, needs admin approval) -------
+
+  Future<MailChangeRequest> requestChange(String requestType, String value) async =>
+      MailChangeRequest.fromJson(
+        _decode(await _request('POST', '/mail/account/change-request', body: {
+          'request_type': requestType,
+          'value': value,
+        })) as Map<String, dynamic>,
+      );
+
+  Future<List<MailChangeRequest>> myChangeRequests() async {
+    final rows = _decode(await _request('GET', '/mail/account/change-requests')) as List<dynamic>;
+    return rows
+        .map((row) => MailChangeRequest.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  // --- Admin panel ---------------------------------------------------------
+
+  Future<List<AdminAccountSummary>> adminAccounts() async {
+    final rows = _decode(await _request('GET', '/mail/admin/accounts')) as List<dynamic>;
+    return rows
+        .map((row) => AdminAccountSummary.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Switches this session into [accountId] without needing its password -
+  /// only an admin session can call this.
+  Future<MobileSession> adminSwitchTo(String accountId) async {
+    final session = MobileSession.fromJson(
+      _decode(await _request('POST', '/mail/admin/accounts/$accountId/switch'))
+          as Map<String, dynamic>,
+    );
+    await _storeSession(session);
+    await _rememberAccount(session.account.address, session.refreshToken);
+    return session;
+  }
+
+  Future<void> adminSetPassword(String accountId, String newPassword) => _request(
+        'POST',
+        '/mail/admin/accounts/$accountId/password',
+        body: {'new_password': newPassword},
+      );
+
+  Future<AdminAccountSummary> adminSetProfile(String accountId, String displayName) async =>
+      AdminAccountSummary.fromJson(
+        _decode(await _request('PATCH', '/mail/admin/accounts/$accountId/profile', body: {
+          'display_name': displayName,
+        })) as Map<String, dynamic>,
+      );
+
+  Future<AdminAccountSummary> adminSetAvatar(String accountId, String filePath) async {
+    final request = http.MultipartRequest(
+        'POST', Uri.parse('$baseUrl/mail/admin/accounts/$accountId/avatar'));
+    request.headers['Authorization'] = 'Bearer $_accessToken';
+    request.files.add(await http.MultipartFile.fromPath('avatar', filePath));
+    var response = await http.Response.fromStream(await request.send());
+    if (response.statusCode == 401 && await refresh()) {
+      final retry = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/mail/admin/accounts/$accountId/avatar'));
+      retry.headers['Authorization'] = 'Bearer $_accessToken';
+      retry.files.add(await http.MultipartFile.fromPath('avatar', filePath));
+      response = await http.Response.fromStream(await retry.send());
+    }
+    return AdminAccountSummary.fromJson(_decode(response) as Map<String, dynamic>);
+  }
+
+  Future<List<AdminChangeRequest>> adminChangeRequests({String status = 'pending'}) async {
+    final rows = _decode(await _request('GET', '/mail/admin/change-requests', query: {'status': status}))
+        as List<dynamic>;
+    return rows
+        .map((row) => AdminChangeRequest.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> adminApproveChangeRequest(String requestId) =>
+      _request('POST', '/mail/admin/change-requests/$requestId/approve');
+
+  Future<void> adminRejectChangeRequest(String requestId, {String? reason}) => _request(
+        'POST',
+        '/mail/admin/change-requests/$requestId/reject',
+        body: {'reason': reason},
+      );
+
+  Future<List<AdminAuditLogEntry>> adminAuditLog({int limit = 100}) async {
+    final rows = _decode(await _request('GET', '/mail/admin/audit-log', query: {'limit': limit}))
+        as List<dynamic>;
+    return rows
+        .map((row) => AdminAuditLogEntry.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<MailDraft>> drafts() async {
     final rows =
         _decode(await _request('GET', '/mail/drafts')) as List<dynamic>;

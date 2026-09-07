@@ -6,6 +6,7 @@ class MailAccount {
     required this.cacheTtlDays,
     this.avatarUrl,
     this.signature,
+    this.role = 'member',
   });
 
   final String id;
@@ -14,6 +15,9 @@ class MailAccount {
   final String? avatarUrl;
   final int cacheTtlDays;
   final String? signature;
+  final String role;
+
+  bool get isAdmin => role == 'admin';
 
   factory MailAccount.fromJson(Map<String, dynamic> json) => MailAccount(
         id: json['id'] as String,
@@ -22,6 +26,135 @@ class MailAccount {
         avatarUrl: json['avatar_url'] as String?,
         cacheTtlDays: json['cache_ttl_days'] as int? ?? 30,
         signature: json['signature'] as String?,
+        role: json['role'] as String? ?? 'member',
+      );
+}
+
+/// A member's own password/display-name/avatar change awaiting admin
+/// approval - mirrors the web client's equivalent under Settings.
+class MailChangeRequest {
+  const MailChangeRequest({
+    required this.id,
+    required this.requestType,
+    required this.status,
+    this.rejectionReason,
+    required this.createdAt,
+    this.resolvedAt,
+  });
+  final String id;
+  final String requestType;
+  final String status;
+  final String? rejectionReason;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+
+  factory MailChangeRequest.fromJson(Map<String, dynamic> json) => MailChangeRequest(
+        id: json['id'] as String,
+        requestType: json['request_type'] as String,
+        status: json['status'] as String,
+        rejectionReason: json['rejection_reason'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        resolvedAt: json['resolved_at'] != null ? DateTime.parse(json['resolved_at'] as String) : null,
+      );
+}
+
+/// One row in the admin panel's mailbox list - lighter than [MailAccount]
+/// (no signature/cache settings, but adds is_active/last_connected_at).
+class AdminAccountSummary {
+  const AdminAccountSummary({
+    required this.id,
+    required this.address,
+    required this.displayName,
+    required this.role,
+    required this.isActive,
+    this.avatarUrl,
+    this.lastConnectedAt,
+  });
+  final String id;
+  final String address;
+  final String displayName;
+  final String? avatarUrl;
+  final String role;
+  final bool isActive;
+  final DateTime? lastConnectedAt;
+
+  factory AdminAccountSummary.fromJson(Map<String, dynamic> json) => AdminAccountSummary(
+        id: json['id'] as String,
+        address: json['address'] as String,
+        displayName: json['display_name'] as String? ?? '',
+        avatarUrl: json['avatar_url'] as String?,
+        role: json['role'] as String? ?? 'member',
+        isActive: json['is_active'] as bool? ?? true,
+        lastConnectedAt:
+            json['last_connected_at'] != null ? DateTime.parse(json['last_connected_at'] as String) : null,
+      );
+}
+
+/// One pending change request as the admin panel sees it - includes which
+/// mailbox it's for and (for display_name/avatar) a preview of the
+/// requested value; a pending password never appears here in plain text.
+class AdminChangeRequest {
+  const AdminChangeRequest({
+    required this.id,
+    required this.accountId,
+    required this.accountAddress,
+    required this.requestType,
+    required this.status,
+    this.preview,
+    this.rejectionReason,
+    required this.createdAt,
+    this.resolvedAt,
+    this.resolvedByAddress,
+  });
+  final String id;
+  final String accountId;
+  final String accountAddress;
+  final String requestType;
+  final String? preview;
+  final String status;
+  final String? rejectionReason;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+  final String? resolvedByAddress;
+
+  factory AdminChangeRequest.fromJson(Map<String, dynamic> json) => AdminChangeRequest(
+        id: json['id'] as String,
+        accountId: json['account_id'] as String,
+        accountAddress: json['account_address'] as String,
+        requestType: json['request_type'] as String,
+        preview: json['preview'] as String?,
+        status: json['status'] as String,
+        rejectionReason: json['rejection_reason'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        resolvedAt: json['resolved_at'] != null ? DateTime.parse(json['resolved_at'] as String) : null,
+        resolvedByAddress: json['resolved_by_address'] as String?,
+      );
+}
+
+/// One row in the admin panel's audit trail.
+class AdminAuditLogEntry {
+  const AdminAuditLogEntry({
+    required this.id,
+    this.actorAddress,
+    this.targetAddress,
+    required this.action,
+    this.detail,
+    required this.createdAt,
+  });
+  final String id;
+  final String? actorAddress;
+  final String? targetAddress;
+  final String action;
+  final String? detail;
+  final DateTime createdAt;
+
+  factory AdminAuditLogEntry.fromJson(Map<String, dynamic> json) => AdminAuditLogEntry(
+        id: json['id'] as String,
+        actorAddress: json['actor_address'] as String?,
+        targetAddress: json['target_address'] as String?,
+        action: json['action'] as String,
+        detail: json['detail'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String),
       );
 }
 

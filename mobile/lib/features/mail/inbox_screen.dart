@@ -11,6 +11,7 @@ import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../core/thread_utils.dart';
 import '../auth/login_screen.dart';
+import '../settings/admin_panel_screen.dart';
 import '../settings/settings_screen.dart';
 import 'compose_screen.dart';
 import 'organizer_screens.dart';
@@ -153,6 +154,7 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
           ? _SelectionAppBar(
               count: _selectedKeys.length,
               allSelected: _selectedKeys.length == state.messages.length,
+              canArchiveOrDelete: state.account?.isAdmin ?? true,
               onClose: _clearSelection,
               onSelectAll: () => setState(() {
                 if (_selectedKeys.length == state.messages.length) {
@@ -666,6 +668,7 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onMarkRead,
     required this.onArchive,
     required this.onDelete,
+    required this.canArchiveOrDelete,
   });
 
   final int count;
@@ -675,6 +678,7 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onMarkRead;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
+  final bool canArchiveOrDelete;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -693,14 +697,16 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
               tooltip: 'Mark as read',
               onPressed: onMarkRead,
               icon: const Icon(Icons.mark_email_read_outlined)),
-          IconButton(
-              tooltip: 'Archive',
-              onPressed: onArchive,
-              icon: const Icon(Icons.archive_outlined)),
-          IconButton(
-              tooltip: 'Delete',
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline)),
+          if (canArchiveOrDelete) ...[
+            IconButton(
+                tooltip: 'Archive',
+                onPressed: onArchive,
+                icon: const Icon(Icons.archive_outlined)),
+            IconButton(
+                tooltip: 'Delete',
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline)),
+          ],
         ],
       );
 }
@@ -847,7 +853,9 @@ class _MessageTile extends StatelessWidget {
         ),
       ),
     );
-    if (selectionMode) return row;
+    // Member mailboxes can't archive or delete (the backend 403s these too)
+    // - skip the swipe gesture entirely rather than let it fail silently.
+    if (selectionMode || !(state.account?.isAdmin ?? true)) return row;
 
     return Dismissible(
       key: ValueKey('${message.folder}-${message.uid}'),
@@ -1019,6 +1027,16 @@ class _MailboxDrawer extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const DraftsScreen()));
           },
         ),
+        if (state.account?.isAdmin ?? false)
+          ListTile(
+            leading: const Icon(Icons.shield_outlined),
+            title: const Text('Admin panel'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()));
+            },
+          ),
         ListTile(
           leading: const Icon(Icons.settings_outlined),
           title: const Text('Settings'),

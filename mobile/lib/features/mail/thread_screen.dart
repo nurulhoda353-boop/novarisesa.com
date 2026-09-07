@@ -184,6 +184,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final latest = _summaries.last;
+    // Member mailboxes can't archive or delete (the backend 403s these
+    // too) - snooze stays available, it's a personal productivity feature
+    // like mail rules/contacts/drafts, not one of the restricted actions.
+    final canArchiveOrDelete = context.watch<AppState>().account?.isAdmin ?? true;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -196,14 +200,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
               tooltip: 'Snooze',
               onPressed: _snoozeThread,
               icon: const Icon(Icons.snooze_outlined)),
-          IconButton(
-              tooltip: 'Archive',
-              onPressed: _archiveThread,
-              icon: const Icon(Icons.archive_outlined)),
-          IconButton(
-              tooltip: 'Delete',
-              onPressed: _deleteThread,
-              icon: const Icon(Icons.delete_outline)),
+          if (canArchiveOrDelete) ...[
+            IconButton(
+                tooltip: 'Archive',
+                onPressed: _archiveThread,
+                icon: const Icon(Icons.archive_outlined)),
+            IconButton(
+                tooltip: 'Delete',
+                onPressed: _deleteThread,
+                icon: const Icon(Icons.delete_outline)),
+          ],
         ],
       ),
       body: Column(

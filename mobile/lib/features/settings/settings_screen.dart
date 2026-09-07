@@ -39,8 +39,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final file = await ImagePicker().pickImage(
         source: ImageSource.gallery, imageQuality: 88, maxWidth: 1200);
     if (file == null || !mounted) return;
+    final state = context.read<AppState>();
+    final beforeUrl = state.account?.avatarUrl;
     try {
-      await context.read<AppState>().updateAvatar(file.path);
+      await state.updateAvatar(file.path);
+      if (mounted) {
+        final changed = state.account?.avatarUrl != beforeUrl;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                changed ? 'Photo updated' : 'Photo sent for admin approval')));
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -50,15 +58,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _save() async {
+    final state = context.read<AppState>();
+    final account = state.account!;
+    final isMember = !account.isAdmin;
+    final nameChanged = _name.text.trim() != account.displayName;
     try {
-      await context.read<AppState>().updateProfile(
-            _name.text,
-            _cacheDays,
-            signature: _signature.text.trim().isEmpty ? null : _signature.text,
-          );
+      if (isMember && nameChanged) {
+        await state.requestChange('display_name', _name.text.trim());
+      }
+      await state.updateProfile(
+        isMember ? account.displayName : _name.text,
+        _cacheDays,
+        signature: _signature.text.trim().isEmpty ? null : _signature.text,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Profile saved')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(isMember && nameChanged
+              ? 'Name change sent for admin approval'
+              : 'Profile saved'),
+        ));
       }
     } catch (_) {
       if (mounted) {
@@ -292,53 +310,65 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Change mailbox password'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: current,
-                obscureText: true,
-                decoration:
-                    const InputDecoration(labelText: 'Current password')),
-            const SizedBox(height: 12),
-            TextField(
-                controller: next,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'New password')),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            ],
+  Widget build(BuildContext context) {
+    final isMember = !(context.read<AppState>().account?.isAdmin ?? true);
+    return AlertDialog(
+      title: Text(isMember ? 'Request a new password' : 'Change mailbox password'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isMember)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text('This needs admin approval before it takes effect.'),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextField(
+                  controller: current,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Current password')),
+            ),
+          TextField(
+              controller: next,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password')),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              if (next.text.length < 8) {
-                setState(() => _error = 'New password must be at least 8 characters');
-                return;
-              }
-              try {
-                await context
-                    .read<AppState>()
-                    .changePassword(current.text, next.text);
-                if (context.mounted) Navigator.pop(context);
-              } on ApiException catch (error) {
-                setState(() => _error = error.message);
-              } catch (_) {
-                setState(() => _error = 'Could not update the password');
-              }
-            },
-            child: const Text('Update'),
-          ),
         ],
-      );
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () async {
+            if (next.text.length < 8) {
+              setState(() => _error = 'New password must be at least 8 characters');
+              return;
+            }
+            try {
+              if (isMember) {
+                await context.read<AppState>().requestChange('password', next.text);
+              } else {
+                await context.read<AppState>().changePassword(current.text, next.text);
+              }
+              if (context.mounted) Navigator.pop(context);
+            } on ApiException catch (error) {
+              setState(() => _error = error.message);
+            } catch (_) {
+              setState(() => _error = 'Could not update the password');
+            }
+          },
+          child: Text(isMember ? 'Send request' : 'Update'),
+        ),
+      ],
+    );
+  }
 }
 
 class _ManagementScreen extends StatefulWidget {

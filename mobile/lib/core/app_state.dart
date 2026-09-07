@@ -92,6 +92,20 @@ class AppState extends ChangeNotifier {
     });
   }
 
+  /// Admin-only: switches straight into another mailbox without its
+  /// password (see the Admin panel). Reuses the same saved-account
+  /// storage a manual login does, so switching back later (or via the
+  /// account switcher) works exactly the same way.
+  Future<void> adminSwitchTo(String accountId) async {
+    await _guard(() async {
+      _teardownMailbox();
+      final session = await api.adminSwitchTo(accountId);
+      account = session.account;
+      await _loadMailbox();
+      savedAccounts = await api.savedAccountAddresses();
+    });
+  }
+
   /// Switches the active session to another saved account (see "Add
   /// account" / the account switcher). Returns false if that account's
   /// saved refresh token has since expired, in which case it's dropped from
@@ -400,6 +414,13 @@ class AppState extends ChangeNotifier {
     await _guard(() async {
       account = await api.uploadAvatar(path);
     });
+  }
+
+  /// A member's own request to change their password or display name -
+  /// only an admin approving it (see adminSwitchTo/adminSetPassword and
+  /// the Admin panel's Requests tab) actually applies it.
+  Future<void> requestChange(String requestType, String value) async {
+    await _guard(() => api.requestChange(requestType, value));
   }
 
   Future<void> changePassword(
