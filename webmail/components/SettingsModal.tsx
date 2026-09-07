@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, X } from "lucide-react";
+import { Plus, Star, Trash2, X } from "lucide-react";
 import * as api from "@/lib/api";
-import type { AliasInfo, AutoreplyInfo, ForwarderInfo, MailAccount, MailRuleInfo } from "@/lib/types";
+import type { AliasInfo, AutoreplyInfo, ContactInfo, ForwarderInfo, MailAccount, MailRuleInfo } from "@/lib/types";
+import { initials } from "@/lib/format";
 import { useToast } from "@/lib/toast";
 
-type Tab = "profile" | "security" | "aliases" | "forwarders" | "autoreply" | "rules";
+type Tab = "profile" | "security" | "contacts" | "aliases" | "forwarders" | "autoreply" | "rules";
 
 export function SettingsModal({
   account,
@@ -30,7 +31,7 @@ export function SettingsModal({
           </button>
         </div>
         <div className="modal-tabs">
-          {(["profile", "security", "aliases", "forwarders", "autoreply", "rules"] as Tab[]).map((item) => (
+          {(["profile", "security", "contacts", "aliases", "forwarders", "autoreply", "rules"] as Tab[]).map((item) => (
             <button key={item} className={`modal-tab ${tab === item ? "active" : ""}`} onClick={() => setTab(item)}>
               {labelFor(item)}
             </button>
@@ -39,6 +40,7 @@ export function SettingsModal({
         <div className="modal-body">
           {tab === "profile" && <ProfileTab account={account} onAccountUpdated={onAccountUpdated} />}
           {tab === "security" && <SecurityTab />}
+          {tab === "contacts" && <ContactsTab />}
           {tab === "aliases" && <AliasesTab />}
           {tab === "forwarders" && <ForwardersTab />}
           {tab === "autoreply" && <AutoreplyTab />}
@@ -53,6 +55,7 @@ function labelFor(tab: Tab): string {
   return {
     profile: "Profile",
     security: "Security",
+    contacts: "Contacts",
     aliases: "Aliases",
     forwarders: "Forwarders",
     autoreply: "Auto-reply",
@@ -64,6 +67,7 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
   const [displayName, setDisplayName] = useState(account.display_name);
   const [signature, setSignature] = useState(account.signature ?? "");
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const toast = useToast();
 
   async function save() {
@@ -79,8 +83,33 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
     }
   }
 
+  async function pickAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const updated = await api.uploadAvatar(file);
+      onAccountUpdated(updated);
+      toast.show("Profile photo updated");
+    } catch {
+      toast.show("Could not upload that photo");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
   return (
     <div>
+      <div className="form-group" style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div className="avatar lg">
+          {account.avatar_url ? <img src={account.avatar_url} alt="" /> : initials(account.display_name, account.address)}
+        </div>
+        <label className="btn btn-secondary sm" style={{ cursor: "pointer" }}>
+          {uploadingAvatar ? "Uploading…" : "Change photo"}
+          <input type="file" accept="image/*" onChange={pickAvatar} disabled={uploadingAvatar} hidden />
+        </label>
+      </div>
       <div className="form-group">
         <label>Email address</label>
         <input className="form-input" value={account.address} disabled />
@@ -134,6 +163,91 @@ function SecurityTab() {
       <button className="btn btn-primary" onClick={submit} disabled={saving || !currentPassword || newPassword.length < 8}>
         {saving ? "Updating…" : "Change password"}
       </button>
+    </div>
+  );
+}
+
+function ContactsTab() {
+  const [contacts, setContacts] = useState<ContactInfo[] | null>(null);
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const toast = useToast();
+
+  useEffect(() => {
+    api.listContacts().then(setContacts).catch(() => setContacts([]));
+  }, []);
+
+  async function add() {
+    if (!email.trim()) return;
+    try {
+      const created = await api.createContact({ email: email.trim(), display_name: displayName.trim() });
+      setContacts((prev) => [...(prev ?? []), created]);
+      setEmail("");
+      setDisplayName("");
+    } catch {
+      toast.show("Could not save that contact");
+    }
+  }
+
+  async function toggleFavorite(contact: ContactInfo) {
+    try {
+      const updated = await api.updateContact(contact.id, {
+        display_name: contact.display_name,
+        phone: contact.phone,
+        company: contact.company,
+        is_favorite: !contact.is_favorite,
+      });
+      setContacts((prev) => (prev ?? []).map((item) => (item.id === contact.id ? updated : item)));
+    } catch {
+      toast.show("Could not update that contact");
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await api.deleteContact(id);
+      setContacts((prev) => (prev ?? []).filter((item) => item.id !== id));
+    } catch {
+      toast.show("Could not remove that contact");
+    }
+  }
+
+  if (contacts === null) return <p>Loading…</p>;
+
+  return (
+    <div>
+      <div className="form-row" style={{ marginBottom: 18 }}>
+        <input
+          className="form-input"
+          placeholder="Name"
+          value={displayName}
+          onChange={(event) => setDisplayName(event.target.value)}
+        />
+        <input
+          className="form-input"
+          placeholder="name@example.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        <button className="btn btn-secondary" onClick={add}>
+          <Plus size={15} /> Add
+        </button>
+      </div>
+      {contacts.length === 0 && <p className="form-hint">No saved contacts yet.</p>}
+      {contacts.map((contact) => (
+        <div className="list-item-row" key={contact.id}>
+          <button className="icon-btn" onClick={() => toggleFavorite(contact)} title={contact.is_favorite ? "Unstar" : "Star"}>
+            <Star size={16} fill={contact.is_favorite ? "var(--star)" : "none"} color={contact.is_favorite ? "var(--star)" : undefined} />
+          </button>
+          <div className="grow">
+            <strong>{contact.display_name || contact.email}</strong>
+            <span>{contact.email}</span>
+          </div>
+          <button className="icon-btn" onClick={() => remove(contact.id)}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

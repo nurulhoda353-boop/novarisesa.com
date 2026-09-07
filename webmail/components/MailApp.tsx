@@ -26,6 +26,33 @@ const PAGE_SIZE = 30;
 const SPLIT_MODE_KEY = "novamail-split-mode";
 const UNDO_SEND_MS = 5000;
 
+// Offline fallback: the mobile app already caches each folder's plain
+// (no search/filter) message list and falls back to it when a load fails,
+// so a user who loses connectivity still sees their last-known mail
+// instead of a blank error. Mirrors that here for web parity.
+function messageCacheKey(address: string, folder: string): string {
+  return `novamail-cache-${address}-${folder}`;
+}
+
+function cacheMessages(address: string, folder: string, data: MailMessageSummary[]): void {
+  try {
+    window.localStorage.setItem(messageCacheKey(address, folder), JSON.stringify(data));
+  } catch {
+    // Caching is a convenience, never let it disrupt a successful load.
+  }
+}
+
+function loadCachedMessages(address: string, folder: string): MailMessageSummary[] | null {
+  try {
+    const raw = window.localStorage.getItem(messageCacheKey(address, folder));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MailMessageSummary[];
+    return parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export type SplitMode = "none" | "right";
 
 function imapFolderFor(key: string): string {
@@ -69,6 +96,7 @@ function MailAppInner() {
   const [draftsRefreshKey, setDraftsRefreshKey] = useState(0);
   const [snoozeCount, setSnoozeCount] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
+  const [offline, setOffline] = useState(false);
 
   const [composeWindows, setComposeWindows] = useState<ComposeWindowHandle[]>([]);
   const composeCounter = useRef(0);
@@ -97,8 +125,15 @@ function MailAppInner() {
       if (folder === SYSTEM_FOLDERS.drafts) return;
       const setBusy = options.append ? setLoadingMore : setLoading;
       setBusy(true);
+      const activeFilterSet = options.filters ?? EMPTY_FILTERS;
+      const isPlainView =
+        !options.append &&
+        !options.q &&
+        !activeFilterSet.from_contains &&
+        !activeFilterSet.has_attachment &&
+        !activeFilterSet.since &&
+        !activeFilterSet.before;
       try {
-        const activeFilterSet = options.filters ?? EMPTY_FILTERS;
         const result = await api.listMessages({
           folder: imapFolderFor(folder),
           limit: PAGE_SIZE,
@@ -112,13 +147,25 @@ function MailAppInner() {
         });
         setMessages((prev) => (options.append ? [...prev, ...result.data] : result.data));
         setNextBeforeUid(result.next_before_uid);
+        setOffline(false);
+        if (isPlainView && account) cacheMessages(account.address, folder, result.data);
       } catch {
+        if (isPlainView && account) {
+          const cached = loadCachedMessages(account.address, folder);
+          if (cached) {
+            setMessages(cached);
+            setNextBeforeUid(null);
+            setOffline(true);
+            toast.show("You're offline — showing saved mail");
+            return;
+          }
+        }
         toast.show("Could not load messages");
       } finally {
         setBusy(false);
       }
     },
-    [toast],
+    [toast, account],
   );
 
   const refreshCurrent = useCallback(() => {
@@ -550,6 +597,9 @@ function MailAppInner() {
           onCompose={() => openCompose({ mode: "new" })}
         />
         <div className="main-panel">
+          {offline && activeFolder !== SYSTEM_FOLDERS.drafts && (
+            <div className="offline-banner">You&apos;re offline — showing your last saved mail.</div>
+          )}
           {activeFolder === SYSTEM_FOLDERS.drafts ? (
             <DraftsList onOpenDraft={openCompose} refreshKey={draftsRefreshKey} />
           ) : splitMode === "right" ? (
