@@ -1,4 +1,5 @@
 import base64
+import html as html_lib
 import imaplib
 import re
 import smtplib
@@ -100,7 +101,7 @@ def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | No
     message = BytesParser(policy=policy.default).parsebytes(raw)
     text, html, attachments = _body_parts(message)
     html_without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", html or "")
-    preview_source = text or re.sub(r"<[^>]+>", " ", html_without_style)
+    preview_source = text or html_lib.unescape(re.sub(r"<[^>]+>", " ", html_without_style))
     preview = re.sub(r"\s+", " ", preview_source).strip()[:220]
     senders = _addresses(message, ["From"])
     return {
