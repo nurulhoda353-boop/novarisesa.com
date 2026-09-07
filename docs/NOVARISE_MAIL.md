@@ -84,6 +84,25 @@ watcher registry, this loop is per-process — scaling the API to multiple
 workers would double-process due snoozes without adding a shared lock
 (e.g. a Postgres advisory lock) first.
 
+## Web client
+
+`webmail/` is a separate Next.js app (own `package.json`/Dockerfile,
+deployed as the Coolify app `novamail-web` at `mail.novarisesa.com`) that
+is purely a frontend against the same `/mail/*` API the mobile app uses —
+no server-side changes were needed beyond the two below. It stores the
+access token in memory and the refresh token in `localStorage` per saved
+account (mirroring the mobile app's secure-storage multi-account model),
+and reuses `/mail/ws` for real-time push.
+
+Two small API changes exist only to support the web client:
+- `GET /mail/messages` takes a `starred` query param (IMAP `FLAGGED`
+  search) — used for the Starred view, since browsers have no equivalent
+  of the mobile app's per-row star icon as a dedicated screen.
+- `/mail/ws` (and the shared mobile-auth dependency behind it) accepts the
+  access token via an `access_token` query parameter as well as the
+  `Authorization` header, because a browser's native WebSocket API cannot
+  set custom headers on the handshake.
+
 ## Release checklist
 
 1. Apply Alembic migrations `20260904_0010` through `20260905_0012`.

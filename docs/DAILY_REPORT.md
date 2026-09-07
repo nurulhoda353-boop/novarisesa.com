@@ -332,6 +332,27 @@ All future website, dashboard, API, schema, content, build, addition, and remova
 
 ---
 
+## 2026-09-07 (সোমবার)
+
+### Done
+- **Novamail ওয়েব ভার্সন** (`mail.novarisesa.com`) — মোবাইল অ্যাপের একই প্রিমিয়াম ব্র্যান্ড ডিজাইনে (হালকা+ডার্ক, `#3563E9`/`#0B1739`) সম্পূর্ণ নতুন Next.js webmail ক্লায়েন্ট, বিদ্যমান `/mail/*` ব্যাকএন্ড API-ই ব্যবহার করে। ফিচার: Gmail-স্টাইল ইনবক্স + conversation view, floating compose dock (rich-text টুলবার, একাধিক অ্যাটাচমেন্ট, Cc/Bcc), Star/Archive/Spam/Trash/Snooze, সার্চ, Draft সেভ, মাল্টি-অ্যাকাউন্ট সুইচার, `/mail/ws`-এর মাধ্যমে রিয়েল-টাইম push, এবং Settings মডালে Profile/Security/Aliases/Forwarders/Auto-reply ম্যানেজমেন্ট।
+- ব্যাকএন্ডে সহায়ক পরিবর্তন: IMAP `FLAGGED` সার্চ দিয়ে Starred ভিউ, `move()`-এ গন্তব্য ফোল্ডার না থাকলে অটো-তৈরি (Archive ফোল্ডারের জন্য দরকার), এবং `/mail/ws`-এ ব্রাউজারের জন্য query-param টোকেন ফলব্যাক (ব্রাউজার WebSocket handshake-এ কাস্টম হেডার পাঠানো যায় না)।
+- **Deploy pipeline**: Cloudflare-এ `mail.novarisesa.com` DNS রেকর্ড, নতুন Coolify অ্যাপ (`novamail-web`, `/webmail` ডিরেক্টরি, নিজস্ব Dockerfile), `novarise-api`-তে CORS origin যোগ — সব Coolify API দিয়ে তৈরি ও যাচাই করা।
+- **লাইভ E2E টেস্ট (Playwright, headless Chromium)** প্রোডাকশন সাইটে সরাসরি চালিয়ে লগইন → ইনবক্স → কম্পোজ → রিয়েল ইমেইল সেন্ড (SMTP + Sent ফোল্ডার কনফার্ম) → সবকটা ফোল্ডার → Settings — স্ক্রিনশট দিয়ে ভিজ্যুয়াল যাচাই সহ। এই প্রক্রিয়ায় ৩টা আসল প্রোডাকশন বাগ ধরা পড়েছে ও ফিক্স করা হয়েছে:
+  1. Hostinger Management API (aliases/forwarders/auto-reply) Cloudflare bot-protection-এ আটকে যাচ্ছিল কারণ Python-এর ডিফল্ট `urllib` user-agent ব্লকড ছিল (Error 1010) — এতদিন silently ৫০৩ দিত, মোবাইল অ্যাপেও এই বাগ ছিল। ব্রাউজার-সদৃশ User-Agent যোগ করে ফিক্সড।
+  2. আগে কখনো আর্কাইভ/স্নুজ করা হয়নি এমন মেইলবক্সে Archive/Snoozed ফোল্ডার ভিউ করলে ৫০২ এরর দিত (ফোল্ডার তখনও তৈরি হয়নি) — এখন প্রথমবার দেখলে খালি দেখায়।
+  3. HTML-only ইমেইল (ইনলাইন `<style>` ব্লক সহ) প্রিভিউ টেক্সটে raw CSS দেখাচ্ছিল — regex ফিক্স + HTML entity unescape।
+- **নতুন ৫টা Hostinger মেইলবক্স তৈরি** (৮/৮ সিট পূর্ণ): `shamim@`, `rabbani@`, `rony@`, `abdulmomin@`, `mostafizur@novarisesa.com` — ইউজারের দেওয়া নাম ও পাসওয়ার্ড অনুযায়ী, Hostinger Management API দিয়ে সরাসরি তৈরি ও কনফার্ম করা।
+
+### Tomorrow — planned
+- Google Workspace মেইলবক্স ইন্টিগ্রেশন এখনও বাকি (আগের দিন থেকে ডেফার করা, ইউজার এখনও রেডি জানাননি)।
+
+### Notes
+- সব কমিট GitHub `main`-এ পুশ করা হয়েছে (`3694e7e`, `5ba8a66`, `88c0f44`, `1b79cb1`); প্রতিটা ডিপ্লয় Coolify API দিয়ে পোল করে "finished" + `running:healthy` কনফার্ম করার পরই পরের ধাপে যাওয়া হয়েছে।
+- Webmail-এর `package.json`/`package-lock.json` কমিট করা হয়েছে; টেস্টিং-এর জন্য লোকালি বসানো Playwright `--no-save`-এ ইনস্টল করা হয়েছিল বলে লকফাইলে যায়নি।
+
+---
+
 ## Template (পরের দিন কপি করে ব্যবহার করো)
 
 ```markdown
