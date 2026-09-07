@@ -563,19 +563,21 @@ html.dark .form-input, html.dark .form-textarea { background: var(--surface2); }
 .login-footer { text-align: center; font-size: 11.5px; color: var(--muted2); margin-top: 22px; }
 
 /* ============================================================
-   LOGIN — full-page splash: a fixed premium dark presentation
-   (brand blue glow + grid), independent of the light/dark toggle,
-   the way a sign-in gateway usually carries its own fixed tone.
+   LOGIN — full-page splash: a fixed premium dark presentation,
+   independent of the light/dark toggle, the way a sign-in gateway
+   usually carries its own fixed tone. Layout mirrors the reference
+   grid-panel composition; colors are NOVARISE's own navy + gold
+   (the icon's colors), not a borrowed palette.
    ============================================================ */
 .login-screen {
   position: relative;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: 1fr auto auto 1.4fr;
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   padding: 24px;
-  background: #05070e;
+  background: #060911;
   overflow: hidden;
   color: #fff;
 }
@@ -583,37 +585,39 @@ html.dark .form-input, html.dark .form-textarea { background: var(--surface2); }
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  background-size: 64px 64px;
-  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 42%, black 35%, transparent 92%);
-  mask-image: radial-gradient(ellipse 75% 65% at 50% 42%, black 35%, transparent 92%);
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 120px 120px;
   pointer-events: none;
 }
 .login-glow {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(120px);
   pointer-events: none;
-  opacity: 0.55;
 }
-.login-glow-a { width: 560px; height: 560px; background: #3563e9; top: -180px; left: -140px; }
-.login-glow-b { width: 480px; height: 480px; background: #5b8df7; bottom: -180px; right: -120px; opacity: 0.35; }
+.login-glow-a { width: 620px; height: 620px; background: #1c335c; opacity: 0.65; bottom: -220px; left: -180px; }
+.login-glow-b { width: 560px; height: 560px; background: #dfa247; opacity: 0.22; top: -160px; right: -160px; }
 
-.login-content {
+.login-brand {
   position: relative;
   z-index: 1;
-  width: 100%;
-  max-width: 420px;
+  grid-row: 2;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 12px;
 }
-.login-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 60px; }
-.login-brand img { width: 40px; height: 40px; border-radius: 10px; box-shadow: 0 8px 24px rgba(53, 99, 233, 0.5); }
+.login-brand img { width: 40px; height: 40px; border-radius: 10px; box-shadow: 0 8px 24px rgba(223, 162, 71, 0.35); }
 .login-brand span { font-size: 23px; font-weight: 700; color: #fff; letter-spacing: -0.01em; }
 
-.login-panel { width: 100%; }
+.login-panel {
+  position: relative;
+  z-index: 1;
+  grid-row: 3;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 48px;
+}
 .login-panel h2 { font-size: 19px; font-weight: 600; color: #fff; margin-bottom: 22px; letter-spacing: -0.01em; }
 .login-panel form { display: flex; flex-direction: column; gap: 14px; }
 .login-panel input {
@@ -629,20 +633,21 @@ html.dark .form-input, html.dark .form-textarea { background: var(--surface2); }
   transition: border-color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast);
 }
 .login-panel input::placeholder { color: rgba(255, 255, 255, 0.38); }
-.login-panel input:focus { border-color: rgba(91, 141, 247, 0.65); background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 3px rgba(53, 99, 233, 0.18); }
+.login-panel input:focus { border-color: rgba(223, 162, 71, 0.55); background: rgba(255, 255, 255, 0.08); box-shadow: 0 0 0 3px rgba(223, 162, 71, 0.14); }
 .login-submit {
   width: 100%;
   height: 50px;
   margin-top: 4px;
   border-radius: var(--r-pill);
-  background: var(--brand-gradient);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(223, 162, 71, 0.4);
   color: #fff;
   font-weight: 600;
   font-size: 14px;
-  box-shadow: 0 12px 32px rgba(53, 99, 233, 0.38);
-  transition: transform var(--t-fast), box-shadow var(--t-fast), opacity var(--t-fast);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast), opacity var(--t-fast);
 }
-.login-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 16px 38px rgba(53, 99, 233, 0.46); }
+.login-submit:hover:not(:disabled) { transform: translateY(-1px); background: rgba(223, 162, 71, 0.16); border-color: rgba(223, 162, 71, 0.6); }
 .login-submit:active:not(:disabled) { transform: translateY(0); }
 .login-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 .login-error-dark {

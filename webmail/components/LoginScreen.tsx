@@ -78,35 +78,33 @@ export function LoginScreen({
       <div className="login-grid" aria-hidden />
       <div className="login-glow login-glow-a" aria-hidden />
       <div className="login-glow login-glow-b" aria-hidden />
-      <div className="login-content">
-        <div className="login-brand">
-          <img src="/novamail-icon.png" alt="Novamail" />
-          <span>Novamail</span>
-        </div>
-        <div className="login-panel">
-          <h2>Sign in to your account</h2>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoFocus
-              autoComplete="username"
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-            />
-            {error && <div className="login-error-dark">{error}</div>}
-            <button type="submit" className="login-submit" disabled={loading || !email || !password}>
-              {loading ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-        </div>
+      <div className="login-brand">
+        <img src="/novamail-icon.png" alt="Novamail" />
+        <span>Novamail</span>
+      </div>
+      <div className="login-panel">
+        <h2>Sign in to your account</h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            autoFocus
+            autoComplete="username"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+          />
+          {error && <div className="login-error-dark">{error}</div>}
+          <button type="submit" className="login-submit" disabled={loading || !email || !password}>
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
         <p className="login-footer-dark">The NOVARISE email workspace</p>
       </div>
     </main>
