@@ -1,9 +1,13 @@
+import asyncio
 import base64
 import html as html_lib
 import imaplib
+import logging
 import re
 import smtplib
 import ssl
+import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from datetime import UTC, date, datetime
@@ -16,9 +20,94 @@ from typing import Any
 
 from app.core.config import settings
 
+logger = logging.getLogger("novarise.mail_client")
+
 
 class MailConnectionError(Exception):
     pass
+
+
+# ---------------------------------------------------------------------------
+# IMAP connection pool
+#
+# Every mailbox operation used to open a brand-new IMAP4_SSL connection (TLS
+# handshake + LOGIN) and log out again when it was done — correct, but a
+# ~0.8-1s round trip to Hostinger on *every single request*, which is what
+# made the web/mobile clients feel sluggish. This keeps at most one live,
+# already-authenticated connection open per mailbox address, reused across
+# requests; a per-account lock serializes access to it (IMAP has no concept
+# of concurrent commands on one connection anyway). In-memory/per-process,
+# like the IMAP IDLE watcher registry and the snooze scheduler — correct for
+# a single API worker.
+# ---------------------------------------------------------------------------
+
+
+class _PooledConnection:
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.client: imaplib.IMAP4_SSL | None = None
+        self.last_used: float = 0.0
+
+
+_pool: dict[str, _PooledConnection] = {}
+_pool_registry_lock = threading.Lock()
+STALE_CHECK_AFTER_SECONDS = 20
+IDLE_CLOSE_AFTER_SECONDS = 300
+
+
+def _pooled_connection(address: str) -> _PooledConnection:
+    with _pool_registry_lock:
+        entry = _pool.get(address)
+        if entry is None:
+            entry = _PooledConnection()
+            _pool[address] = entry
+        return entry
+
+
+def close_idle_imap_connections(max_idle_seconds: float = IDLE_CLOSE_AFTER_SECONDS) -> None:
+    """Closes pooled connections nobody has used in a while, so a mailbox a
+    user stopped actively viewing doesn't hold an authenticated IMAP session
+    open on Hostinger's server forever."""
+    now = time.monotonic()
+    with _pool_registry_lock:
+        entries = list(_pool.items())
+    for address, entry in entries:
+        if not entry.lock.acquire(blocking=False):
+            continue
+        try:
+            if entry.client is not None and now - entry.last_used > max_idle_seconds:
+                with suppress(Exception):
+                    entry.client.logout()
+                entry.client = None
+        finally:
+            entry.lock.release()
+
+
+def close_all_imap_connections() -> None:
+    with _pool_registry_lock:
+        entries = list(_pool.values())
+    for entry in entries:
+        with entry.lock:
+            if entry.client is not None:
+                with suppress(Exception):
+                    entry.client.logout()
+                entry.client = None
+
+
+POOL_MAINTENANCE_INTERVAL_SECONDS = 60
+
+
+async def imap_pool_maintenance_loop() -> None:
+    """Runs for the lifetime of the app; started/cancelled from app.main's
+    lifespan, alongside the snooze scheduler and the IMAP IDLE watcher
+    registry it's modeled on. Periodically sweeps the connection pool for
+    entries idle past IDLE_CLOSE_AFTER_SECONDS and closes them."""
+    while True:
+        try:
+            await asyncio.to_thread(close_idle_imap_connections)
+        except Exception:  # noqa: BLE001 - one bad sweep must never kill the loop
+            logger.exception("IMAP pool maintenance sweep failed")
+        await asyncio.sleep(POOL_MAINTENANCE_INTERVAL_SECONDS)
 
 
 def _decode_header(value: str | None) -> str:
@@ -142,9 +231,7 @@ class HostingerMailboxClient:
         self.address = address
         self.password = password
 
-    @contextmanager
-    def imap(self) -> Iterator[imaplib.IMAP4_SSL]:
-        client: imaplib.IMAP4_SSL | None = None
+    def _connect(self) -> imaplib.IMAP4_SSL:
         try:
             client = imaplib.IMAP4_SSL(
                 settings.MAIL_IMAP_HOST,
@@ -153,13 +240,38 @@ class HostingerMailboxClient:
                 timeout=20,
             )
             client.login(self.address, self.password)
-            yield client
         except (imaplib.IMAP4.error, OSError, ssl.SSLError) as exc:
             raise MailConnectionError("Could not authenticate or connect to the mailbox") from exc
-        finally:
-            if client is not None:
-                with suppress(imaplib.IMAP4.error, OSError):
+        return client
+
+    def _borrow(self, entry: _PooledConnection) -> imaplib.IMAP4_SSL:
+        if entry.client is not None:
+            if time.monotonic() - entry.last_used < STALE_CHECK_AFTER_SECONDS:
+                return entry.client
+            try:
+                entry.client.noop()
+                return entry.client
+            except Exception:  # noqa: BLE001 - any failure here just means "reconnect"
+                with suppress(Exception):
+                    entry.client.logout()
+                entry.client = None
+        entry.client = self._connect()
+        return entry.client
+
+    @contextmanager
+    def imap(self) -> Iterator[imaplib.IMAP4_SSL]:
+        entry = _pooled_connection(self.address)
+        with entry.lock:
+            client = self._borrow(entry)
+            try:
+                yield client
+            except (imaplib.IMAP4.error, OSError, ssl.SSLError) as exc:
+                with suppress(Exception):
                     client.logout()
+                entry.client = None
+                raise MailConnectionError("Could not authenticate or connect to the mailbox") from exc
+            else:
+                entry.last_used = time.monotonic()
 
     def verify(self) -> None:
         with self.imap() as client:
