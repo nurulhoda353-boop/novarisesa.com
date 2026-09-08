@@ -83,6 +83,14 @@ function MailAppInner() {
   const toast = useToast();
 
   const [activeFolder, setActiveFolder] = useState<string>(SYSTEM_FOLDERS.inbox);
+  // The websocket's onmessage closure below is only ever created once per
+  // connection (the effect deliberately doesn't depend on activeFolder -
+  // switching folders shouldn't reconnect the socket), so it needs a ref
+  // to read the *current* folder rather than the one open when connect()
+  // ran; otherwise "new mail" arriving after a folder switch keeps
+  // checking a stale value and picks the wrong branch (toast vs. reload).
+  const activeFolderRef = useRef(activeFolder);
+  activeFolderRef.current = activeFolder;
   const [folders, setFolders] = useState<FolderInfo[]>([]);
   const [messages, setMessages] = useState<MailMessageSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -238,7 +246,7 @@ function MailAppInner() {
           const payload = JSON.parse(event.data) as { type?: string };
           if (payload.type === "new_mail") {
             loadFolders();
-            if (activeFolder === SYSTEM_FOLDERS.inbox) {
+            if (activeFolderRef.current === SYSTEM_FOLDERS.inbox) {
               loadMessages(SYSTEM_FOLDERS.inbox);
             } else {
               toast.show("New mail arrived in your inbox", { actionLabel: "View", onAction: () => setActiveFolder(SYSTEM_FOLDERS.inbox) });
