@@ -1,5 +1,6 @@
 import asyncio
 import imaplib
+import inspect
 from datetime import UTC, datetime
 from email.message import EmailMessage
 
@@ -25,9 +26,25 @@ from app.schemas.mail import (
     MailRuleUpsert,
     SnoozeRequest,
 )
+from app.api.routes.mail import mail_events
 from app.services.mail_client import HostingerMailboxClient, _attachment_from_raw, _summary
 from app.services.mail_snooze import SNOOZE_FOLDER
 from app.services.mail_watcher import WatcherRegistry, rule_matches
+
+
+def test_mail_events_websocket_does_not_hold_a_request_scoped_db_session() -> None:
+    # Regression: mail_events used to declare `account: CurrentMailAccount`
+    # as a route parameter - FastAPI keeps that Depends(get_db) session
+    # checked out from the pool for the WebSocket's entire (deliberately
+    # long-lived, per the IMAP IDLE watcher) connection lifetime, which
+    # silently exhausted the pool as connections accumulated across
+    # devices (QueuePool limit ... overflow ... reached), surfacing as
+    # random 500s on totally unrelated endpoints - login included, since
+    # every DB-dependent route shares the same pool. It must only take
+    # the raw `websocket` and resolve the account with its own
+    # short-lived session instead (see _resolve_websocket_account).
+    params = inspect.signature(mail_events).parameters
+    assert list(params) == ["websocket"]
 
 
 def test_mail_credentials_are_encrypted_and_round_trip() -> None:

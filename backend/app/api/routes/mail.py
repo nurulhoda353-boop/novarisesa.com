@@ -23,7 +23,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import SessionLocal, get_db
 from app.core.mail_crypto import decrypt_mail_secret, encrypt_mail_secret
 from app.core.mobile_auth import CurrentAdminAccount, CurrentMailAccount, MobileUser
 from app.core.rate_limit import (
@@ -509,9 +509,56 @@ def list_my_change_requests(account: CurrentMailAccount, db: DBSession) -> list[
     )
 
 
+def _resolve_websocket_account(websocket: WebSocket) -> MailAccount | None:
+    """Mirrors get_mobile_user/get_mail_account's checks, but with its own
+    short-lived DB session instead of the request-scoped Depends(get_db)
+    one - a WebSocket dependency's session stays checked out from the pool
+    for the connection's entire lifetime (this one is deliberately
+    long-lived, per the IMAP IDLE design below), which was silently
+    exhausting the pool (QueuePool limit ... overflow ... reached) as
+    connections accumulated across devices. This function's session
+    closes the moment the account is resolved, before the long-lived loop
+    even starts. Accepts either the Authorization header (the mobile
+    app's IOWebSocketChannel sets a custom header just fine) or the
+    access_token query param (the only option a browser's native
+    WebSocket API allows on the handshake), matching get_mobile_user."""
+    authorization = websocket.headers.get("authorization")
+    token = (
+        authorization[7:]
+        if authorization and authorization.startswith("Bearer ")
+        else websocket.query_params.get("access_token")
+    )
+    if not token:
+        return None
+    try:
+        payload = decode_mobile_token(token, "access")
+        user_id = uuid.UUID(payload["sub"])
+        issued_at = datetime.fromtimestamp(payload["iat"], tz=UTC)
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        return None
+    with SessionLocal() as db:
+        user = db.scalar(select(User).where(User.id == user_id))
+        if not user or not user.is_active or user.deleted_at is not None:
+            return None
+        if user.password_changed_at and issued_at < user.password_changed_at:
+            return None
+        account = db.scalar(
+            select(MailAccount).where(
+                MailAccount.user_id == user.id, MailAccount.is_active.is_(True)
+            )
+        )
+        if account is not None:
+            db.expunge(account)
+        return account
+
+
 @router.websocket("/ws")
-async def mail_events(websocket: WebSocket, account: CurrentMailAccount) -> None:
+async def mail_events(websocket: WebSocket) -> None:
     """Push channel replacing Firebase: broadcasts "new_mail" the instant IMAP IDLE sees it."""
+    account = _resolve_websocket_account(websocket)
+    if account is None:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     try:
         password = decrypt_mail_secret(account.credential_ciphertext)
     except ValueError:

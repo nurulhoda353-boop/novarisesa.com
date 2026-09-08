@@ -260,8 +260,7 @@ class _RulesScreenState extends State<RulesScreen> {
     final fromContains = TextEditingController();
     final subjectContains = TextEditingController();
     final customLabel = TextEditingController();
-    var destinationPreset = _destinationPresets.first.$1;
-    var useCustom = false;
+    var selectedDestination = _destinationPresets.first.$1;
     final save = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -283,25 +282,27 @@ class _RulesScreenState extends State<RulesScreen> {
                         const InputDecoration(labelText: 'Subject contains')),
                 const SizedBox(height: 16),
                 const Text('Move matching mail to'),
-                for (final preset in _destinationPresets)
-                  RadioListTile<String>(
-                    contentPadding: EdgeInsets.zero,
-                    value: preset.$1,
-                    groupValue: useCustom ? null : destinationPreset,
-                    title: Text(preset.$2),
-                    onChanged: (value) => setDialogState(() {
-                      useCustom = false;
-                      destinationPreset = value!;
-                    }),
+                RadioGroup<String>(
+                  groupValue: selectedDestination,
+                  onChanged: (value) =>
+                      setDialogState(() => selectedDestination = value!),
+                  child: Column(
+                    children: [
+                      for (final preset in _destinationPresets)
+                        RadioListTile<String>(
+                          contentPadding: EdgeInsets.zero,
+                          value: preset.$1,
+                          title: Text(preset.$2),
+                        ),
+                      const RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: '__custom__',
+                        title: Text('Custom folder…'),
+                      ),
+                    ],
                   ),
-                RadioListTile<bool>(
-                  contentPadding: EdgeInsets.zero,
-                  value: true,
-                  groupValue: useCustom,
-                  title: const Text('Custom folder…'),
-                  onChanged: (_) => setDialogState(() => useCustom = true),
                 ),
-                if (useCustom)
+                if (selectedDestination == '__custom__')
                   TextField(
                       controller: customLabel,
                       decoration:
@@ -326,15 +327,15 @@ class _RulesScreenState extends State<RulesScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Add a From or Subject condition first')));
         }
-      } else if (useCustom && customLabel.text.trim().isEmpty) {
+      } else if (selectedDestination == '__custom__' && customLabel.text.trim().isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Name the custom folder first')));
         }
       } else {
-        final destination = useCustom
+        final destination = selectedDestination == '__custom__'
             ? 'INBOX.${customLabel.text.trim().replaceAll(RegExp(r'[^a-zA-Z0-9 _-]'), '').replaceAll(RegExp(r'\s+'), '-')}'
-            : destinationPreset;
+            : selectedDestination;
         try {
           await api.createRule(
             name: fromContains.text.trim().isNotEmpty
