@@ -575,6 +575,28 @@ class ApiClient {
         .toList();
   }
 
+  /// The rarer, explicit action that changes the real Hostinger mailbox
+  /// password (unlike [adminSetPassword], which only ever resets the
+  /// Novamail-only login) - the backend refuses this without confirm:true.
+  Future<void> adminSetHostingerPassword(String accountId, String newPassword) => _request(
+        'POST',
+        '/mail/admin/accounts/$accountId/hostinger-password',
+        body: {'new_password': newPassword, 'confirm': true},
+      );
+
+  Future<String> adminViewHostingerPassword(String accountId) async {
+    final body = _decode(await _request('GET', '/mail/admin/accounts/$accountId/hostinger-password'))
+        as Map<String, dynamic>;
+    return body['password'] as String;
+  }
+
+  Future<List<HostingerMailboxSummary>> adminHostingerMailboxes() async {
+    final rows = _decode(await _request('GET', '/mail/admin/hostinger-mailboxes')) as List<dynamic>;
+    return rows
+        .map((row) => HostingerMailboxSummary.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<MailDraft>> drafts() async {
     final rows =
         _decode(await _request('GET', '/mail/drafts')) as List<dynamic>;

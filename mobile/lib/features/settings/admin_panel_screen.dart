@@ -46,6 +46,7 @@ class _AccountsTab extends StatefulWidget {
 
 class _AccountsTabState extends State<_AccountsTab> {
   late Future<List<AdminAccountSummary>> _accounts;
+  late Future<List<HostingerMailboxSummary>> _hostingerMailboxes;
 
   @override
   void initState() {
@@ -53,7 +54,10 @@ class _AccountsTabState extends State<_AccountsTab> {
     _reload();
   }
 
-  void _reload() => _accounts = context.read<AppState>().api.adminAccounts();
+  void _reload() {
+    _accounts = context.read<AppState>().api.adminAccounts();
+    _hostingerMailboxes = context.read<AppState>().api.adminHostingerMailboxes();
+  }
 
   Future<void> _switchTo(AdminAccountSummary account) async {
     final state = context.read<AppState>();
@@ -86,63 +90,101 @@ class _AccountsTabState extends State<_AccountsTab> {
     final currentAddress = context.watch<AppState>().account?.address;
     return FutureBuilder<List<AdminAccountSummary>>(
       future: _accounts,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+      builder: (context, accountsSnapshot) {
+        if (accountsSnapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        final rows = snapshot.data ?? const [];
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: rows.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final account = rows[index];
-            final label = account.displayName.isEmpty ? account.address : account.displayName;
-            return Card(
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: AvatarPalette.forSeed(account.address),
-                  foregroundColor: Colors.white,
-                  backgroundImage:
-                      account.avatarUrl != null ? NetworkImage(account.avatarUrl!) : null,
-                  child: account.avatarUrl == null
-                      ? Text(label.isEmpty ? '?' : label[0].toUpperCase())
-                      : null,
-                ),
-                title: Row(
-                  children: [
-                    Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-                    if (account.role == 'admin') ...[
-                      const SizedBox(width: 6),
-                      const Chip(
-                        label: Text('ADMIN', style: TextStyle(fontSize: 10)),
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ],
-                  ],
-                ),
-                subtitle: Text(account.address),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => _editAccount(account),
+        final rows = accountsSnapshot.data ?? const [];
+        return FutureBuilder<List<HostingerMailboxSummary>>(
+          future: _hostingerMailboxes,
+          builder: (context, hostingerSnapshot) {
+            final unconnected = (hostingerSnapshot.data ?? const [])
+                .where((row) => !row.connected)
+                .toList();
+            return ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                for (final account in rows) ...[
+                  _AccountCard(
+                    account: account,
+                    isCurrent: account.address == currentAddress,
+                    onEdit: () => _editAccount(account),
+                    onSwitch: () => _switchTo(account),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (unconnected.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Also on Hostinger, but never logged into Novamail yet '
+                    '(no Novamail access to manage from here until they do):',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final row in unconnected)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.mail_outline),
+                      title: Text(row.address),
                     ),
-                    if (account.address != currentAddress)
-                      TextButton(
-                        onPressed: () => _switchTo(account),
-                        child: const Text('Switch'),
-                      ),
-                  ],
-                ),
-              ),
+                ],
+              ],
             );
           },
         );
       },
+    );
+  }
+}
+
+class _AccountCard extends StatelessWidget {
+  const _AccountCard({
+    required this.account,
+    required this.isCurrent,
+    required this.onEdit,
+    required this.onSwitch,
+  });
+  final AdminAccountSummary account;
+  final bool isCurrent;
+  final VoidCallback onEdit;
+  final VoidCallback onSwitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = account.displayName.isEmpty ? account.address : account.displayName;
+    return Card(
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: AvatarPalette.forSeed(account.address),
+          foregroundColor: Colors.white,
+          backgroundImage: account.avatarUrl != null ? NetworkImage(account.avatarUrl!) : null,
+          child: account.avatarUrl == null
+              ? Text(label.isEmpty ? '?' : label[0].toUpperCase())
+              : null,
+        ),
+        title: Row(
+          children: [
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+            if (account.role == 'admin') ...[
+              const SizedBox(width: 6),
+              const Chip(
+                label: Text('ADMIN', style: TextStyle(fontSize: 10)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+          ],
+        ),
+        subtitle: Text(account.address),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
+            if (!isCurrent) TextButton(onPressed: onSwitch, child: const Text('Switch')),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -159,6 +201,7 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
   late final TextEditingController _name;
   final _password = TextEditingController();
   bool _busy = false;
+  String? _revealedHostingerPassword;
 
   @override
   void initState() {
@@ -219,9 +262,115 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
       await context.read<AppState>().api.adminSetPassword(widget.account.id, _password.text);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content:
-                Text('Password changed — ${widget.account.address} is signed out everywhere')));
+            content: Text(
+                'Novamail password changed — ${widget.account.address} is signed out everywhere')));
         _password.clear();
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _revealHostingerPassword() async {
+    setState(() => _busy = true);
+    try {
+      final password =
+          await context.read<AppState>().api.adminViewHostingerPassword(widget.account.id);
+      if (mounted) setState(() => _revealedHostingerPassword = password);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// The rarer, explicit action - changes the account's real Hostinger
+  /// mailbox password. Walked through 3 separate confirmations rather
+  /// than a single dialog, since this is easy to fat-finger from the
+  /// (much more common) Novamail-only reset above.
+  Future<void> _changeHostingerPasswordFlow() async {
+    final address = widget.account.address;
+    final newPasswordController = TextEditingController();
+    final newPassword = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change the real Hostinger password?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'This changes the actual mailbox password used for sending/receiving mail — rarely '
+              'needed. $address\'s Novamail login is unaffected.',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: newPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                  labelText: 'New Hostinger password', helperText: 'At least 8 characters'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, newPasswordController.text),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    newPasswordController.dispose();
+    if (newPassword == null || newPassword.length < 8 || !mounted) return;
+
+    final step2 = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Are you sure? (step 2 of 3)'),
+        content: Text('The real mailbox password for $address will change immediately.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true), child: const Text("I'm sure")),
+        ],
+      ),
+    );
+    if (step2 != true || !mounted) return;
+
+    final step3 = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Final confirmation (step 3 of 3)'),
+        content: Text("Change $address's real Hostinger password now?"),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Change it now')),
+        ],
+      ),
+    );
+    if (step3 != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      await context
+          .read<AppState>()
+          .api
+          .adminSetHostingerPassword(widget.account.id, newPassword);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Real Hostinger password changed for $address')));
+        setState(() => _revealedHostingerPassword = null);
       }
     } catch (error) {
       if (mounted) {
@@ -261,6 +410,8 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
             label: const Text('Choose new photo'),
           ),
           const Divider(height: 28),
+          Text('Novamail password', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 6),
           TextField(
             controller: _password,
             obscureText: true,
@@ -269,6 +420,43 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
           ),
           const SizedBox(height: 8),
           FilledButton(onPressed: _busy ? null : _setPassword, child: const Text('Set password')),
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Only changes how ${widget.account.address} logs into Novamail — signs them out '
+              'everywhere. The real Hostinger password is untouched.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          const Divider(height: 28),
+          Text('Real Hostinger mailbox password', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 6),
+          if (_revealedHostingerPassword != null)
+            Row(
+              children: [
+                Expanded(
+                  child: SelectableText(_revealedHostingerPassword!,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _revealedHostingerPassword = null),
+                  child: const Text('Hide'),
+                ),
+              ],
+            )
+          else
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _revealHostingerPassword,
+              icon: const Icon(Icons.visibility_outlined),
+              label: const Text('Show current password'),
+            ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: _busy ? null : _changeHostingerPasswordFlow,
+            icon: Icon(Icons.warning_amber_outlined, color: Theme.of(context).colorScheme.error),
+            label: Text('Change the real Hostinger password…',
+                style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
           const SizedBox(height: 12),
         ],
       ),

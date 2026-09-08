@@ -158,6 +158,29 @@ class AdminAuditLogEntry {
       );
 }
 
+/// One row in the admin panel's live Hostinger view - every mailbox
+/// Hostinger actually has for the domain, not just ones that have logged
+/// into Novamail at least once (connected=true, with accountId/role).
+class HostingerMailboxSummary {
+  const HostingerMailboxSummary({
+    required this.address,
+    required this.connected,
+    this.accountId,
+    this.role,
+  });
+  final String address;
+  final bool connected;
+  final String? accountId;
+  final String? role;
+
+  factory HostingerMailboxSummary.fromJson(Map<String, dynamic> json) => HostingerMailboxSummary(
+        address: json['address'] as String,
+        connected: json['connected'] as bool,
+        accountId: json['account_id'] as String?,
+        role: json['role'] as String?,
+      );
+}
+
 class MailAddress {
   const MailAddress({required this.name, required this.email});
   final String name;
