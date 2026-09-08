@@ -16,6 +16,7 @@ from app.core.security import (
 )
 from app.models import MailAccount, MailAuditLog, MailChangeRequest, MailRule, MailSnooze
 from app.schemas.mail import (
+    AdminProvisionMailboxRequest,
     AdminSetHostingerPassword,
     ContactUpdate,
     FolderResponse,
@@ -424,6 +425,13 @@ def test_admin_set_hostinger_password_requires_explicit_confirmation() -> None:
         AdminSetHostingerPassword(new_password="a-fine-password", confirm=False)
     confirmed = AdminSetHostingerPassword(new_password="a-fine-password", confirm=True)
     assert confirmed.confirm is True
+
+
+def test_admin_provision_mailbox_request_requires_a_real_email() -> None:
+    with pytest.raises(ValueError):
+        AdminProvisionMailboxRequest(address="not-an-email")
+    request = AdminProvisionMailboxRequest(address="abdulmomin@novarisesa.com")
+    assert request.address == "abdulmomin@novarisesa.com"
 
 
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:

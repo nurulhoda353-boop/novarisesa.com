@@ -61,6 +61,7 @@ from app.schemas.mail import (
     AdminChangeRequestDecision,
     AdminChangeRequestResponse,
     AdminHostingerPasswordResponse,
+    AdminProvisionMailboxRequest,
     AdminSetHostingerPassword,
     AdminSetPassword,
     AdminSetProfile,
@@ -1260,6 +1261,72 @@ def admin_hostinger_mailboxes(admin: CurrentAdminAccount, db: DBSession) -> list
             )
         )
     return summaries
+
+
+@router.post(
+    "/admin/hostinger-mailboxes/provision",
+    response_model=AdminAccountSummary,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_provision_mailbox(
+    payload: AdminProvisionMailboxRequest, admin: CurrentAdminAccount, db: DBSession
+) -> MailAccount:
+    """Brings a Hostinger mailbox nobody has ever logged into Novamail
+    with under admin management immediately, instead of waiting for its
+    real owner to type their password into the login screen first.
+    Resets its real Hostinger password (find_mailbox + change_mailbox_
+    password) - the only way to end up with a *known* credential, since
+    Hostinger's API never lets us read an existing one - then creates
+    its User/MailAccount rows with that as credential_ciphertext, same
+    shape as if that password had just been typed into a normal login.
+    From here it behaves like any other connected member: switchable,
+    editable, and its real password revealable from the edit sheet."""
+    address = str(payload.address).lower()
+    domain = address.rsplit("@", 1)[-1]
+    if domain not in {item.lower() for item in settings.MAIL_ALLOWED_DOMAINS}:
+        raise HTTPException(status_code=403, detail="This email domain is not allowed")
+    if db.scalar(select(MailAccount).where(MailAccount.address == address)):
+        raise HTTPException(status_code=409, detail="This mailbox is already connected")
+
+    client = HostingerManagementClient()
+    try:
+        found = client.find_mailbox(address)
+        if not found:
+            raise HostingerApiError("Mailbox was not found in the Hostinger account")
+        order_id, mailbox_id = found
+        new_password = secrets.token_urlsafe(16)
+        client.change_mailbox_password(mailbox_id, new_password)
+    except HostingerApiError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    user = db.scalar(select(User).where(User.email == address))
+    if user is None:
+        user = User(
+            email=address,
+            full_name=address.split("@", 1)[0].replace(".", " ").title(),
+            password_hash=hash_password(secrets.token_urlsafe(48)),
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(user)
+        db.flush()
+    account = MailAccount(
+        user_id=user.id,
+        address=address,
+        display_name=user.full_name,
+        credential_ciphertext=encrypt_mail_secret(new_password),
+        credential_type="mailbox_password",
+        cache_ttl_days=settings.MAIL_CACHE_DAYS,
+        hostinger_order_id=order_id,
+        hostinger_mailbox_id=mailbox_id,
+        role="member",
+        is_active=True,
+    )
+    db.add(account)
+    _audit(db, actor=admin, target=account, action="mailbox_provisioned")
+    db.commit()
+    db.refresh(account)
+    return account
 
 
 @router.patch("/admin/accounts/{account_id}/profile", response_model=AdminAccountSummary)

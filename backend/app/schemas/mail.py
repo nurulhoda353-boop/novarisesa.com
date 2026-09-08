@@ -284,6 +284,10 @@ class HostingerMailboxSummary(BaseModel):
     role: str | None = None
 
 
+class AdminProvisionMailboxRequest(BaseModel):
+    address: EmailStr
+
+
 class AdminSetProfile(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
 
