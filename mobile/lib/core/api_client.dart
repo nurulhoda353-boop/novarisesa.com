@@ -500,6 +500,12 @@ class ApiClient {
         .toList();
   }
 
+  /// Who a member should reach out to for anything the change-request flow
+  /// doesn't cover.
+  Future<AdminContactInfo> adminContact() async => AdminContactInfo.fromJson(
+        _decode(await _request('GET', '/mail/account/admin-contact')) as Map<String, dynamic>,
+      );
+
   // --- Admin panel ---------------------------------------------------------
 
   Future<List<AdminAccountSummary>> adminAccounts() async {

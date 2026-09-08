@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api_client.dart';
 import '../../core/app_state.dart';
+import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../mail/organizer_screens.dart';
 
@@ -131,13 +134,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          Text(
-              account.displayName.isEmpty ? account.address : account.displayName,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                    account.displayName.isEmpty ? account.address : account.displayName,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+              ),
+              if (!account.isAdmin) ...[
+                const SizedBox(width: 8),
+                const Chip(
+                  label: Text('MEMBER', style: TextStyle(fontSize: 10)),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ],
+          ),
           Text(account.address,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall),
@@ -267,6 +287,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const RulesScreen())),
           ),
+          if (!account.isAdmin) ...[
+            _SettingsTile(
+              icon: Icons.pending_actions_outlined,
+              title: 'My requests',
+              subtitle: 'Name, password, and photo changes you\'ve sent',
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const _RequestHistoryScreen())),
+            ),
+            _SettingsTile(
+              icon: Icons.support_agent_outlined,
+              title: 'Contact admin',
+              subtitle: 'For anything not covered above',
+              onTap: () => _contactAdmin(context),
+            ),
+          ],
           const SizedBox(height: 22),
           const _SectionTitle('Security'),
           _SettingsTile(
@@ -283,6 +318,137 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (context.mounted) {
                 Navigator.popUntil(context, (route) => route.isFirst);
               }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> _contactAdmin(BuildContext context) async {
+  try {
+    final contact = await context.read<AppState>().api.adminContact();
+    final uri = Uri(scheme: 'mailto', path: contact.address);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Could not reach the admin contact')));
+    }
+  }
+}
+
+class _RequestHistoryScreen extends StatefulWidget {
+  const _RequestHistoryScreen();
+  @override
+  State<_RequestHistoryScreen> createState() => _RequestHistoryScreenState();
+}
+
+class _RequestHistoryScreenState extends State<_RequestHistoryScreen> {
+  late Future<List<MailChangeRequest>> _requests;
+  Future<AdminContactInfo>? _contact;
+
+  @override
+  void initState() {
+    super.initState();
+    _requests = context.read<AppState>().api.myChangeRequests();
+    _contact = context.read<AppState>().api.adminContact();
+  }
+
+  String _label(String type) {
+    switch (type) {
+      case 'password':
+        return 'Password change';
+      case 'display_name':
+        return 'Name change';
+      case 'avatar':
+        return 'Photo change';
+      default:
+        return type;
+    }
+  }
+
+  Color _statusColor(BuildContext context, String status) {
+    switch (status) {
+      case 'approved':
+        return Colors.green;
+      case 'rejected':
+        return Theme.of(context).colorScheme.error;
+      default:
+        return Colors.orange;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('My requests')),
+      body: ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          if (_contact != null)
+            FutureBuilder<AdminContactInfo>(
+              future: _contact,
+              builder: (context, snapshot) {
+                final contact = snapshot.data;
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.mail_outline),
+                    title: const Text('Need something not covered above?'),
+                    subtitle: Text(contact == null
+                        ? 'Contact your admin directly.'
+                        : 'Contact your admin — ${contact.displayName.isEmpty ? contact.address : contact.displayName}'),
+                    trailing: contact == null
+                        ? null
+                        : TextButton(
+                            onPressed: () => _contactAdmin(context),
+                            child: const Text('Email'),
+                          ),
+                  ),
+                );
+              },
+            ),
+          const SizedBox(height: 10),
+          FutureBuilder<List<MailChangeRequest>>(
+            future: _requests,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final rows = snapshot.data ?? const [];
+              if (rows.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: Text('No requests yet')),
+                );
+              }
+              return Column(
+                children: [
+                  for (final request in rows)
+                    Card(
+                      child: ListTile(
+                        leading: Icon(Icons.circle,
+                            size: 10, color: _statusColor(context, request.status)),
+                        title: Text(_label(request.requestType)),
+                        subtitle: Text(
+                          DateFormat('MMM d, h:mm a').format(request.createdAt.toLocal()) +
+                              (request.status == 'rejected' && request.rejectionReason != null
+                                  ? ' — ${request.rejectionReason}'
+                                  : ''),
+                        ),
+                        trailing: Chip(
+                          label: Text(request.status.toUpperCase(),
+                              style: const TextStyle(fontSize: 10)),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
         ],

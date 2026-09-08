@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Columns2, Keyboard, ListFilter, Menu, Moon, RefreshCw, Rows2, Search, Settings, ShieldCheck, Sun, X } from "lucide-react";
 import type { MailAccount } from "@/lib/types";
+import * as api from "@/lib/api";
 import type { StoredAccount } from "@/lib/api";
 import type { ThemeMode } from "@/lib/theme";
 import { AccountSwitcherMenu } from "./AccountSwitcherMenu";
@@ -52,6 +53,21 @@ export function TopBar({
 }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const filtersActive = hasActiveFilters(filters);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (account.role !== "admin") return;
+    let cancelled = false;
+    function poll() {
+      api
+        .adminListChangeRequests("pending")
+        .then((rows) => { if (!cancelled) setPendingCount(rows.length); })
+        .catch(() => {});
+    }
+    poll();
+    const interval = setInterval(poll, 60000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [account.role]);
 
   return (
     <header className="topbar">
@@ -124,8 +140,9 @@ export function TopBar({
           <Settings size={19} />
         </button>
         {account.role === "admin" && (
-          <a className="icon-btn" href="/admin" title="Admin panel">
+          <a className="icon-btn" href="/admin" title={pendingCount > 0 ? `Admin panel — ${pendingCount} pending request${pendingCount === 1 ? "" : "s"}` : "Admin panel"} style={{ position: "relative" }}>
             <ShieldCheck size={19} />
+            {pendingCount > 0 && <span className="admin-pending-badge">{pendingCount > 9 ? "9+" : pendingCount}</span>}
           </a>
         )}
         <AccountSwitcherMenu

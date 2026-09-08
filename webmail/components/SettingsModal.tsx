@@ -1,13 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Star, Trash2, X } from "lucide-react";
+import { Mail, Plus, Shield, Star, Trash2, X } from "lucide-react";
 import * as api from "@/lib/api";
-import type { AliasInfo, AutoreplyInfo, ContactInfo, ForwarderInfo, MailAccount, MailChangeRequestInfo, MailRuleInfo } from "@/lib/types";
+import type {
+  AliasInfo,
+  AutoreplyInfo,
+  ContactInfo,
+  ForwarderInfo,
+  MailAccount,
+  MailChangeRequestInfo,
+  MailRuleInfo,
+} from "@/lib/types";
 import { initials } from "@/lib/format";
 import { useToast } from "@/lib/toast";
 
-type Tab = "profile" | "security" | "contacts" | "aliases" | "forwarders" | "autoreply" | "rules";
+type Tab = "profile" | "security" | "requests" | "contacts" | "aliases" | "forwarders" | "autoreply" | "rules";
 
 export function SettingsModal({
   account,
@@ -18,20 +26,27 @@ export function SettingsModal({
   onClose: () => void;
   onAccountUpdated: (account: MailAccount) => void;
 }) {
+  const isMember = account.role === "member";
   const [tab, setTab] = useState<Tab>("profile");
+  const tabs = (["profile", "security", ...(isMember ? (["requests"] as Tab[]) : []), "contacts", "aliases", "forwarders", "autoreply", "rules"] as Tab[]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>Manage account</h2>
+          {isMember && (
+            <span className="role-chip">
+              <Shield size={11} /> Member
+            </span>
+          )}
           <div className="spacer" />
           <button className="icon-btn" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         <div className="modal-tabs">
-          {(["profile", "security", "contacts", "aliases", "forwarders", "autoreply", "rules"] as Tab[]).map((item) => (
+          {tabs.map((item) => (
             <button key={item} className={`modal-tab ${tab === item ? "active" : ""}`} onClick={() => setTab(item)}>
               {labelFor(item)}
             </button>
@@ -40,6 +55,7 @@ export function SettingsModal({
         <div className="modal-body">
           {tab === "profile" && <ProfileTab account={account} onAccountUpdated={onAccountUpdated} />}
           {tab === "security" && <SecurityTab account={account} />}
+          {tab === "requests" && <RequestsHistoryTab />}
           {tab === "contacts" && <ContactsTab />}
           {tab === "aliases" && <AliasesTab />}
           {tab === "forwarders" && <ForwardersTab />}
@@ -55,6 +71,7 @@ function labelFor(tab: Tab): string {
   return {
     profile: "Profile",
     security: "Security",
+    requests: "My requests",
     contacts: "Contacts",
     aliases: "Aliases",
     forwarders: "Forwarders",
@@ -217,6 +234,64 @@ function SecurityTab({ account }: { account: MailAccount }) {
       </button>
     </div>
   );
+}
+
+function RequestsHistoryTab() {
+  const [requests, setRequests] = useState<MailChangeRequestInfo[] | null>(null);
+  const [admin, setAdmin] = useState<{ address: string; display_name: string } | null>(null);
+
+  useEffect(() => {
+    api.myChangeRequests().then(setRequests).catch(() => setRequests([]));
+    api.adminContact().then(setAdmin).catch(() => setAdmin(null));
+  }, []);
+
+  return (
+    <div>
+      <div className="contact-admin-card">
+        <Mail size={18} />
+        <div className="grow">
+          <strong>Need something not covered above?</strong>
+          <span>Contact your admin{admin ? ` — ${admin.display_name || admin.address}` : ""} directly.</span>
+        </div>
+        {admin && (
+          <a className="btn btn-secondary sm" href={`mailto:${admin.address}`}>
+            Email admin
+          </a>
+        )}
+      </div>
+      <p className="form-hint" style={{ margin: "18px 0 10px" }}>
+        Every name, password, or photo request you've sent, and what happened to it.
+      </p>
+      {requests === null ? (
+        <p>Loading…</p>
+      ) : requests.length === 0 ? (
+        <p className="form-hint">No requests yet.</p>
+      ) : (
+        requests.map((request) => (
+          <div className="list-item-row" key={request.id}>
+            <StatusDot status={request.status} />
+            <div className="grow">
+              <strong>{requestHistoryLabel(request.request_type)}</strong>
+              <span>
+                {new Date(request.created_at).toLocaleString()}
+                {request.status === "rejected" && request.rejection_reason ? ` — ${request.rejection_reason}` : ""}
+              </span>
+            </div>
+            <span className={`status-pill status-${request.status}`}>{request.status}</span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  const color = { pending: "var(--accent)", approved: "var(--success)", rejected: "var(--danger)" }[status] ?? "var(--muted)";
+  return <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />;
+}
+
+function requestHistoryLabel(type: string): string {
+  return { password: "Password change", display_name: "Name change", avatar: "Photo change" }[type] ?? type;
 }
 
 function ContactsTab() {

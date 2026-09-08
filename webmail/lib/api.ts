@@ -2,6 +2,7 @@ import type {
   AdminAccountInfo,
   AdminAuditLogEntry,
   AdminChangeRequestInfo,
+  AdminContactInfo,
   AliasInfo,
   AutoreplyInfo,
   ContactInfo,
@@ -279,6 +280,7 @@ export const requestChange = (requestType: "password" | "display_name", value: s
     body: JSON.stringify({ request_type: requestType, value }),
   });
 export const myChangeRequests = () => api<MailChangeRequestInfo[]>("/mail/account/change-requests");
+export const adminContact = () => api<AdminContactInfo>("/mail/account/admin-contact");
 
 // ---- Admin panel ----
 export const adminListAccounts = () => api<AdminAccountInfo[]>("/mail/admin/accounts");

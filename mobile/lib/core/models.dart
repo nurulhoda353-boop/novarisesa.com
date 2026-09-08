@@ -167,17 +167,40 @@ class HostingerMailboxSummary {
     required this.connected,
     this.accountId,
     this.role,
+    this.storageUsed,
+    this.storageQuota,
+    this.messagesUsed,
+    this.messagesQuota,
   });
   final String address;
   final bool connected;
   final String? accountId;
   final String? role;
+  final int? storageUsed;
+  final int? storageQuota;
+  final int? messagesUsed;
+  final int? messagesQuota;
 
   factory HostingerMailboxSummary.fromJson(Map<String, dynamic> json) => HostingerMailboxSummary(
         address: json['address'] as String,
         connected: json['connected'] as bool,
         accountId: json['account_id'] as String?,
         role: json['role'] as String?,
+        storageUsed: json['storage_used'] as int?,
+        storageQuota: json['storage_quota'] as int?,
+        messagesUsed: json['messages_used'] as int?,
+        messagesQuota: json['messages_quota'] as int?,
+      );
+}
+
+class AdminContactInfo {
+  const AdminContactInfo({required this.address, required this.displayName});
+  final String address;
+  final String displayName;
+
+  factory AdminContactInfo.fromJson(Map<String, dynamic> json) => AdminContactInfo(
+        address: json['address'] as String,
+        displayName: json['display_name'] as String? ?? '',
       );
 }
 

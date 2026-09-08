@@ -596,6 +596,23 @@ html.dark .form-input:focus, html.dark .form-textarea:focus { box-shadow: 0 0 0 
 .list-item-row .grow strong { display: block; font-size: 13.5px; color: var(--ink); }
 .list-item-row .grow span { font-size: 12px; color: var(--muted); }
 
+.contact-admin-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: var(--r-md);
+  background: var(--chip-bg); color: var(--ink);
+}
+.contact-admin-card > svg { color: var(--brand); flex-shrink: 0; }
+.contact-admin-card .grow strong { display: block; font-size: 13px; }
+.contact-admin-card .grow span { font-size: 12px; color: var(--muted); }
+
+.status-pill {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: var(--r-pill); flex-shrink: 0;
+}
+.status-pill.status-pending { background: var(--chip-bg); color: var(--accent); }
+.status-pill.status-approved { background: var(--success-bg); color: var(--success); }
+.status-pill.status-rejected { background: var(--danger-bg); color: var(--danger); }
+
 /* ============================================================
    TOASTS
    ============================================================ */
@@ -799,39 +816,101 @@ html.dark .password-toggle:hover { background: var(--surface2); }
 .split-reading-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 /* ============================================================
-   ADMIN PANEL (a separate full-page view, not another Settings tab)
+   ADMIN PANEL (a separate full-page view, not another Settings tab) -
+   deliberately mirrors the main mailbox's navy+gold glass language
+   (brand gradient header, glass cards, gold accents) so it reads as
+   part of Novamail rather than a bolted-on external tool.
    ============================================================ */
 .admin-page-overlay {
   position: fixed; inset: 0; z-index: 90;
   background: var(--bg);
   display: flex; justify-content: center;
+  overflow-y: auto;
 }
 .admin-page {
-  width: 100%; max-width: 920px;
+  width: 100%; max-width: 980px;
   display: flex; flex-direction: column;
   min-height: 0;
 }
 .admin-page-head {
-  display: flex; align-items: center; gap: 12px;
-  padding: 24px 28px 16px; flex-shrink: 0; color: var(--brand);
+  display: flex; align-items: center; gap: 14px;
+  padding: 28px 28px 20px; flex-shrink: 0;
+  background: var(--brand-gradient);
+  color: #fff;
+  border-radius: 0 0 var(--r-xl) var(--r-xl);
+  box-shadow: var(--shadow-lg);
 }
-.admin-page-head h1 { font-size: 20px; font-weight: 700; color: var(--ink); }
-.admin-page-sub { font-size: 13px; color: var(--muted); margin-left: 4px; }
+.admin-page-head .admin-page-brand {
+  width: 38px; height: 38px; border-radius: var(--r-md);
+  background: rgba(255,255,255,0.16); display: grid; place-items: center; flex-shrink: 0;
+}
+.admin-page-head h1 { font-size: 19px; font-weight: 700; color: #fff; }
+.admin-page-sub { font-size: 12.5px; color: rgba(255,255,255,0.72); margin-left: 2px; display: block; }
+.admin-page-head .icon-btn { color: #fff; }
+.admin-page-head .icon-btn:hover { background: rgba(255,255,255,0.14); }
 .admin-page-body { padding: 22px 28px 40px; overflow-y: auto; flex: 1; }
+
+.admin-stat-tiles {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin: -38px 0 22px;
+  position: relative; z-index: 1;
+}
+.admin-stat-tile {
+  background: var(--glass-overlay);
+  backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border); border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.admin-stat-tile .stat-value { font-size: 22px; font-weight: 800; color: var(--ink); }
+.admin-stat-tile .stat-label { font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+.admin-stat-tile.accent .stat-value { color: var(--accent); }
+
+.admin-search-box {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-radius: var(--r-pill);
+  background: var(--surface2); border: 1px solid var(--border);
+  margin-bottom: 16px; max-width: 380px;
+}
+.admin-search-box input { flex: 1; border: none; background: none; outline: none; font-size: 13px; color: var(--ink); }
+.admin-search-box svg { color: var(--muted); flex-shrink: 0; }
 
 .admin-account-row {
   display: flex; align-items: center; gap: 14px;
-  padding: 14px 4px; border-bottom: 1px solid var(--border);
+  padding: 14px 16px; margin-bottom: 10px;
+  border-radius: var(--r-lg);
+  background: var(--surface); border: 1px solid var(--border);
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
-.admin-account-row:last-child { border-bottom: none; }
+.admin-account-row:hover { box-shadow: var(--shadow-md); border-color: var(--brand); }
+.admin-account-row .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
 .admin-account-row .grow { flex: 1; min-width: 0; }
 .admin-account-row .grow strong { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
 .admin-account-row .grow span { display: block; font-size: 12.5px; color: var(--muted); }
+.admin-account-meta { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.admin-storage-bar {
+  width: 84px; height: 5px; border-radius: var(--r-pill);
+  background: var(--border); overflow: hidden; flex-shrink: 0;
+}
+.admin-storage-bar > div { height: 100%; background: var(--accent-gradient); border-radius: var(--r-pill); }
+.admin-storage-text, .admin-lastactive-text { font-size: 11px; color: var(--muted2); white-space: nowrap; }
 .role-chip {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   padding: 2px 8px; border-radius: var(--r-pill);
   background: var(--chip-bg); color: var(--accent);
+}
+.admin-pending-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 15px; height: 15px; padding: 0 3px; border-radius: var(--r-pill);
+  background: var(--danger); color: #fff; font-size: 9.5px; font-weight: 700;
+  display: grid; place-items: center; line-height: 1;
+}
+.admin-audit-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.admin-audit-filters select, .admin-audit-filters input {
+  padding: 7px 10px; border-radius: var(--r-sm); border: 1px solid var(--border);
+  background: var(--surface2); color: var(--ink); font-size: 12.5px;
 }
 
 /* ============================================================

@@ -632,6 +632,7 @@ function MailAppInner() {
                     loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch, filters: activeFilters })
                   }
                   loading={loading}
+                  readOnly={account.role === "member"}
                 />
               </div>
               <div className="split-reading-pane">
@@ -684,6 +685,7 @@ function MailAppInner() {
                 loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch, filters: activeFilters })
               }
               loading={loading}
+              readOnly={account.role === "member"}
             />
           )}
         </div>

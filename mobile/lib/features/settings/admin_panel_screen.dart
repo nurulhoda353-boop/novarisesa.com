@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -12,8 +13,15 @@ import '../../core/theme.dart';
 /// reset a password/name/photo directly, review pending member
 /// change-requests, and see every mailbox's audit trail. Mirrors the web
 /// client's AdminPanel.
-class AdminPanelScreen extends StatelessWidget {
+class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
+
+  @override
+  State<AdminPanelScreen> createState() => _AdminPanelScreenState();
+}
+
+class _AdminPanelScreenState extends State<AdminPanelScreen> {
+  int? _pendingCount;
 
   @override
   Widget build(BuildContext context) {
@@ -22,16 +30,22 @@ class AdminPanelScreen extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin panel'),
-          bottom: const TabBar(tabs: [
-            Tab(text: 'Mailboxes'),
-            Tab(text: 'Requests'),
-            Tab(text: 'Audit log'),
+          bottom: TabBar(tabs: [
+            const Tab(text: 'Mailboxes'),
+            Tab(
+              child: Badge(
+                label: Text('${_pendingCount ?? 0}'),
+                isLabelVisible: (_pendingCount ?? 0) > 0,
+                child: const Text('Requests'),
+              ),
+            ),
+            const Tab(text: 'Audit log'),
           ]),
         ),
-        body: const TabBarView(children: [
-          _AccountsTab(),
-          _RequestsTab(),
-          _AuditTab(),
+        body: TabBarView(children: [
+          const _AccountsTab(),
+          _RequestsTab(onPendingCountChange: (count) => setState(() => _pendingCount = count)),
+          const _AuditTab(),
         ]),
       ),
     );
@@ -48,6 +62,7 @@ class _AccountsTabState extends State<_AccountsTab> {
   late Future<List<AdminAccountSummary>> _accounts;
   late Future<List<HostingerMailboxSummary>> _hostingerMailboxes;
   String? _provisioning;
+  String _query = '';
 
   @override
   void initState() {
@@ -114,19 +129,40 @@ class _AccountsTabState extends State<_AccountsTab> {
         if (accountsSnapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        final rows = accountsSnapshot.data ?? const [];
+        final allRows = accountsSnapshot.data ?? const [];
+        final q = _query.trim().toLowerCase();
+        final rows = q.isEmpty
+            ? allRows
+            : allRows
+                .where((row) =>
+                    row.address.toLowerCase().contains(q) ||
+                    row.displayName.toLowerCase().contains(q))
+                .toList();
         return FutureBuilder<List<HostingerMailboxSummary>>(
           future: _hostingerMailboxes,
           builder: (context, hostingerSnapshot) {
-            final unconnected = (hostingerSnapshot.data ?? const [])
-                .where((row) => !row.connected)
-                .toList();
+            final hostingerRows = hostingerSnapshot.data ?? const [];
+            final usageByAddress = {
+              for (final row in hostingerRows) row.address.toLowerCase(): row,
+            };
+            final unconnected = hostingerRows.where((row) => !row.connected).toList();
             return ListView(
               padding: const EdgeInsets.all(12),
               children: [
+                TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search, size: 20),
+                    hintText: 'Search mailboxes…',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 12),
                 for (final account in rows) ...[
                   _AccountCard(
                     account: account,
+                    usage: usageByAddress[account.address.toLowerCase()],
                     isCurrent: account.address == currentAddress,
                     onEdit: () => _editAccount(account),
                     onSwitch: () => _switchTo(account),
@@ -165,14 +201,32 @@ class _AccountsTabState extends State<_AccountsTab> {
   }
 }
 
+String _formatKb(int kb) {
+  if (kb >= 1024 * 1024) return '${(kb / (1024 * 1024)).toStringAsFixed(1)} GB';
+  if (kb >= 1024) return '${(kb / 1024).toStringAsFixed(1)} MB';
+  return '$kb KB';
+}
+
+String _lastActiveLabel(DateTime? at) {
+  if (at == null) return 'Never logged in';
+  final diff = DateTime.now().difference(at);
+  if (diff.inMinutes < 1) return 'Active just now';
+  if (diff.inMinutes < 60) return 'Active ${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return 'Active ${diff.inHours}h ago';
+  if (diff.inDays < 30) return 'Active ${diff.inDays}d ago';
+  return 'Active ${DateFormat('MMM d').format(at)}';
+}
+
 class _AccountCard extends StatelessWidget {
   const _AccountCard({
     required this.account,
+    required this.usage,
     required this.isCurrent,
     required this.onEdit,
     required this.onSwitch,
   });
   final AdminAccountSummary account;
+  final HostingerMailboxSummary? usage;
   final bool isCurrent;
   final VoidCallback onEdit;
   final VoidCallback onSwitch;
@@ -180,6 +234,9 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = account.displayName.isEmpty ? account.address : account.displayName;
+    final quota = usage?.storageQuota ?? 0;
+    final used = usage?.storageUsed ?? 0;
+    final pct = quota > 0 ? (used / quota).clamp(0.0, 1.0) : null;
     return Card(
       child: ListTile(
         leading: CircleAvatar(
@@ -204,10 +261,48 @@ class _AccountCard extends StatelessWidget {
             ],
           ],
         ),
-        subtitle: Text(account.address),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(account.address),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                if (pct != null) ...[
+                  SizedBox(
+                    width: 70,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(value: pct, minHeight: 4),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text('${_formatKb(used)} / ${_formatKb(quota)}',
+                      style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(width: 10),
+                ],
+                Text(_lastActiveLabel(account.lastConnectedAt),
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ],
+        ),
+        isThreeLine: true,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            IconButton(
+              icon: const Icon(Icons.copy_outlined, size: 18),
+              tooltip: 'Copy address',
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: account.address));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text('Address copied')));
+                }
+              },
+            ),
             IconButton(icon: const Icon(Icons.edit_outlined), onPressed: onEdit),
             if (!isCurrent) TextButton(onPressed: onSwitch, child: const Text('Switch')),
           ],
@@ -493,7 +588,8 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
 }
 
 class _RequestsTab extends StatefulWidget {
-  const _RequestsTab();
+  const _RequestsTab({required this.onPendingCountChange});
+  final ValueChanged<int> onPendingCountChange;
   @override
   State<_RequestsTab> createState() => _RequestsTabState();
 }
@@ -507,7 +603,12 @@ class _RequestsTabState extends State<_RequestsTab> {
     _reload();
   }
 
-  void _reload() => _requests = context.read<AppState>().api.adminChangeRequests();
+  void _reload() {
+    _requests = context.read<AppState>().api.adminChangeRequests();
+    _requests.then((rows) {
+      if (mounted) widget.onPendingCountChange(rows.length);
+    }).catchError((_) {});
+  }
 
   Future<void> _approve(AdminChangeRequest request) async {
     try {
@@ -597,11 +698,13 @@ class _AuditTab extends StatefulWidget {
 
 class _AuditTabState extends State<_AuditTab> {
   late Future<List<AdminAuditLogEntry>> _entries;
+  String _actorFilter = 'all';
+  String _actionFilter = 'all';
 
   @override
   void initState() {
     super.initState();
-    _entries = context.read<AppState>().api.adminAuditLog(limit: 200);
+    _entries = context.read<AppState>().api.adminAuditLog(limit: 500);
   }
 
   String _describe(AdminAuditLogEntry entry) {
@@ -633,20 +736,71 @@ class _AuditTabState extends State<_AuditTab> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        final rows = snapshot.data ?? const [];
-        if (rows.isEmpty) {
+        final allRows = snapshot.data ?? const [];
+        if (allRows.isEmpty) {
           return const Center(child: Text('No activity yet'));
         }
-        return ListView.separated(
-          itemCount: rows.length,
-          separatorBuilder: (_, __) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final entry = rows[index];
-            return ListTile(
-              title: Text(_describe(entry)),
-              subtitle: Text(DateFormat('MMM d, h:mm a').format(entry.createdAt.toLocal())),
-            );
-          },
+        final actors = {for (final row in allRows) if (row.actorAddress != null) row.actorAddress!}
+            .toList()
+          ..sort();
+        final actions = {for (final row in allRows) row.action}.toList()..sort();
+        final rows = allRows.where((row) {
+          if (_actorFilter != 'all' && row.actorAddress != _actorFilter) return false;
+          if (_actionFilter != 'all' && row.action != _actionFilter) return false;
+          return true;
+        }).toList();
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _actorFilter,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Actor', isDense: true),
+                      items: [
+                        const DropdownMenuItem(value: 'all', child: Text('Everyone')),
+                        for (final actor in actors)
+                          DropdownMenuItem(value: actor, child: Text(actor, overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (value) => setState(() => _actorFilter = value ?? 'all'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _actionFilter,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Action', isDense: true),
+                      items: [
+                        const DropdownMenuItem(value: 'all', child: Text('Every action')),
+                        for (final action in actions)
+                          DropdownMenuItem(value: action, child: Text(action.replaceAll('_', ' '), overflow: TextOverflow.ellipsis)),
+                      ],
+                      onChanged: (value) => setState(() => _actionFilter = value ?? 'all'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: rows.isEmpty
+                  ? const Center(child: Text('No matching activity'))
+                  : ListView.separated(
+                      itemCount: rows.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final entry = rows[index];
+                        return ListTile(
+                          title: Text(_describe(entry)),
+                          subtitle: Text(DateFormat('MMM d, h:mm a').format(entry.createdAt.toLocal())),
+                        );
+                      },
+                    ),
+            ),
+          ],
         );
       },
     );

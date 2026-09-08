@@ -16,10 +16,12 @@ from app.core.security import (
 )
 from app.models import MailAccount, MailAuditLog, MailChangeRequest, MailRule, MailSnooze
 from app.schemas.mail import (
+    AdminContactInfo,
     AdminProvisionMailboxRequest,
     AdminSetHostingerPassword,
     ContactUpdate,
     FolderResponse,
+    HostingerMailboxSummary,
     MailAccountResponse,
     MailChangeRequestCreate,
     MailLoginRequest,
@@ -432,6 +434,32 @@ def test_admin_provision_mailbox_request_requires_a_real_email() -> None:
         AdminProvisionMailboxRequest(address="not-an-email")
     request = AdminProvisionMailboxRequest(address="abdulmomin@novarisesa.com")
     assert request.address == "abdulmomin@novarisesa.com"
+
+
+def test_hostinger_mailbox_summary_carries_usage_and_defaults_it_to_none() -> None:
+    # Usage only exists for mailboxes Hostinger actually returns a "usage"
+    # object for - an unconnected or just-created mailbox may have none yet,
+    # so every usage field has to tolerate being absent.
+    bare = HostingerMailboxSummary(address="info@novarisesa.com", connected=True)
+    assert bare.storage_used is None
+    assert bare.messages_quota is None
+    full = HostingerMailboxSummary(
+        address="info@novarisesa.com",
+        connected=True,
+        storage_used=335790,
+        storage_quota=5242880,
+        messages_used=127,
+        messages_quota=100000,
+    )
+    assert full.storage_used == 335790
+    assert full.messages_quota == 100000
+
+
+def test_admin_contact_info_requires_a_real_email() -> None:
+    with pytest.raises(ValueError):
+        AdminContactInfo(address="not-an-email", display_name="Admin")
+    contact = AdminContactInfo(address="rabbani@novarisesa.com", display_name="Rabbani")
+    assert contact.address == "rabbani@novarisesa.com"
 
 
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:

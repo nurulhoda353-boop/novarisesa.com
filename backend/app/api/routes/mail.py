@@ -57,6 +57,7 @@ from app.models import (
 )
 from app.schemas.mail import (
     AdminAccountSummary,
+    AdminContactInfo,
     AdminAuditLogEntry,
     AdminChangeRequestDecision,
     AdminChangeRequestResponse,
@@ -508,6 +509,21 @@ def list_my_change_requests(account: CurrentMailAccount, db: DBSession) -> list[
             .order_by(MailChangeRequest.created_at.desc())
         )
     )
+
+
+@router.get("/account/admin-contact", response_model=AdminContactInfo)
+def account_admin_contact(account: CurrentMailAccount, db: DBSession) -> AdminContactInfo:
+    """Who a member should reach out to for anything the change-request
+    flow doesn't cover - looked up rather than hardcoded so it stays right
+    if a second admin mailbox is ever added."""
+    admin = db.scalar(
+        select(MailAccount)
+        .where(MailAccount.role == "admin", MailAccount.is_active.is_(True))
+        .order_by(MailAccount.created_at)
+    )
+    if not admin:
+        raise HTTPException(status_code=404, detail="No admin mailbox configured")
+    return AdminContactInfo(address=admin.address, display_name=admin.display_name)
 
 
 def _resolve_websocket_account(websocket: WebSocket) -> MailAccount | None:
@@ -1252,12 +1268,17 @@ def admin_hostinger_mailboxes(admin: CurrentAdminAccount, db: DBSession) -> list
             continue
         seen.add(address)
         match = known.get(address)
+        usage = row.get("usage") or {}
         summaries.append(
             HostingerMailboxSummary(
                 address=address,
                 connected=match is not None,
                 account_id=match.id if match else None,
                 role=match.role if match else None,
+                storage_used=usage.get("storage_used"),
+                storage_quota=usage.get("storage_quota"),
+                messages_used=usage.get("messages_used"),
+                messages_quota=usage.get("messages_quota"),
             )
         )
     return summaries

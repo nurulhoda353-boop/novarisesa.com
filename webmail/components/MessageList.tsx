@@ -34,6 +34,7 @@ export function MessageList({
   loadingMore,
   onLoadMore,
   loading,
+  readOnly,
 }: {
   folder: string;
   messages: MailMessageSummary[];
@@ -50,11 +51,17 @@ export function MessageList({
   loadingMore: boolean;
   onLoadMore: () => void;
   loading: boolean;
+  /** Members can't archive/delete mail (admin-only per the access policy) -
+      keep the buttons visible but disabled with an explanation, rather than
+      hiding them (which just looks broken) or letting them fail silently
+      against the backend's 403. */
+  readOnly?: boolean;
 }) {
   const allSelected = messages.length > 0 && selected.size === messages.length;
   const someSelected = selected.size > 0 && !allSelected;
   const showArchive = folder === SYSTEM_FOLDERS.inbox;
   const isTrash = folder === SYSTEM_FOLDERS.trash;
+  const restrictedTitle = "Members can't archive or delete mail — ask your admin";
   const showSnooze = !(
     [SYSTEM_FOLDERS.snoozed, SYSTEM_FOLDERS.drafts, SYSTEM_FOLDERS.sent, SYSTEM_FOLDERS.trash] as string[]
   ).includes(folder);
@@ -84,17 +91,27 @@ export function MessageList({
               <Mail size={17} />
             </button>
             {showArchive && (
-              <button className="icon-btn" title="Archive" onClick={() => selected.forEach((uid) => {
-                const message = messages.find((item) => item.uid === uid);
-                if (message) onArchive(message);
-              })}>
+              <button
+                className="icon-btn"
+                title={readOnly ? restrictedTitle : "Archive"}
+                disabled={readOnly}
+                onClick={() => selected.forEach((uid) => {
+                  const message = messages.find((item) => item.uid === uid);
+                  if (message) onArchive(message);
+                })}
+              >
                 <Archive size={17} />
               </button>
             )}
-            <button className="icon-btn" title={isTrash ? "Delete forever" : "Move to trash"} onClick={() => selected.forEach((uid) => {
-              const message = messages.find((item) => item.uid === uid);
-              if (message) onDelete(message);
-            })}>
+            <button
+              className="icon-btn"
+              title={readOnly ? restrictedTitle : isTrash ? "Delete forever" : "Move to trash"}
+              disabled={readOnly}
+              onClick={() => selected.forEach((uid) => {
+                const message = messages.find((item) => item.uid === uid);
+                if (message) onDelete(message);
+              })}
+            >
               <Trash2 size={17} />
             </button>
           </>
@@ -124,6 +141,8 @@ export function MessageList({
               onDelete={() => onDelete(message)}
               onSnooze={showSnooze ? (anchor) => onSnooze(message, anchor) : undefined}
               isTrash={isTrash}
+              readOnly={readOnly}
+              restrictedTitle={restrictedTitle}
             />
           ))
         )}
@@ -150,6 +169,8 @@ function MessageRow({
   onDelete,
   onSnooze,
   isTrash,
+  readOnly,
+  restrictedTitle,
 }: {
   message: MailMessageSummary;
   selected: boolean;
@@ -160,6 +181,8 @@ function MessageRow({
   onDelete: () => void;
   onSnooze?: (anchor: HTMLElement) => void;
   isTrash: boolean;
+  readOnly?: boolean;
+  restrictedTitle?: string;
 }) {
   const unread = !message.flags.includes("\\Seen");
   const starred = message.flags.includes("\\Flagged");
@@ -198,11 +221,21 @@ function MessageRow({
             </button>
           )}
           {onArchive && (
-            <button className="icon-btn" title="Archive" onClick={(event) => { event.stopPropagation(); onArchive(); }}>
+            <button
+              className="icon-btn"
+              title={readOnly ? restrictedTitle : "Archive"}
+              disabled={readOnly}
+              onClick={(event) => { event.stopPropagation(); if (!readOnly) onArchive(); }}
+            >
               <Archive size={16} />
             </button>
           )}
-          <button className="icon-btn" title={isTrash ? "Delete forever" : "Move to trash"} onClick={(event) => { event.stopPropagation(); onDelete(); }}>
+          <button
+            className="icon-btn"
+            title={readOnly ? restrictedTitle : isTrash ? "Delete forever" : "Move to trash"}
+            disabled={readOnly}
+            onClick={(event) => { event.stopPropagation(); if (!readOnly) onDelete(); }}
+          >
             <Trash2 size={16} />
           </button>
         </span>

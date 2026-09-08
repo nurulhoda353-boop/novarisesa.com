@@ -105,6 +105,15 @@ export interface HostingerMailboxInfo {
   connected: boolean;
   account_id: string | null;
   role: "admin" | "member" | null;
+  storage_used: number | null;
+  storage_quota: number | null;
+  messages_used: number | null;
+  messages_quota: number | null;
+}
+
+export interface AdminContactInfo {
+  address: string;
+  display_name: string;
 }
 
 export interface MobileSession {

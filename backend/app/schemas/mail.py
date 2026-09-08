@@ -276,12 +276,23 @@ class AdminHostingerPasswordResponse(BaseModel):
 class HostingerMailboxSummary(BaseModel):
     """One row in the admin panel's live Hostinger view - every mailbox
     Hostinger actually has for the domain, not just ones that have logged
-    into Novamail at least once (connected=True, with account_id/role)."""
+    into Novamail at least once (connected=True, with account_id/role).
+    Usage figures come straight from Hostinger (storage in KB) - the only
+    place this data exists, since it isn't tracked in our own DB."""
 
     address: EmailStr
     connected: bool
     account_id: uuid.UUID | None = None
     role: str | None = None
+    storage_used: int | None = None
+    storage_quota: int | None = None
+    messages_used: int | None = None
+    messages_quota: int | None = None
+
+
+class AdminContactInfo(BaseModel):
+    address: EmailStr
+    display_name: str
 
 
 class AdminProvisionMailboxRequest(BaseModel):

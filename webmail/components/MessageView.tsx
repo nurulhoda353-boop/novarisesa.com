@@ -54,6 +54,8 @@ export function MessageView({
     [SYSTEM_FOLDERS.archive, SYSTEM_FOLDERS.spam, SYSTEM_FOLDERS.trash] as string[]
   ).includes(folder);
   const isTrash = folder === SYSTEM_FOLDERS.trash;
+  const readOnly = account.role === "member";
+  const restrictedTitle = "Members can't archive or delete mail — ask your admin";
 
   async function toggleThreadStar() {
     try {
@@ -71,16 +73,31 @@ export function MessageView({
         </button>
         <div className="divider" />
         {showArchive && (
-          <button className="icon-btn" title="Archive" onClick={() => onThreadAction("archive")}>
+          <button
+            className="icon-btn"
+            title={readOnly ? restrictedTitle : "Archive"}
+            disabled={readOnly}
+            onClick={() => onThreadAction("archive")}
+          >
             <Archive size={19} />
           </button>
         )}
         {showMoveToInbox && (
-          <button className="icon-btn" title="Move to inbox" onClick={() => onThreadAction("moveToInbox")}>
+          <button
+            className="icon-btn"
+            title={readOnly ? restrictedTitle : "Move to inbox"}
+            disabled={readOnly}
+            onClick={() => onThreadAction("moveToInbox")}
+          >
             <InboxIcon size={19} />
           </button>
         )}
-        <button className="icon-btn" title={isTrash ? "Delete forever" : "Move to trash"} onClick={() => onThreadAction("trash")}>
+        <button
+          className="icon-btn"
+          title={readOnly ? restrictedTitle : isTrash ? "Delete forever" : "Move to trash"}
+          disabled={readOnly}
+          onClick={() => onThreadAction("trash")}
+        >
           <Trash2 size={19} />
         </button>
         <button className="icon-btn" title="Snooze" onClick={(event) => onSnoozeRequest(event.currentTarget)}>

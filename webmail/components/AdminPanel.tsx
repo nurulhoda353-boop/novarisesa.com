@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Check, Eye, Pencil, Shield, ShieldCheck, User, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Copy, Eye, Pencil, Search, Shield, ShieldCheck, User, X } from "lucide-react";
 import * as api from "@/lib/api";
 import type {
   AdminAccountInfo,
@@ -30,31 +30,54 @@ export function AdminPanel({
   onSwitchedAccount: (account: MailAccount) => void;
 }) {
   const [tab, setTab] = useState<Tab>("accounts");
+  const [accounts, setAccounts] = useState<AdminAccountInfo[] | null>(null);
+  const [hostingerMailboxes, setHostingerMailboxes] = useState<HostingerMailboxInfo[] | null>(null);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   return (
     <div className="admin-page-overlay">
       <div className="admin-page">
         <div className="admin-page-head">
-          <ShieldCheck size={20} />
-          <h1>Admin panel</h1>
-          <span className="admin-page-sub">Signed in as {currentAccount.address}</span>
+          <div className="admin-page-brand">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <h1>Admin panel</h1>
+            <span className="admin-page-sub">Signed in as {currentAccount.address}</span>
+          </div>
           <div className="spacer" />
           <button className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
-        <div className="modal-tabs" style={{ padding: "0 28px" }}>
-          {(["accounts", "requests", "audit"] as Tab[]).map((item) => (
-            <button key={item} className={`modal-tab ${tab === item ? "active" : ""}`} onClick={() => setTab(item)}>
-              {labelFor(item)}
-            </button>
-          ))}
-        </div>
+
         <div className="admin-page-body">
+          <StatTiles accounts={accounts} hostingerMailboxes={hostingerMailboxes} pendingCount={pendingCount} />
+
+          <div className="modal-tabs" style={{ marginBottom: 18 }}>
+            {(["accounts", "requests", "audit"] as Tab[]).map((item) => (
+              <button key={item} className={`modal-tab ${tab === item ? "active" : ""}`} onClick={() => setTab(item)} style={{ position: "relative" }}>
+                {labelFor(item)}
+                {item === "requests" && !!pendingCount && (
+                  <span className="admin-pending-badge" style={{ position: "static", marginLeft: 6, display: "inline-grid" }}>
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
           {tab === "accounts" && (
-            <AccountsTab currentAddress={currentAccount.address} onSwitchedAccount={onSwitchedAccount} />
+            <AccountsTab
+              currentAddress={currentAccount.address}
+              onSwitchedAccount={onSwitchedAccount}
+              accounts={accounts}
+              setAccounts={setAccounts}
+              hostingerMailboxes={hostingerMailboxes}
+              setHostingerMailboxes={setHostingerMailboxes}
+            />
           )}
-          {tab === "requests" && <RequestsTab />}
+          {tab === "requests" && <RequestsTab onPendingCountChange={setPendingCount} />}
           {tab === "audit" && <AuditTab />}
         </div>
       </div>
@@ -66,18 +89,81 @@ function labelFor(tab: Tab): string {
   return { accounts: "Mailboxes", requests: "Pending requests", audit: "Audit log" }[tab];
 }
 
+function StatTiles({
+  accounts,
+  hostingerMailboxes,
+  pendingCount,
+}: {
+  accounts: AdminAccountInfo[] | null;
+  hostingerMailboxes: HostingerMailboxInfo[] | null;
+  pendingCount: number | null;
+}) {
+  const totalMailboxes = (hostingerMailboxes ?? accounts ?? []).length;
+  const adminCount = (accounts ?? []).filter((row) => row.role === "admin").length;
+  const totalStorage = (hostingerMailboxes ?? []).reduce((sum, row) => sum + (row.storage_used ?? 0), 0);
+
+  return (
+    <div className="admin-stat-tiles">
+      <div className="admin-stat-tile">
+        <span className="stat-value">{totalMailboxes || "—"}</span>
+        <span className="stat-label">Mailboxes</span>
+      </div>
+      <div className="admin-stat-tile accent">
+        <span className="stat-value">{pendingCount ?? "—"}</span>
+        <span className="stat-label">Pending requests</span>
+      </div>
+      <div className="admin-stat-tile">
+        <span className="stat-value">{adminCount || "—"}</span>
+        <span className="stat-label">Admins</span>
+      </div>
+      <div className="admin-stat-tile">
+        <span className="stat-value">{totalStorage ? formatKb(totalStorage) : "—"}</span>
+        <span className="stat-label">Storage used</span>
+      </div>
+    </div>
+  );
+}
+
+function formatKb(kb: number): string {
+  if (kb >= 1024 * 1024) return `${(kb / (1024 * 1024)).toFixed(1)} GB`;
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return `${kb} KB`;
+}
+
+function lastActiveLabel(iso: string | null): string {
+  if (!iso) return "Never logged in";
+  const then = new Date(iso).getTime();
+  const diffMs = Date.now() - then;
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Active just now";
+  if (minutes < 60) return `Active ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `Active ${days}d ago`;
+  return `Active ${new Date(iso).toLocaleDateString()}`;
+}
+
 function AccountsTab({
   currentAddress,
   onSwitchedAccount,
+  accounts,
+  setAccounts,
+  hostingerMailboxes,
+  setHostingerMailboxes,
 }: {
   currentAddress: string;
   onSwitchedAccount: (account: MailAccount) => void;
+  accounts: AdminAccountInfo[] | null;
+  setAccounts: (rows: AdminAccountInfo[] | null) => void;
+  hostingerMailboxes: HostingerMailboxInfo[] | null;
+  setHostingerMailboxes: (rows: HostingerMailboxInfo[] | null) => void;
 }) {
-  const [accounts, setAccounts] = useState<AdminAccountInfo[] | null>(null);
-  const [hostingerMailboxes, setHostingerMailboxes] = useState<HostingerMailboxInfo[] | null>(null);
   const [editing, setEditing] = useState<AdminAccountInfo | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
   const toast = useToast();
   // The initial page-load fetch (a live, multi-order Hostinger listing) can
   // still be in flight when a provision action fires its own reload() a few
@@ -102,7 +188,24 @@ function AccountsTab({
 
   useEffect(reload, []);
 
+  const usageByAddress = useMemo(() => {
+    const map = new Map<string, HostingerMailboxInfo>();
+    (hostingerMailboxes ?? []).forEach((row) => map.set(row.address.toLowerCase(), row));
+    return map;
+  }, [hostingerMailboxes]);
+
   const unconnected = (hostingerMailboxes ?? []).filter((row) => !row.connected);
+  const q = query.trim().toLowerCase();
+  const visibleAccounts = (accounts ?? []).filter(
+    (account) => !q || account.address.toLowerCase().includes(q) || account.display_name.toLowerCase().includes(q)
+  );
+
+  function copyAddress(address: string) {
+    navigator.clipboard?.writeText(address).then(() => {
+      setCopied(address);
+      setTimeout(() => setCopied((prev) => (prev === address ? null : prev)), 1500);
+    });
+  }
 
   async function handleProvision(address: string) {
     setProvisioning(address);
@@ -137,36 +240,64 @@ function AccountsTab({
       <p className="form-hint" style={{ marginBottom: 16 }}>
         Switch into any mailbox instantly, no password needed — or reset its password, name, or photo directly.
       </p>
-      {accounts.map((account) => (
-        <div className="admin-account-row" key={account.id}>
-          <div className="avatar">
-            {account.avatar_url ? <img src={account.avatar_url} alt="" /> : account.display_name.slice(0, 1).toUpperCase()}
-          </div>
-          <div className="grow">
-            <strong>
-              {account.display_name || account.address}
-              {account.role === "admin" && (
-                <span className="role-chip">
-                  <Shield size={11} /> Admin
-                </span>
-              )}
-            </strong>
-            <span>{account.address}</span>
-          </div>
-          <button className="btn btn-secondary sm" onClick={() => setEditing(account)}>
-            <Pencil size={14} /> Edit
-          </button>
-          {account.address !== currentAddress && (
-            <button
-              className="btn btn-primary sm"
-              disabled={switching === account.id}
-              onClick={() => handleSwitch(account)}
-            >
-              {switching === account.id ? "Switching…" : "Switch to this mailbox"}
+      <div className="admin-search-box">
+        <Search size={15} />
+        <input placeholder="Search mailboxes…" value={query} onChange={(event) => setQuery(event.target.value)} />
+      </div>
+      {visibleAccounts.map((account) => {
+        const usage = usageByAddress.get(account.address.toLowerCase());
+        const pct =
+          usage && usage.storage_quota
+            ? Math.min(100, Math.round(((usage.storage_used ?? 0) / usage.storage_quota) * 100))
+            : null;
+        return (
+          <div className="admin-account-row" key={account.id}>
+            <div className="avatar">
+              {account.avatar_url ? <img src={account.avatar_url} alt="" /> : account.display_name.slice(0, 1).toUpperCase()}
+            </div>
+            <div className="grow">
+              <strong>
+                {account.display_name || account.address}
+                {account.role === "admin" && (
+                  <span className="role-chip">
+                    <Shield size={11} /> Admin
+                  </span>
+                )}
+              </strong>
+              <span>{account.address}</span>
+              <div className="admin-account-meta">
+                {pct !== null && (
+                  <>
+                    <div className="admin-storage-bar">
+                      <div style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="admin-storage-text">
+                      {formatKb(usage?.storage_used ?? 0)} / {formatKb(usage?.storage_quota ?? 0)}
+                    </span>
+                  </>
+                )}
+                <span className="admin-lastactive-text">{lastActiveLabel(account.last_connected_at)}</span>
+              </div>
+            </div>
+            <button className="icon-btn" title="Copy address" onClick={() => copyAddress(account.address)}>
+              {copied === account.address ? <Check size={15} color="var(--success)" /> : <Copy size={15} />}
             </button>
-          )}
-        </div>
-      ))}
+            <button className="btn btn-secondary sm" onClick={() => setEditing(account)}>
+              <Pencil size={14} /> Edit
+            </button>
+            {account.address !== currentAddress && (
+              <button
+                className="btn btn-primary sm"
+                disabled={switching === account.id}
+                onClick={() => handleSwitch(account)}
+              >
+                {switching === account.id ? "Switching…" : "Switch to this mailbox"}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {visibleAccounts.length === 0 && <p className="form-hint">No mailboxes match “{query}”.</p>}
       {unconnected.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <p className="form-hint" style={{ marginBottom: 10 }}>
@@ -436,7 +567,7 @@ function EditAccountModal({
   );
 }
 
-function RequestsTab() {
+function RequestsTab({ onPendingCountChange }: { onPendingCountChange: (count: number) => void }) {
   const [requests, setRequests] = useState<AdminChangeRequestInfo[] | null>(null);
   const toast = useToast();
   const reloadSeq = useRef(0);
@@ -445,7 +576,11 @@ function RequestsTab() {
     const seq = ++reloadSeq.current;
     api
       .adminListChangeRequests("pending")
-      .then((rows) => { if (seq === reloadSeq.current) setRequests(rows); })
+      .then((rows) => {
+        if (seq !== reloadSeq.current) return;
+        setRequests(rows);
+        onPendingCountChange(rows.length);
+      })
       .catch(() => { if (seq === reloadSeq.current) setRequests([]); });
   }
 
@@ -506,17 +641,55 @@ function requestLabel(type: string): string {
 
 function AuditTab() {
   const [entries, setEntries] = useState<AdminAuditLogEntry[] | null>(null);
+  const [actorFilter, setActorFilter] = useState("all");
+  const [actionFilter, setActionFilter] = useState("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   useEffect(() => {
-    api.adminAuditLog(200).then(setEntries).catch(() => setEntries([]));
+    api.adminAuditLog(500).then(setEntries).catch(() => setEntries([]));
   }, []);
+
+  const actors = useMemo(
+    () => Array.from(new Set((entries ?? []).map((row) => row.actor_address).filter((v): v is string => !!v))).sort(),
+    [entries]
+  );
+  const actions = useMemo(
+    () => Array.from(new Set((entries ?? []).map((row) => row.action))).sort(),
+    [entries]
+  );
+
+  const filtered = (entries ?? []).filter((entry) => {
+    if (actorFilter !== "all" && entry.actor_address !== actorFilter) return false;
+    if (actionFilter !== "all" && entry.action !== actionFilter) return false;
+    const created = new Date(entry.created_at).getTime();
+    if (fromDate && created < new Date(fromDate).getTime()) return false;
+    if (toDate && created > new Date(toDate).getTime() + 24 * 60 * 60 * 1000) return false;
+    return true;
+  });
 
   if (entries === null) return <p>Loading…</p>;
 
   return (
     <div>
-      {entries.length === 0 && <p className="form-hint">No activity yet.</p>}
-      {entries.map((entry) => (
+      <div className="admin-audit-filters">
+        <select value={actorFilter} onChange={(event) => setActorFilter(event.target.value)}>
+          <option value="all">Everyone</option>
+          {actors.map((address) => (
+            <option key={address} value={address}>{address}</option>
+          ))}
+        </select>
+        <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
+          <option value="all">Every action</option>
+          {actions.map((action) => (
+            <option key={action} value={action}>{action.replace(/_/g, " ")}</option>
+          ))}
+        </select>
+        <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
+        <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+      </div>
+      {filtered.length === 0 && <p className="form-hint">No matching activity.</p>}
+      {filtered.map((entry) => (
         <div className="list-item-row" key={entry.id}>
           <div className="grow">
             <strong>{describeAction(entry)}</strong>
