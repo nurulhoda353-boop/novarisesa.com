@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Copy,
   Eye,
+  EyeOff,
   History,
   KeyRound,
   Mail,
@@ -385,10 +386,12 @@ function EditAccountModal({
 }) {
   const [displayName, setDisplayName] = useState(account.display_name);
   const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [hostingerStep, setHostingerStep] = useState(0);
   const [hostingerPassword, setHostingerPassword] = useState("");
+  const [showHostingerPassword, setShowHostingerPassword] = useState(false);
   const toast = useToast();
 
   async function saveProfile() {
@@ -518,13 +521,24 @@ function EditAccountModal({
               <KeyRound size={13} /> Novamail password
             </div>
             <div className="form-row">
-              <input
-                className="form-input"
-                type="password"
-                placeholder="At least 8 characters"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-              />
+              <div className="password-field" style={{ flex: 1 }}>
+                <input
+                  className="form-input"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder="At least 8 characters"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  tabIndex={-1}
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowNewPassword((value) => !value)}
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
               <button className="btn btn-primary" onClick={savePassword} disabled={saving}>
                 Set password
               </button>
@@ -559,13 +573,24 @@ function EditAccountModal({
             )}
             {hostingerStep === 1 && (
               <div style={{ marginTop: 10 }}>
-                <input
-                  className="form-input"
-                  type="password"
-                  placeholder="New Hostinger password (8+ characters)"
-                  value={hostingerPassword}
-                  onChange={(event) => setHostingerPassword(event.target.value)}
-                />
+                <div className="password-field">
+                  <input
+                    className="form-input"
+                    type={showHostingerPassword ? "text" : "password"}
+                    placeholder="New Hostinger password (8+ characters)"
+                    value={hostingerPassword}
+                    onChange={(event) => setHostingerPassword(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    tabIndex={-1}
+                    aria-label={showHostingerPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowHostingerPassword((value) => !value)}
+                  >
+                    {showHostingerPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
                 <div className="form-row" style={{ marginTop: 8 }}>
                   <button className="btn btn-secondary sm" onClick={() => setHostingerStep(0)}>
                     Cancel
