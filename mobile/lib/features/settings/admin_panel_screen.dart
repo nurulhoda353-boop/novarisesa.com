@@ -8,6 +8,45 @@ import '../../core/app_state.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.icon, required this.title, this.subtitle});
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: Icon(icon, size: 20, color: muted),
+            ),
+            const SizedBox(height: 12),
+            Text(title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleSmall
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+            if (subtitle != null) ...[
+              const SizedBox(height: 6),
+              Text(subtitle!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: muted)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// A separate screen (not another Settings row) for the one admin mailbox
 /// to control every other mailbox: switch into one without its password,
 /// reset a password/name/photo directly, review pending member
@@ -324,6 +363,7 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
   late final TextEditingController _name;
   final _password = TextEditingController();
   bool _busy = false;
+  bool _obscurePassword = true;
   String? _revealedHostingerPassword;
 
   @override
@@ -420,34 +460,46 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
   Future<void> _changeHostingerPasswordFlow() async {
     final address = widget.account.address;
     final newPasswordController = TextEditingController();
+    var obscureDialogPassword = true;
     final newPassword = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change the real Hostinger password?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'This changes the actual mailbox password used for sending/receiving mail — rarely '
-              'needed. $address\'s Novamail login is unaffected.',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: newPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                  labelText: 'New Hostinger password', helperText: 'At least 8 characters'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Change the real Hostinger password?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'This changes the actual mailbox password used for sending/receiving mail — rarely '
+                'needed. $address\'s Novamail login is unaffected.',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: newPasswordController,
+                obscureText: obscureDialogPassword,
+                decoration: InputDecoration(
+                  labelText: 'New Hostinger password',
+                  helperText: 'At least 8 characters',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscureDialogPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () => setDialogState(() => obscureDialogPassword = !obscureDialogPassword),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, newPasswordController.text),
+              child: const Text('Continue'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, newPasswordController.text),
-            child: const Text('Continue'),
-          ),
-        ],
       ),
     );
     newPasswordController.dispose();
@@ -504,8 +556,30 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
     }
   }
 
+  Widget _sectionTitle(BuildContext context, IconData icon, String text, {Color? color}) {
+    final resolved = color ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: resolved),
+          const SizedBox(width: 6),
+          Text(
+            text.toUpperCase(),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: resolved,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.only(
         left: 20,
@@ -517,68 +591,100 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.account.address, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 16),
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: AvatarPalette.forSeed(widget.account.address),
+                foregroundColor: Colors.white,
+                child: Text(widget.account.address[0].toUpperCase()),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.account.address,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          _sectionTitle(context, Icons.person_outline, 'Profile'),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Display name')),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-                onPressed: _busy ? null : _saveName, child: const Text('Save name')),
+          Row(
+            children: [
+              TextButton(onPressed: _busy ? null : _saveName, child: const Text('Save name')),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _pickPhoto,
+                icon: const Icon(Icons.image_outlined, size: 16),
+                label: const Text('Change photo'),
+              ),
+            ],
           ),
-          const Divider(height: 28),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _pickPhoto,
-            icon: const Icon(Icons.image_outlined),
-            label: const Text('Choose new photo'),
-          ),
-          const Divider(height: 28),
-          Text('Novamail password', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 6),
+          const Divider(height: 32),
+
+          _sectionTitle(context, Icons.key_outlined, 'Novamail password'),
           TextField(
             controller: _password,
-            obscureText: true,
-            decoration: const InputDecoration(
-                labelText: 'New password', helperText: 'At least 8 characters'),
+            obscureText: _obscurePassword,
+            decoration: InputDecoration(
+              labelText: 'New password',
+              helperText: 'At least 8 characters',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  size: 20,
+                ),
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           FilledButton(onPressed: _busy ? null : _setPassword, child: const Text('Set password')),
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              'Only changes how ${widget.account.address} logs into Novamail — signs them out '
-              'everywhere. The real Hostinger password is untouched.',
-              style: Theme.of(context).textTheme.bodySmall,
+          const Divider(height: 32),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer.withValues(alpha: 0.35),
+              border: Border.all(color: scheme.error.withValues(alpha: 0.25)),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ),
-          const Divider(height: 28),
-          Text('Real Hostinger mailbox password', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 6),
-          if (_revealedHostingerPassword != null)
-            Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: SelectableText(_revealedHostingerPassword!,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _revealedHostingerPassword = null),
-                  child: const Text('Hide'),
+                _sectionTitle(context, Icons.warning_amber_outlined, 'Hostinger mailbox password', color: scheme.error),
+                if (_revealedHostingerPassword != null)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SelectableText(_revealedHostingerPassword!,
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                      TextButton(
+                        onPressed: () => setState(() => _revealedHostingerPassword = null),
+                        child: const Text('Hide'),
+                      ),
+                    ],
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _revealHostingerPassword,
+                    icon: const Icon(Icons.visibility_outlined, size: 16),
+                    label: const Text('Show current password'),
+                  ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: _busy ? null : _changeHostingerPasswordFlow,
+                  icon: Icon(Icons.warning_amber_outlined, size: 16, color: scheme.error),
+                  label: Text('Change the real Hostinger password…', style: TextStyle(color: scheme.error)),
                 ),
               ],
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _revealHostingerPassword,
-              icon: const Icon(Icons.visibility_outlined),
-              label: const Text('Show current password'),
             ),
-          const SizedBox(height: 10),
-          TextButton.icon(
-            onPressed: _busy ? null : _changeHostingerPasswordFlow,
-            icon: Icon(Icons.warning_amber_outlined, color: Theme.of(context).colorScheme.error),
-            label: Text('Change the real Hostinger password…',
-                style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ),
           const SizedBox(height: 12),
         ],
@@ -656,7 +762,11 @@ class _RequestsTabState extends State<_RequestsTab> {
         }
         final rows = snapshot.data ?? const [];
         if (rows.isEmpty) {
-          return const Center(child: Text('No pending requests'));
+          return const _EmptyState(
+            icon: Icons.assignment_turned_in_outlined,
+            title: 'No pending requests',
+            subtitle: 'Member requests for a new name, password, or photo show up here.',
+          );
         }
         return ListView.separated(
           padding: const EdgeInsets.all(12),
@@ -738,7 +848,11 @@ class _AuditTabState extends State<_AuditTab> {
         }
         final allRows = snapshot.data ?? const [];
         if (allRows.isEmpty) {
-          return const Center(child: Text('No activity yet'));
+          return const _EmptyState(
+            icon: Icons.history,
+            title: 'No activity yet',
+            subtitle: 'Every admin action gets logged here.',
+          );
         }
         final actors = {for (final row in allRows) if (row.actorAddress != null) row.actorAddress!}
             .toList()
@@ -787,7 +901,11 @@ class _AuditTabState extends State<_AuditTab> {
             ),
             Expanded(
               child: rows.isEmpty
-                  ? const Center(child: Text('No matching activity'))
+                  ? const _EmptyState(
+                      icon: Icons.filter_alt_off_outlined,
+                      title: 'No matching activity',
+                      subtitle: 'Try widening the actor or action filter.',
+                    )
                   : ListView.separated(
                       itemCount: rows.length,
                       separatorBuilder: (_, __) => const Divider(height: 1),
