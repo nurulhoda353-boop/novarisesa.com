@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Eye, Pencil, Shield, ShieldCheck, User, X } from "lucide-react";
 import * as api from "@/lib/api";
 import type {
@@ -79,10 +79,25 @@ function AccountsTab({
   const [switching, setSwitching] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState<string | null>(null);
   const toast = useToast();
+  // The initial page-load fetch (a live, multi-order Hostinger listing) can
+  // still be in flight when a provision action fires its own reload() a few
+  // seconds later - without this guard, the slower *older* response can
+  // resolve last and overwrite the fresh one with stale "not connected"
+  // data (exactly what made a just-provisioned mailbox reappear as
+  // unconnected). Only the most recently *initiated* reload's results are
+  // ever applied.
+  const reloadSeq = useRef(0);
 
   function reload() {
-    api.adminListAccounts().then(setAccounts).catch(() => setAccounts([]));
-    api.adminHostingerMailboxes().then(setHostingerMailboxes).catch(() => setHostingerMailboxes([]));
+    const seq = ++reloadSeq.current;
+    api
+      .adminListAccounts()
+      .then((rows) => { if (seq === reloadSeq.current) setAccounts(rows); })
+      .catch(() => { if (seq === reloadSeq.current) setAccounts([]); });
+    api
+      .adminHostingerMailboxes()
+      .then((rows) => { if (seq === reloadSeq.current) setHostingerMailboxes(rows); })
+      .catch(() => { if (seq === reloadSeq.current) setHostingerMailboxes([]); });
   }
 
   useEffect(reload, []);
@@ -424,9 +439,14 @@ function EditAccountModal({
 function RequestsTab() {
   const [requests, setRequests] = useState<AdminChangeRequestInfo[] | null>(null);
   const toast = useToast();
+  const reloadSeq = useRef(0);
 
   function reload() {
-    api.adminListChangeRequests("pending").then(setRequests).catch(() => setRequests([]));
+    const seq = ++reloadSeq.current;
+    api
+      .adminListChangeRequests("pending")
+      .then((rows) => { if (seq === reloadSeq.current) setRequests(rows); })
+      .catch(() => { if (seq === reloadSeq.current) setRequests([]); });
   }
 
   useEffect(reload, []);
