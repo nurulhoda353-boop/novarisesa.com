@@ -856,13 +856,19 @@ html.dark .password-toggle:hover { background: var(--surface2); }
 .admin-sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .admin-nav-item {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: var(--r-md);
+  padding: 10px 12px 10px 15px; border-radius: var(--r-md);
   font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,0.8);
   cursor: pointer; border: none; background: none; text-align: left; width: 100%;
   position: relative;
+  transition: background 0.15s, color 0.15s;
 }
 .admin-nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .admin-nav-item.active { background: rgba(255,255,255,0.16); color: #fff; }
+.admin-nav-item.active::before {
+  content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; border-radius: var(--r-pill);
+  background: var(--accent-gradient);
+}
 .admin-nav-badge {
   margin-left: auto; background: var(--accent); color: #2b1c04;
   font-size: 10px; font-weight: 800; padding: 1px 7px; border-radius: var(--r-pill);
@@ -899,24 +905,27 @@ html.dark .password-toggle:hover { background: var(--surface2); }
 .admin-search-box svg { color: var(--muted); flex-shrink: 0; }
 
 .admin-account-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 16px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 18px; margin-bottom: 10px;
   border-radius: var(--r-lg);
   background: var(--surface); border: 1px solid var(--border);
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
-.admin-account-row:hover { border-color: var(--brand); }
+.admin-account-row:hover { border-color: var(--border2); background: var(--surface2); box-shadow: var(--shadow-sm); }
 .admin-account-row .avatar { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
 .admin-account-row .grow { flex: 1; min-width: 0; }
-.admin-account-row .grow strong { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
-.admin-account-row .grow span { display: block; font-size: 12.5px; color: var(--muted); }
-.admin-account-meta { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+.admin-account-row .grow strong { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.admin-account-row .grow span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 1px; }
+.admin-account-meta { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
 .admin-storage-bar {
-  width: 84px; height: 5px; border-radius: var(--r-pill);
+  width: 90px; height: 6px; border-radius: var(--r-pill);
   background: var(--border); overflow: hidden; flex-shrink: 0;
 }
-.admin-storage-bar > div { height: 100%; background: var(--accent-gradient); border-radius: var(--r-pill); }
-.admin-storage-text, .admin-lastactive-text { font-size: 11px; color: var(--muted2); white-space: nowrap; }
+.admin-storage-bar > div { height: 100%; border-radius: var(--r-pill); background: var(--accent-gradient); transition: width 0.3s; }
+.admin-storage-bar > div.storage-high { background: linear-gradient(135deg, #e5677a, var(--danger)); }
+.admin-storage-bar > div.storage-mid { background: var(--accent-gradient); }
+.admin-storage-bar > div.storage-low { background: linear-gradient(135deg, #4fc98a, var(--success)); }
+.admin-storage-text, .admin-lastactive-text { font-size: 11.5px; color: var(--muted2); white-space: nowrap; }
 .role-chip {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
@@ -934,6 +943,31 @@ html.dark .password-toggle:hover { background: var(--surface2); }
   padding: 7px 10px; border-radius: var(--r-sm); border: 1px solid var(--border);
   background: var(--surface2); color: var(--ink); font-size: 12.5px;
 }
+
+/* Skeleton loaders - replace bare "Loading…" text with a shape of the
+   content that's about to arrive, so the panel doesn't blank-then-pop. */
+@keyframes admin-skeleton-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.admin-skeleton-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 18px; margin-bottom: 10px;
+  border-radius: var(--r-lg); border: 1px solid var(--border);
+}
+.admin-skeleton-block {
+  background: var(--border); border-radius: var(--r-sm);
+  animation: admin-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.admin-empty-state {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 10px; padding: 48px 20px; color: var(--muted);
+}
+.admin-empty-state .admin-empty-icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--chip-bg); color: var(--muted);
+  display: grid; place-items: center;
+}
+.admin-empty-state strong { color: var(--ink2); font-size: 13.5px; font-weight: 700; }
+.admin-empty-state span { font-size: 12.5px; max-width: 320px; }
 
 @media (max-width: 760px) {
   .admin-page-overlay { flex-direction: column; }

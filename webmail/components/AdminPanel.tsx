@@ -101,6 +101,35 @@ function labelFor(tab: Tab): string {
   return { accounts: "Mailboxes", requests: "Pending requests", audit: "Audit log" }[tab];
 }
 
+function EmptyState({ icon: Icon, title, subtitle }: { icon: typeof Mail; title: string; subtitle?: string }) {
+  return (
+    <div className="admin-empty-state">
+      <div className="admin-empty-icon">
+        <Icon size={20} />
+      </div>
+      <strong>{title}</strong>
+      {subtitle && <span>{subtitle}</span>}
+    </div>
+  );
+}
+
+function SkeletonRows({ count = 4 }: { count?: number }) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, index) => (
+        <div className="admin-skeleton-row" key={index}>
+          <div className="admin-skeleton-block" style={{ width: 36, height: 36, borderRadius: "50%" }} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="admin-skeleton-block" style={{ width: "38%", height: 12 }} />
+            <div className="admin-skeleton-block" style={{ width: "58%", height: 10 }} />
+          </div>
+          <div className="admin-skeleton-block" style={{ width: 96, height: 30, borderRadius: "var(--r-md)" }} />
+        </div>
+      ))}
+    </>
+  );
+}
+
 function StatTiles({
   accounts,
   hostingerMailboxes,
@@ -245,8 +274,6 @@ function AccountsTab({
     }
   }
 
-  if (accounts === null) return <p>Loading…</p>;
-
   return (
     <div>
       <p className="form-hint" style={{ marginBottom: 16 }}>
@@ -256,60 +283,65 @@ function AccountsTab({
         <Search size={15} />
         <input placeholder="Search mailboxes…" value={query} onChange={(event) => setQuery(event.target.value)} />
       </div>
-      {visibleAccounts.map((account) => {
-        const usage = usageByAddress.get(account.address.toLowerCase());
-        const pct =
-          usage && usage.storage_quota
-            ? Math.min(100, Math.round(((usage.storage_used ?? 0) / usage.storage_quota) * 100))
-            : null;
-        return (
-          <div className="admin-account-row" key={account.id}>
-            <div className="avatar">
-              {account.avatar_url ? <img src={account.avatar_url} alt="" /> : account.display_name.slice(0, 1).toUpperCase()}
-            </div>
-            <div className="grow">
-              <strong>
-                {account.display_name || account.address}
-                {account.role === "admin" && (
-                  <span className="role-chip">
-                    <Shield size={11} /> Admin
-                  </span>
-                )}
-              </strong>
-              <span>{account.address}</span>
-              <div className="admin-account-meta">
-                {pct !== null && (
-                  <>
-                    <div className="admin-storage-bar">
-                      <div style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="admin-storage-text">
-                      {formatKb(usage?.storage_used ?? 0)} / {formatKb(usage?.storage_quota ?? 0)}
-                    </span>
-                  </>
-                )}
-                <span className="admin-lastactive-text">{lastActiveLabel(account.last_connected_at)}</span>
+      {accounts === null && <SkeletonRows />}
+      {accounts !== null &&
+        visibleAccounts.map((account) => {
+          const usage = usageByAddress.get(account.address.toLowerCase());
+          const pct =
+            usage && usage.storage_quota
+              ? Math.min(100, Math.round(((usage.storage_used ?? 0) / usage.storage_quota) * 100))
+              : null;
+          const storageClass = pct === null ? "" : pct >= 85 ? "storage-high" : pct >= 60 ? "storage-mid" : "storage-low";
+          return (
+            <div className="admin-account-row" key={account.id}>
+              <div className="avatar lg">
+                {account.avatar_url ? <img src={account.avatar_url} alt="" /> : account.display_name.slice(0, 1).toUpperCase()}
               </div>
-            </div>
-            <button className="icon-btn" title="Copy address" onClick={() => copyAddress(account.address)}>
-              {copied === account.address ? <Check size={15} color="var(--success)" /> : <Copy size={15} />}
-            </button>
-            <button className="btn btn-secondary sm" onClick={() => setEditing(account)}>
-              <Pencil size={14} /> Edit
-            </button>
-            {account.address !== currentAddress && (
-              <button
-                className="btn btn-primary sm"
-                disabled={switching === account.id}
-                onClick={() => handleSwitch(account)}
-              >
-                {switching === account.id ? "Switching…" : "Switch to this mailbox"}
+              <div className="grow">
+                <strong>
+                  {account.display_name || account.address}
+                  {account.role === "admin" && (
+                    <span className="role-chip">
+                      <Shield size={11} /> Admin
+                    </span>
+                  )}
+                </strong>
+                <span>{account.address}</span>
+                <div className="admin-account-meta">
+                  {pct !== null && (
+                    <>
+                      <div className="admin-storage-bar">
+                        <div className={storageClass} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="admin-storage-text">
+                        {formatKb(usage?.storage_used ?? 0)} / {formatKb(usage?.storage_quota ?? 0)}
+                      </span>
+                    </>
+                  )}
+                  <span className="admin-lastactive-text">{lastActiveLabel(account.last_connected_at)}</span>
+                </div>
+              </div>
+              <button className="icon-btn" title="Copy address" onClick={() => copyAddress(account.address)}>
+                {copied === account.address ? <Check size={15} color="var(--success)" /> : <Copy size={15} />}
               </button>
-            )}
-          </div>
-        );
-      })}
-      {visibleAccounts.length === 0 && <p className="form-hint">No mailboxes match “{query}”.</p>}
+              <button className="btn btn-secondary sm" onClick={() => setEditing(account)}>
+                <Pencil size={14} /> Edit
+              </button>
+              {account.address !== currentAddress && (
+                <button
+                  className="btn btn-primary sm"
+                  disabled={switching === account.id}
+                  onClick={() => handleSwitch(account)}
+                >
+                  {switching === account.id ? "Switching…" : "Switch to this mailbox"}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      {accounts !== null && visibleAccounts.length === 0 && (
+        <EmptyState icon={Search} title={`No mailboxes match "${query}"`} subtitle="Try a different name or address." />
+      )}
       {unconnected.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <p className="form-hint" style={{ marginBottom: 10 }}>
@@ -318,7 +350,7 @@ function AccountsTab({
           </p>
           {unconnected.map((row) => (
             <div className="admin-account-row" key={row.address}>
-              <div className="avatar">{row.address.slice(0, 1).toUpperCase()}</div>
+              <div className="avatar lg">{row.address.slice(0, 1).toUpperCase()}</div>
               <div className="grow">
                 <span>{row.address}</span>
               </div>
@@ -618,11 +650,13 @@ function RequestsTab({ onPendingCountChange }: { onPendingCountChange: (count: n
     }
   }
 
-  if (requests === null) return <p>Loading…</p>;
+  if (requests === null) return <SkeletonRows count={3} />;
 
   return (
     <div>
-      {requests.length === 0 && <p className="form-hint">No pending requests.</p>}
+      {requests.length === 0 && (
+        <EmptyState icon={ClipboardList} title="No pending requests" subtitle="Member requests for a new name, password, or photo show up here." />
+      )}
       {requests.map((request) => (
         <div className="list-item-row" key={request.id}>
           <User size={16} />
@@ -680,7 +714,7 @@ function AuditTab() {
     return true;
   });
 
-  if (entries === null) return <p>Loading…</p>;
+  if (entries === null) return <SkeletonRows count={5} />;
 
   return (
     <div>
@@ -700,7 +734,9 @@ function AuditTab() {
         <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} />
         <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
       </div>
-      {filtered.length === 0 && <p className="form-hint">No matching activity.</p>}
+      {filtered.length === 0 && (
+        <EmptyState icon={History} title="No matching activity" subtitle="Try widening the actor, action, or date filters." />
+      )}
       {filtered.map((entry) => (
         <div className="list-item-row" key={entry.id}>
           <div className="grow">
