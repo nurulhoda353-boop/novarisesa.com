@@ -597,6 +597,18 @@ class ApiClient {
         .toList();
   }
 
+  /// Resets the real Hostinger password (the only way to get a known
+  /// credential for a mailbox nobody's ever logged into Novamail with)
+  /// and creates its account record, so it's immediately switchable/editable.
+  Future<AdminAccountSummary> adminProvisionMailbox(String address) async {
+    final body = _decode(await _request(
+      'POST',
+      '/mail/admin/hostinger-mailboxes/provision',
+      body: {'address': address},
+    )) as Map<String, dynamic>;
+    return AdminAccountSummary.fromJson(body);
+  }
+
   Future<List<MailDraft>> drafts() async {
     final rows =
         _decode(await _request('GET', '/mail/drafts')) as List<dynamic>;

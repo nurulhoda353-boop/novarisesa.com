@@ -77,6 +77,7 @@ function AccountsTab({
   const [hostingerMailboxes, setHostingerMailboxes] = useState<HostingerMailboxInfo[] | null>(null);
   const [editing, setEditing] = useState<AdminAccountInfo | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
+  const [provisioning, setProvisioning] = useState<string | null>(null);
   const toast = useToast();
 
   function reload() {
@@ -87,6 +88,19 @@ function AccountsTab({
   useEffect(reload, []);
 
   const unconnected = (hostingerMailboxes ?? []).filter((row) => !row.connected);
+
+  async function handleProvision(address: string) {
+    setProvisioning(address);
+    try {
+      await api.adminProvisionMailbox(address);
+      toast.show(`${address} is now manageable from here`);
+      reload();
+    } catch {
+      toast.show(`Could not bring ${address} under management`);
+    } finally {
+      setProvisioning(null);
+    }
+  }
 
   async function handleSwitch(account: AdminAccountInfo) {
     setSwitching(account.id);
@@ -141,8 +155,8 @@ function AccountsTab({
       {unconnected.length > 0 && (
         <div style={{ marginTop: 24 }}>
           <p className="form-hint" style={{ marginBottom: 10 }}>
-            Also on Hostinger, but never logged into Novamail yet (no Novamail access to manage from here
-            until they do):
+            Also on Hostinger, but never logged into Novamail yet — bring one under management directly
+            (this resets its real Hostinger password, since there's no other way to get a known one):
           </p>
           {unconnected.map((row) => (
             <div className="admin-account-row" key={row.address}>
@@ -150,6 +164,13 @@ function AccountsTab({
               <div className="grow">
                 <span>{row.address}</span>
               </div>
+              <button
+                className="btn btn-primary sm"
+                disabled={provisioning === row.address}
+                onClick={() => handleProvision(row.address)}
+              >
+                {provisioning === row.address ? "Provisioning…" : "Bring under management"}
+              </button>
             </div>
           ))}
         </div>

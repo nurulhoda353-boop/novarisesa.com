@@ -47,6 +47,7 @@ class _AccountsTab extends StatefulWidget {
 class _AccountsTabState extends State<_AccountsTab> {
   late Future<List<AdminAccountSummary>> _accounts;
   late Future<List<HostingerMailboxSummary>> _hostingerMailboxes;
+  String? _provisioning;
 
   @override
   void initState() {
@@ -57,6 +58,25 @@ class _AccountsTabState extends State<_AccountsTab> {
   void _reload() {
     _accounts = context.read<AppState>().api.adminAccounts();
     _hostingerMailboxes = context.read<AppState>().api.adminHostingerMailboxes();
+  }
+
+  Future<void> _provision(String address) async {
+    setState(() => _provisioning = address);
+    try {
+      await context.read<AppState>().api.adminProvisionMailbox(address);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$address is now manageable from here')));
+        setState(_reload);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not bring $address under management: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _provisioning = null);
+    }
   }
 
   Future<void> _switchTo(AdminAccountSummary account) async {
@@ -116,8 +136,9 @@ class _AccountsTabState extends State<_AccountsTab> {
                 if (unconnected.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Also on Hostinger, but never logged into Novamail yet '
-                    '(no Novamail access to manage from here until they do):',
+                    'Also on Hostinger, but never logged into Novamail yet - bring one under '
+                    'management directly (this resets its real Hostinger password, since '
+                    "there's no other way to get a known one):",
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
@@ -126,6 +147,13 @@ class _AccountsTabState extends State<_AccountsTab> {
                       dense: true,
                       leading: const Icon(Icons.mail_outline),
                       title: Text(row.address),
+                      trailing: TextButton(
+                        onPressed: _provisioning == row.address
+                            ? null
+                            : () => _provision(row.address),
+                        child: Text(
+                            _provisioning == row.address ? 'Working…' : 'Bring under management'),
+                      ),
                     ),
                 ],
               ],

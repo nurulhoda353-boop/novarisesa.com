@@ -320,6 +320,14 @@ export const adminSetHostingerPassword = (accountId: string, newPassword: string
 export const adminViewHostingerPassword = (accountId: string) =>
   api<{ address: string; password: string }>(`/mail/admin/accounts/${accountId}/hostinger-password`);
 export const adminHostingerMailboxes = () => api<HostingerMailboxInfo[]>("/mail/admin/hostinger-mailboxes");
+/** Resets the real Hostinger password (the only way to get a known
+ * credential for a mailbox nobody's ever logged into Novamail with) and
+ * creates its account record, so it's immediately switchable/editable. */
+export const adminProvisionMailbox = (address: string) =>
+  api<AdminAccountInfo>("/mail/admin/hostinger-mailboxes/provision", {
+    method: "POST",
+    body: JSON.stringify({ address }),
+  });
 
 /** Switches the active session into a member mailbox without its
  * password - the same "saved account" storage the manual switch-account
