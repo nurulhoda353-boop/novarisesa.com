@@ -100,6 +100,13 @@ export interface AdminAuditLogEntry {
   created_at: string;
 }
 
+export interface HostingerMailboxInfo {
+  address: string;
+  connected: boolean;
+  account_id: string | null;
+  role: "admin" | "member" | null;
+}
+
 export interface MobileSession {
   access_token: string;
   refresh_token: string;

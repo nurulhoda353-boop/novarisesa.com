@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Pencil, Shield, ShieldCheck, User, X } from "lucide-react";
+import { Check, Eye, Pencil, Shield, ShieldCheck, User, X } from "lucide-react";
 import * as api from "@/lib/api";
-import type { AdminAccountInfo, AdminAuditLogEntry, AdminChangeRequestInfo, MailAccount } from "@/lib/types";
+import type {
+  AdminAccountInfo,
+  AdminAuditLogEntry,
+  AdminChangeRequestInfo,
+  HostingerMailboxInfo,
+  MailAccount,
+} from "@/lib/types";
 import { useToast } from "@/lib/toast";
 
 type Tab = "accounts" | "requests" | "audit";
@@ -68,15 +74,19 @@ function AccountsTab({
   onSwitchedAccount: (account: MailAccount) => void;
 }) {
   const [accounts, setAccounts] = useState<AdminAccountInfo[] | null>(null);
+  const [hostingerMailboxes, setHostingerMailboxes] = useState<HostingerMailboxInfo[] | null>(null);
   const [editing, setEditing] = useState<AdminAccountInfo | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
   const toast = useToast();
 
   function reload() {
     api.adminListAccounts().then(setAccounts).catch(() => setAccounts([]));
+    api.adminHostingerMailboxes().then(setHostingerMailboxes).catch(() => setHostingerMailboxes([]));
   }
 
   useEffect(reload, []);
+
+  const unconnected = (hostingerMailboxes ?? []).filter((row) => !row.connected);
 
   async function handleSwitch(account: AdminAccountInfo) {
     setSwitching(account.id);
@@ -128,6 +138,22 @@ function AccountsTab({
           )}
         </div>
       ))}
+      {unconnected.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <p className="form-hint" style={{ marginBottom: 10 }}>
+            Also on Hostinger, but never logged into Novamail yet (no Novamail access to manage from here
+            until they do):
+          </p>
+          {unconnected.map((row) => (
+            <div className="admin-account-row" key={row.address}>
+              <div className="avatar">{row.address.slice(0, 1).toUpperCase()}</div>
+              <div className="grow">
+                <span>{row.address}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {editing && (
         <EditAccountModal account={editing} onClose={() => setEditing(null)} onSaved={reload} />
       )}
@@ -147,6 +173,9 @@ function EditAccountModal({
   const [displayName, setDisplayName] = useState(account.display_name);
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [hostingerStep, setHostingerStep] = useState(0);
+  const [hostingerPassword, setHostingerPassword] = useState("");
   const toast = useToast();
 
   async function saveProfile() {
@@ -183,10 +212,41 @@ function EditAccountModal({
     setSaving(true);
     try {
       await api.adminSetPassword(account.id, newPassword);
-      toast.show(`Password changed — ${account.address} is signed out everywhere`);
+      toast.show(`Novamail password changed — ${account.address} is signed out everywhere`);
       setNewPassword("");
     } catch {
       toast.show("Could not change the password");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revealHostingerPassword() {
+    setSaving(true);
+    try {
+      const result = await api.adminViewHostingerPassword(account.id);
+      setRevealedPassword(result.password);
+    } catch {
+      toast.show("Could not fetch the Hostinger password");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmHostingerPasswordChange() {
+    if (hostingerPassword.length < 8) {
+      toast.show("Password must be at least 8 characters");
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.adminSetHostingerPassword(account.id, hostingerPassword);
+      toast.show(`Real Hostinger password changed for ${account.address}`);
+      setHostingerPassword("");
+      setHostingerStep(0);
+      setRevealedPassword(null);
+    } catch {
+      toast.show("Could not change the Hostinger password");
     } finally {
       setSaving(false);
     }
@@ -229,7 +289,7 @@ function EditAccountModal({
             </label>
           </div>
           <div className="form-group">
-            <label>Set a new password</label>
+            <label>Novamail password</label>
             <div className="form-row">
               <input
                 className="form-input"
@@ -242,7 +302,97 @@ function EditAccountModal({
                 Set password
               </button>
             </div>
-            <p className="form-hint">This signs {account.address} out of every device immediately.</p>
+            <p className="form-hint">
+              Only changes how {account.address} logs into Novamail — signs them out of every device
+              immediately. The real Hostinger mailbox password is untouched.
+            </p>
+          </div>
+
+          <div className="form-group" style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
+            <label>Real Hostinger mailbox password</label>
+            {revealedPassword ? (
+              <div className="form-row">
+                <input className="form-input" readOnly value={revealedPassword} />
+                <button className="btn btn-secondary sm" onClick={() => setRevealedPassword(null)}>
+                  Hide
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-secondary sm" onClick={revealHostingerPassword} disabled={saving}>
+                <Eye size={14} /> Show current password
+              </button>
+            )}
+            <p className="form-hint" style={{ marginTop: 8 }}>
+              This is the account's actual mailbox password (IMAP/SMTP) — separate from its Novamail login.
+            </p>
+
+            {hostingerStep === 0 && (
+              <button
+                className="btn btn-danger sm"
+                style={{ marginTop: 10 }}
+                onClick={() => setHostingerStep(1)}
+              >
+                Change the real Hostinger password…
+              </button>
+            )}
+            {hostingerStep === 1 && (
+              <div style={{ marginTop: 10 }}>
+                <p className="form-hint" style={{ color: "var(--danger)", marginBottom: 8 }}>
+                  ⚠ This changes the actual mailbox password used for sending/receiving mail — rarely
+                  needed. {account.address}'s Novamail login is unaffected.
+                </p>
+                <input
+                  className="form-input"
+                  type="password"
+                  placeholder="New Hostinger password (8+ characters)"
+                  value={hostingerPassword}
+                  onChange={(event) => setHostingerPassword(event.target.value)}
+                />
+                <div className="form-row" style={{ marginTop: 8 }}>
+                  <button className="btn btn-secondary sm" onClick={() => setHostingerStep(0)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-danger sm"
+                    disabled={hostingerPassword.length < 8}
+                    onClick={() => setHostingerStep(2)}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            )}
+            {hostingerStep === 2 && (
+              <div style={{ marginTop: 10 }}>
+                <p className="form-hint" style={{ color: "var(--danger)", marginBottom: 8 }}>
+                  Are you sure? This is step 2 of 3 — the real mailbox password for {account.address} will
+                  change immediately.
+                </p>
+                <div className="form-row">
+                  <button className="btn btn-secondary sm" onClick={() => setHostingerStep(0)}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-danger sm" onClick={() => setHostingerStep(3)}>
+                    Yes, I'm sure
+                  </button>
+                </div>
+              </div>
+            )}
+            {hostingerStep === 3 && (
+              <div style={{ marginTop: 10 }}>
+                <p className="form-hint" style={{ color: "var(--danger)", marginBottom: 8 }}>
+                  Final confirmation (step 3 of 3) — change {account.address}'s real Hostinger password now?
+                </p>
+                <div className="form-row">
+                  <button className="btn btn-secondary sm" onClick={() => setHostingerStep(0)}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-danger sm" disabled={saving} onClick={confirmHostingerPasswordChange}>
+                    Change it now
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

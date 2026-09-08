@@ -8,6 +8,7 @@ import type {
   DraftInfo,
   FolderInfo,
   ForwarderInfo,
+  HostingerMailboxInfo,
   MailAccount,
   MailChangeRequestInfo,
   MailMessageDetail,
@@ -306,6 +307,19 @@ export const adminRejectChangeRequest = (requestId: string, reason?: string) =>
     body: JSON.stringify({ reason: reason ?? null }),
   });
 export const adminAuditLog = (limit = 100) => api<AdminAuditLogEntry[]>(`/mail/admin/audit-log?limit=${limit}`);
+
+/** The rarer, explicit action that changes the real Hostinger mailbox
+ * password (unlike adminSetPassword, which only ever resets the
+ * Novamail-only login) - the backend itself refuses this without
+ * confirm: true, so the 3-step UI confirmation isn't the only guard. */
+export const adminSetHostingerPassword = (accountId: string, newPassword: string) =>
+  api<void>(`/mail/admin/accounts/${accountId}/hostinger-password`, {
+    method: "POST",
+    body: JSON.stringify({ new_password: newPassword, confirm: true }),
+  });
+export const adminViewHostingerPassword = (accountId: string) =>
+  api<{ address: string; password: string }>(`/mail/admin/accounts/${accountId}/hostinger-password`);
+export const adminHostingerMailboxes = () => api<HostingerMailboxInfo[]>("/mail/admin/hostinger-mailboxes");
 
 /** Switches the active session into a member mailbox without its
  * password - the same "saved account" storage the manual switch-account
