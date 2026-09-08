@@ -1,10 +1,14 @@
 import json
+import logging
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
 
 from app.core.config import settings
+
+logger = logging.getLogger("novarise.hostinger_api")
 
 
 class HostingerApiError(Exception):
@@ -16,6 +20,9 @@ class HostingerManagementClient:
         if not settings.HOSTINGER_API_TOKEN:
             raise HostingerApiError("Hostinger management is not configured")
         self.base_url = settings.HOSTINGER_API_BASE_URL.rstrip("/")
+
+    _RETRYABLE_STATUSES = {429, 502, 503, 504}
+    _MAX_ATTEMPTS = 3
 
     def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
@@ -37,12 +44,41 @@ class HostingerManagementClient:
                 ),
             },
         )
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                raw = response.read()
-                return json.loads(raw) if raw else None
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:
-            raise HostingerApiError("Hostinger management request failed") from exc
+        last_exc: HostingerApiError | None = None
+        for attempt in range(1, self._MAX_ATTEMPTS + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    raw = response.read()
+                    return json.loads(raw) if raw else None
+            except urllib.error.HTTPError as exc:
+                # The generic "request failed" message this used to raise
+                # threw away exactly the thing needed to diagnose a failure
+                # (a rate limit? a validation error? which field?) - log the
+                # real status and body server-side; callers still only see a
+                # generic HostingerApiError so nothing Hostinger-specific
+                # leaks to the end user.
+                resp_body = exc.read().decode("utf-8", errors="replace")[:1000]
+                logger.warning(
+                    "Hostinger API %s %s -> %s (attempt %d/%d): %s",
+                    method, path, exc.code, attempt, self._MAX_ATTEMPTS, resp_body,
+                )
+                last_exc = HostingerApiError(
+                    f"Hostinger management request failed ({exc.code})"
+                )
+                last_exc.__cause__ = exc
+                if exc.code not in self._RETRYABLE_STATUSES or attempt == self._MAX_ATTEMPTS:
+                    raise last_exc from exc
+            except (urllib.error.URLError, TimeoutError) as exc:
+                logger.warning(
+                    "Hostinger API %s %s -> %s (attempt %d/%d)",
+                    method, path, exc, attempt, self._MAX_ATTEMPTS,
+                )
+                last_exc = HostingerApiError("Hostinger management request failed")
+                last_exc.__cause__ = exc
+                if attempt == self._MAX_ATTEMPTS:
+                    raise last_exc from exc
+            time.sleep(0.5 * attempt)
+        raise last_exc or HostingerApiError("Hostinger management request failed")
 
     def find_mailbox(self, address: str) -> tuple[str, str] | None:
         domain = address.rsplit("@", 1)[-1]
