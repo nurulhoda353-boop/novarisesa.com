@@ -18,7 +18,6 @@ import { MessageView } from "./MessageView";
 import { DraftsList } from "./DraftsList";
 import { ComposeWindow, type ComposeWindowHandle } from "./ComposeWindow";
 import { SettingsModal } from "./SettingsModal";
-import { AdminPanel } from "./AdminPanel";
 import { SnoozePopover } from "./SnoozePopover";
 import { ShortcutsHelpModal } from "./ShortcutsHelpModal";
 import { EMPTY_FILTERS, type SearchFilters } from "./SearchFilterPopover";
@@ -112,7 +111,6 @@ function MailAppInner() {
   const pendingSendCounter = useRef(0);
   const pendingSends = useRef<Map<number, PendingSend>>(new Map());
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [snoozeTarget, setSnoozeTarget] = useState<{ anchor: HTMLElement; apply: (date: Date) => void } | null>(null);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
@@ -509,10 +507,9 @@ function MailAppInner() {
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
-      if (settingsOpen || adminOpen || shortcutsOpen || snoozeTarget || addingAccount) {
+      if (settingsOpen || shortcutsOpen || snoozeTarget || addingAccount) {
         if (event.key === "Escape") {
           setSettingsOpen(false);
-          setAdminOpen(false);
           setShortcutsOpen(false);
           setSnoozeTarget(null);
         }
@@ -562,7 +559,7 @@ function MailAppInner() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openThread, composeWindows, settingsOpen, adminOpen, shortcutsOpen, snoozeTarget, addingAccount, activeFolder, account]);
+  }, [openThread, composeWindows, settingsOpen, shortcutsOpen, snoozeTarget, addingAccount, activeFolder, account]);
 
   const inboxUnread = useMemo(() => folders.find((f) => f.name === SYSTEM_FOLDERS.inbox)?.unseen ?? 0, [folders]);
 
@@ -594,7 +591,6 @@ function MailAppInner() {
         splitMode={splitMode}
         onToggleSplitMode={toggleSplitMode}
         onShowShortcuts={() => setShortcutsOpen(true)}
-        onOpenAdmin={() => setAdminOpen(true)}
       />
       <div className="body-row">
         <Sidebar
@@ -706,14 +702,6 @@ function MailAppInner() {
       )}
 
       {shortcutsOpen && <ShortcutsHelpModal onClose={() => setShortcutsOpen(false)} />}
-
-      {adminOpen && (
-        <AdminPanel
-          currentAccount={account}
-          onClose={() => setAdminOpen(false)}
-          onSwitchedAccount={() => setAdminOpen(false)}
-        />
-      )}
 
       {snoozeTarget && (
         <SnoozePopover anchor={snoozeTarget.anchor} onPick={snoozeTarget.apply} onClose={() => setSnoozeTarget(null)} />

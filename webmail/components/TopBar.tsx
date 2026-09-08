@@ -29,7 +29,6 @@ export function TopBar({
   splitMode,
   onToggleSplitMode,
   onShowShortcuts,
-  onOpenAdmin,
 }: {
   account: MailAccount;
   accounts: StoredAccount[];
@@ -50,7 +49,6 @@ export function TopBar({
   splitMode: SplitMode;
   onToggleSplitMode: () => void;
   onShowShortcuts: () => void;
-  onOpenAdmin: () => void;
 }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const filtersActive = hasActiveFilters(filters);
@@ -126,9 +124,9 @@ export function TopBar({
           <Settings size={19} />
         </button>
         {account.role === "admin" && (
-          <button className="icon-btn" onClick={onOpenAdmin} title="Admin panel">
+          <a className="icon-btn" href="/admin" title="Admin panel">
             <ShieldCheck size={19} />
-          </button>
+          </a>
         )}
         <AccountSwitcherMenu
           account={account}
