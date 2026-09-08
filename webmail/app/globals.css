@@ -578,6 +578,22 @@ html.dark .popover-item:hover { background: var(--surface2); }
 .modal-tab { padding: 12px 4px; font-size: 13px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-right: 20px; }
 .modal-tab.active { color: var(--brand); border-color: var(--brand); }
 
+.admin-edit-modal { max-width: 460px; }
+.admin-edit-modal .modal-head h2 { font-size: 15px; }
+.modal-section { padding: 18px 0; border-bottom: 1px solid var(--border); }
+.modal-section:first-child { padding-top: 2px; }
+.modal-section:last-child { border-bottom: none; padding-bottom: 2px; }
+.modal-section-title {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted); margin-bottom: 12px;
+}
+.modal-section.modal-danger-zone {
+  background: var(--danger-bg); border: 1px solid rgba(220, 80, 80, 0.22);
+  border-radius: var(--r-md); padding: 16px; margin-top: 4px;
+}
+.modal-danger-zone .modal-section-title { color: var(--danger); }
+
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
 .form-input, .form-textarea {

@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   ClipboardList,
   Copy,
   Eye,
   History,
+  KeyRound,
   Mail,
   Pencil,
   Search,
@@ -465,28 +467,39 @@ function EditAccountModal({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 440 }} onClick={(event) => event.stopPropagation()}>
+      <div className="modal admin-edit-modal" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
-          <h2>{account.address}</h2>
-          <div className="spacer" />
+          <div className="avatar lg">
+            {account.avatar_url ? <img src={account.avatar_url} alt="" /> : account.display_name.slice(0, 1).toUpperCase() || account.address.slice(0, 1).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{account.address}</h2>
+            {account.role === "admin" && (
+              <span className="role-chip" style={{ marginTop: 4 }}>
+                <Shield size={11} /> Admin
+              </span>
+            )}
+          </div>
           <button className="icon-btn" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
         <div className="modal-body">
-          <div className="form-group">
-            <label>Display name</label>
-            <div className="form-row">
-              <input className="form-input" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+          <div className="modal-section">
+            <div className="modal-section-title">
+              <User size={13} /> Profile
+            </div>
+            <div className="form-row" style={{ alignItems: "flex-end" }}>
+              <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+                <label>Display name</label>
+                <input className="form-input" value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+              </div>
               <button className="btn btn-secondary" onClick={saveProfile} disabled={saving}>
                 Save
               </button>
             </div>
-          </div>
-          <div className="form-group">
-            <label>Photo</label>
-            <label className="btn btn-secondary sm" style={{ cursor: "pointer", width: "fit-content" }}>
-              Choose photo
+            <label className="btn btn-secondary sm" style={{ cursor: "pointer", width: "fit-content", marginTop: 10 }}>
+              <Pencil size={13} /> Change photo
               <input
                 type="file"
                 accept="image/*"
@@ -499,8 +512,11 @@ function EditAccountModal({
               />
             </label>
           </div>
-          <div className="form-group">
-            <label>Novamail password</label>
+
+          <div className="modal-section">
+            <div className="modal-section-title">
+              <KeyRound size={13} /> Novamail password
+            </div>
             <div className="form-row">
               <input
                 className="form-input"
@@ -513,14 +529,12 @@ function EditAccountModal({
                 Set password
               </button>
             </div>
-            <p className="form-hint">
-              Only changes how {account.address} logs into Novamail — signs them out of every device
-              immediately. The real Hostinger mailbox password is untouched.
-            </p>
           </div>
 
-          <div className="form-group" style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-            <label>Real Hostinger mailbox password</label>
+          <div className="modal-section modal-danger-zone">
+            <div className="modal-section-title">
+              <AlertTriangle size={13} /> Hostinger mailbox password
+            </div>
             {revealedPassword ? (
               <div className="form-row">
                 <input className="form-input" readOnly value={revealedPassword} />
@@ -533,9 +547,6 @@ function EditAccountModal({
                 <Eye size={14} /> Show current password
               </button>
             )}
-            <p className="form-hint" style={{ marginTop: 8 }}>
-              This is the account's actual mailbox password (IMAP/SMTP) — separate from its Novamail login.
-            </p>
 
             {hostingerStep === 0 && (
               <button
@@ -548,10 +559,6 @@ function EditAccountModal({
             )}
             {hostingerStep === 1 && (
               <div style={{ marginTop: 10 }}>
-                <p className="form-hint" style={{ color: "var(--danger)", marginBottom: 8 }}>
-                  ⚠ This changes the actual mailbox password used for sending/receiving mail — rarely
-                  needed. {account.address}'s Novamail login is unaffected.
-                </p>
                 <input
                   className="form-input"
                   type="password"
@@ -576,8 +583,7 @@ function EditAccountModal({
             {hostingerStep === 2 && (
               <div style={{ marginTop: 10 }}>
                 <p className="form-hint" style={{ color: "var(--danger)", marginBottom: 8 }}>
-                  Are you sure? This is step 2 of 3 — the real mailbox password for {account.address} will
-                  change immediately.
+                  Step 2 of 3 — sure? {account.address}'s real mailbox password changes immediately.
                 </p>
                 <div className="form-row">
                   <button className="btn btn-secondary sm" onClick={() => setHostingerStep(0)}>
@@ -592,7 +598,7 @@ function EditAccountModal({
             {hostingerStep === 3 && (
               <div style={{ marginTop: 10 }}>
                 <p className="form-hint" style={{ color: "var(--danger)", marginBottom: 8 }}>
-                  Final confirmation (step 3 of 3) — change {account.address}'s real Hostinger password now?
+                  Final confirmation — change it now?
                 </p>
                 <div className="form-row">
                   <button className="btn btn-secondary sm" onClick={() => setHostingerStep(0)}>
