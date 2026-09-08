@@ -1,7 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Eye, Pencil, Search, Shield, ShieldCheck, User, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ClipboardList,
+  Copy,
+  Eye,
+  History,
+  Mail,
+  Pencil,
+  Search,
+  Shield,
+  ShieldCheck,
+  User,
+  X,
+} from "lucide-react";
 import * as api from "@/lib/api";
 import type {
   AdminAccountInfo,
@@ -34,52 +48,50 @@ export function AdminPanel({
   const [hostingerMailboxes, setHostingerMailboxes] = useState<HostingerMailboxInfo[] | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
+  const navIcon: Record<Tab, typeof Mail> = { accounts: Mail, requests: ClipboardList, audit: History };
+
   return (
     <div className="admin-page-overlay">
-      <div className="admin-page">
-        <div className="admin-page-head">
-          <div className="admin-page-brand">
-            <ShieldCheck size={20} />
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-brand">
+          <div className="admin-sidebar-brand-icon">
+            <ShieldCheck size={18} />
           </div>
-          <div>
-            <h1>Admin panel</h1>
-            <span className="admin-page-sub">Signed in as {currentAccount.address}</span>
-          </div>
-          <div className="spacer" />
-          <button className="icon-btn" onClick={onClose}>
-            <X size={20} />
-          </button>
+          <h1>Admin panel</h1>
         </div>
-
-        <div className="admin-page-body">
-          <StatTiles accounts={accounts} hostingerMailboxes={hostingerMailboxes} pendingCount={pendingCount} />
-
-          <div className="modal-tabs" style={{ marginBottom: 18 }}>
-            {(["accounts", "requests", "audit"] as Tab[]).map((item) => (
-              <button key={item} className={`modal-tab ${tab === item ? "active" : ""}`} onClick={() => setTab(item)} style={{ position: "relative" }}>
+        <span className="admin-sidebar-sub">Signed in as {currentAccount.address}</span>
+        <nav className="admin-sidebar-nav">
+          {(["accounts", "requests", "audit"] as Tab[]).map((item) => {
+            const Icon = navIcon[item];
+            return (
+              <button key={item} className={`admin-nav-item ${tab === item ? "active" : ""}`} onClick={() => setTab(item)}>
+                <Icon size={16} />
                 {labelFor(item)}
-                {item === "requests" && !!pendingCount && (
-                  <span className="admin-pending-badge" style={{ position: "static", marginLeft: 6, display: "inline-grid" }}>
-                    {pendingCount}
-                  </span>
-                )}
+                {item === "requests" && !!pendingCount && <span className="admin-nav-badge">{pendingCount}</span>}
               </button>
-            ))}
-          </div>
+            );
+          })}
+        </nav>
+        <button className="admin-sidebar-close" onClick={onClose}>
+          <ArrowLeft size={16} /> Back to Novamail
+        </button>
+      </aside>
 
-          {tab === "accounts" && (
-            <AccountsTab
-              currentAddress={currentAccount.address}
-              onSwitchedAccount={onSwitchedAccount}
-              accounts={accounts}
-              setAccounts={setAccounts}
-              hostingerMailboxes={hostingerMailboxes}
-              setHostingerMailboxes={setHostingerMailboxes}
-            />
-          )}
-          {tab === "requests" && <RequestsTab onPendingCountChange={setPendingCount} />}
-          {tab === "audit" && <AuditTab />}
-        </div>
+      <div className="admin-main">
+        <StatTiles accounts={accounts} hostingerMailboxes={hostingerMailboxes} pendingCount={pendingCount} />
+
+        {tab === "accounts" && (
+          <AccountsTab
+            currentAddress={currentAccount.address}
+            onSwitchedAccount={onSwitchedAccount}
+            accounts={accounts}
+            setAccounts={setAccounts}
+            hostingerMailboxes={hostingerMailboxes}
+            setHostingerMailboxes={setHostingerMailboxes}
+          />
+        )}
+        {tab === "requests" && <RequestsTab onPendingCountChange={setPendingCount} />}
+        {tab === "audit" && <AuditTab />}
       </div>
     </div>
   );
