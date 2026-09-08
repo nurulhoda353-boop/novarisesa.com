@@ -169,6 +169,15 @@ class MailAccount(UUIDMixin, TimestampMixin, Base):
     # mail and must route password/name/avatar changes through a
     # MailChangeRequest for an admin to approve. See docs/NOVARISE_MAIL.md.
     role: Mapped[str] = mapped_column(String(20), default="member")
+    # A member's day-to-day Novamail login secret, separate from
+    # credential_ciphertext (the real Hostinger mailbox password IMAP/SMTP
+    # actually uses). Null until an admin sets one via the admin panel -
+    # until then, login() falls back to verifying the real Hostinger
+    # password directly, same as before this existed. Once set, resetting
+    # it never touches the real mailbox password, so the admin can hand
+    # out a fresh Novamail login without disturbing the mailbox's real
+    # credential (which mail_client still uses to actually fetch/send).
+    novamail_password_hash: Mapped[str | None] = mapped_column(Text)
 
 
 class MailChangeRequest(UUIDMixin, Base):

@@ -13,8 +13,9 @@ from app.core.security import (
     decode_mobile_token,
     decode_token,
 )
-from app.models import MailAuditLog, MailChangeRequest, MailRule, MailSnooze
+from app.models import MailAccount, MailAuditLog, MailChangeRequest, MailRule, MailSnooze
 from app.schemas.mail import (
+    AdminSetHostingerPassword,
     ContactUpdate,
     FolderResponse,
     MailAccountResponse,
@@ -384,6 +385,28 @@ def test_change_request_rejects_a_short_pending_password() -> None:
     assert request.value == "a-fine-password"
     # display_name has no such minimum
     assert MailChangeRequestCreate(request_type="display_name", value="A").value == "A"
+
+
+def test_mail_account_model_has_a_separate_novamail_password_column() -> None:
+    # This is the whole point of the split: novamail_password_hash must be
+    # its own column, distinct from credential_ciphertext (the real
+    # Hostinger mailbox password) - resetting one must never touch the
+    # other.
+    columns = {column.name for column in MailAccount.__table__.columns}
+    assert "novamail_password_hash" in columns
+    assert "credential_ciphertext" in columns
+
+
+def test_admin_set_hostinger_password_requires_explicit_confirmation() -> None:
+    # The rarer, real-mailbox-password-changing action needs `confirm` set
+    # - it must not be triggerable with the same request shape as the
+    # everyday Novamail-only reset (AdminSetPassword has no such field).
+    with pytest.raises(ValueError):
+        AdminSetHostingerPassword(new_password="a-fine-password")
+    with pytest.raises(ValueError):
+        AdminSetHostingerPassword(new_password="a-fine-password", confirm=False)
+    confirmed = AdminSetHostingerPassword(new_password="a-fine-password", confirm=True)
+    assert confirmed.confirm is True
 
 
 def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() -> None:

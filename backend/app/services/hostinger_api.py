@@ -61,6 +61,32 @@ class HostingerManagementClient:
                     return str(order_id), str(mailbox["id"])
         return None
 
+    def list_all_mailboxes(self, domain: str) -> list[dict[str, Any]]:
+        """Every mailbox Hostinger has for [domain], across every order -
+        the admin panel's live view, independent of which of them have
+        ever logged into Novamail (and so have a mail_accounts row)."""
+        query = urllib.parse.urlencode({"domain": domain, "per_page": 100})
+        orders = self._request("GET", f"/orders?{query}")
+        mailboxes: list[dict[str, Any]] = []
+        for order in (orders or {}).get("data", []):
+            order_id = order.get("id")
+            if not order_id:
+                continue
+            page = 1
+            while True:
+                result = self._request(
+                    "GET",
+                    f"/orders/{urllib.parse.quote(str(order_id))}/mailboxes?per_page=100&page={page}",
+                )
+                rows = (result or {}).get("data", [])
+                mailboxes.extend(rows)
+                meta = (result or {}).get("meta", {})
+                last_page = meta.get("last_page", page)
+                if page >= last_page or not rows:
+                    break
+                page += 1
+        return mailboxes
+
     def change_mailbox_password(self, mailbox_id: str, password: str) -> None:
         self._request(
             "PATCH",

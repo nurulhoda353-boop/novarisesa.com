@@ -252,6 +252,38 @@ class AdminSetPassword(BaseModel):
     new_password: str = Field(min_length=8, max_length=50)
 
 
+class AdminSetHostingerPassword(BaseModel):
+    """The rarer, explicit action that touches the real mailbox password
+    - `confirm` exists so a client can't trigger this by accidentally
+    reusing the (much more common) Novamail-only reset call's shape."""
+
+    new_password: str = Field(min_length=8, max_length=50)
+    confirm: bool = Field(default=False, validate_default=True)
+
+    @field_validator("confirm")
+    @classmethod
+    def must_confirm(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("This changes the real mailbox password - confirm to proceed")
+        return value
+
+
+class AdminHostingerPasswordResponse(BaseModel):
+    address: EmailStr
+    password: str
+
+
+class HostingerMailboxSummary(BaseModel):
+    """One row in the admin panel's live Hostinger view - every mailbox
+    Hostinger actually has for the domain, not just ones that have logged
+    into Novamail at least once (connected=True, with account_id/role)."""
+
+    address: EmailStr
+    connected: bool
+    account_id: uuid.UUID | None = None
+    role: str | None = None
+
+
 class AdminSetProfile(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
 

@@ -39,6 +39,7 @@ from app.core.security import (
     decode_mobile_token,
     digest_token,
     hash_password,
+    verify_password,
 )
 from app.core.storage import save_upload
 from app.models import (
@@ -59,6 +60,8 @@ from app.schemas.mail import (
     AdminAuditLogEntry,
     AdminChangeRequestDecision,
     AdminChangeRequestResponse,
+    AdminHostingerPasswordResponse,
+    AdminSetHostingerPassword,
     AdminSetPassword,
     AdminSetProfile,
     AliasCreate,
@@ -71,6 +74,7 @@ from app.schemas.mail import (
     FlagRequest,
     FolderResponse,
     ForwarderCreate,
+    HostingerMailboxSummary,
     MailAccountResponse,
     MailChangeRequestCreate,
     MailChangeRequestResponse,
@@ -133,13 +137,41 @@ def _audit(
     )
 
 
-def _apply_password_reset(db: Session, target: MailAccount, new_password: str) -> None:
-    """Shared by a member's own self-service change (admin==self) and an
-    admin resetting someone else's: changes the real Hostinger mailbox
-    password, then stamps password_changed_at and revokes every stored
-    refresh token for that account's user so every device is signed out
-    immediately (see get_mobile_user's issued-at check) - not just once
-    the short-lived access token happens to expire on its own."""
+def _force_logout(db: Session, target: MailAccount) -> None:
+    """Stamps password_changed_at and revokes every stored refresh token
+    for this account's user, so every device is signed out immediately
+    (see get_mobile_user's issued-at check) - not just once the
+    short-lived access token happens to expire on its own. Shared by both
+    kinds of password reset below."""
+    now = datetime.now(UTC)
+    target_user = db.get(User, target.user_id)
+    if target_user:
+        target_user.password_changed_at = now
+    db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == target.user_id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=now)
+    )
+
+
+def _apply_novamail_password_reset(db: Session, target: MailAccount, new_password: str) -> None:
+    """The default, everyday reset: sets a Novamail-only login secret and
+    force-logs-out every device. Never touches the real Hostinger mailbox
+    password - mail_client keeps using credential_ciphertext, untouched,
+    to actually fetch/send. This is what "give a member a new password"
+    means day to day; see _apply_hostinger_password_reset for the rarer,
+    explicit action that changes the real mailbox credential too."""
+    target.novamail_password_hash = hash_password(new_password)
+    _force_logout(db, target)
+
+
+def _apply_hostinger_password_reset(db: Session, target: MailAccount, new_password: str) -> None:
+    """The rarer, explicit action: actually changes the real Hostinger
+    mailbox password (IMAP/SMTP), then force-logs-out every device. Used
+    by an account's own self-service change (which only ever touches its
+    own, real credential) and by the admin panel's separate, confirmed
+    "also change the real mailbox password" action - never by an admin's
+    everyday reset of someone else's Novamail login."""
     try:
         client = HostingerManagementClient()
         mailbox_id = target.hostinger_mailbox_id
@@ -154,15 +186,7 @@ def _apply_password_reset(db: Session, target: MailAccount, new_password: str) -
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     target.credential_ciphertext = encrypt_mail_secret(new_password)
     target.credential_type = "mailbox_password"
-    now = datetime.now(UTC)
-    target_user = db.get(User, target.user_id)
-    if target_user:
-        target_user.password_changed_at = now
-    db.execute(
-        update(RefreshToken)
-        .where(RefreshToken.user_id == target.user_id, RefreshToken.revoked_at.is_(None))
-        .values(revoked_at=now)
-    )
+    _force_logout(db, target)
 
 
 def issue_mobile_session(db: Session, user: User, account: MailAccount) -> MobileSessionResponse:
@@ -246,25 +270,35 @@ def login(payload: MailLoginRequest, request: Request, db: DBSession) -> MobileS
         maximum=settings.LOGIN_MAX_ATTEMPTS * 4,
         window=window,
     )
-    try:
-        HostingerMailboxClient(address, payload.password).verify()
-    except MailConnectionError as exc:
+    existing = db.scalar(select(MailAccount).where(MailAccount.address == address))
+
+    def _reject(detail: str) -> HTTPException:
         record_rate_event(db, scope="mail.login.identity", key_hash=identity_key)
         record_rate_event(db, scope="mail.login.ip", key_hash=ip_key)
         db.commit()
-        # Members can no longer change their own password (see
-        # admin_set_password) - a login failure is far more likely to mean
-        # "an admin reset it" than "I mistyped it," so point there instead
-        # of the generic message. Admin accounts (and unrecognized emails,
-        # who have no role recorded yet) keep the generic message since
-        # there's no one above an admin to contact.
-        existing = db.scalar(select(MailAccount).where(MailAccount.address == address))
-        if existing and existing.role == "member":
-            raise HTTPException(
-                status_code=401,
-                detail="Password changed. Contact admin for new password.",
-            ) from exc
-        raise HTTPException(status_code=401, detail="Invalid mailbox email or password") from exc
+        return HTTPException(status_code=401, detail=detail)
+
+    # Members can no longer change their own password (see
+    # _apply_novamail_password_reset) - a login failure is far more likely
+    # to mean "an admin reset it" than "I mistyped it," so point there
+    # instead of the generic message. Admin accounts (and unrecognized
+    # emails, who have no role recorded yet) keep the generic message
+    # since there's no one above an admin to contact.
+    verified_against_hostinger = True
+    if existing and existing.novamail_password_hash:
+        # This account has a Novamail-only login set - check the
+        # submitted password against that instead, and never touch (or
+        # even look at) the real Hostinger mailbox password here.
+        if not verify_password(payload.password, existing.novamail_password_hash):
+            raise _reject("Password changed. Contact admin for new password.")
+        verified_against_hostinger = False
+    else:
+        try:
+            HostingerMailboxClient(address, payload.password).verify()
+        except MailConnectionError as exc:
+            if existing and existing.role == "member":
+                raise _reject("Password changed. Contact admin for new password.") from exc
+            raise _reject("Invalid mailbox email or password") from exc
     clear_rate_events(db, scope="mail.login.identity", key_hash=identity_key)
     clear_rate_events(db, scope="mail.login.ip", key_hash=ip_key)
 
@@ -294,8 +328,13 @@ def login(payload: MailLoginRequest, request: Request, db: DBSession) -> MobileS
         db.add(account)
         db.flush()
     else:
-        account.credential_ciphertext = encrypt_mail_secret(payload.password)
-        account.credential_type = payload.credential_type
+        # Only refresh the stored Hostinger credential when this
+        # submission was actually verified against Hostinger itself - a
+        # Novamail-only login must never overwrite the real mailbox
+        # password with whatever was just typed into the login screen.
+        if verified_against_hostinger:
+            account.credential_ciphertext = encrypt_mail_secret(payload.password)
+            account.credential_type = payload.credential_type
         account.is_active = True
         account.last_connected_at = now
 
@@ -424,7 +463,7 @@ def change_password(payload: MailPasswordChange, account: CurrentMailAccount, db
         HostingerMailboxClient(account.address, payload.current_password).verify()
     except MailConnectionError as exc:
         raise HTTPException(status_code=401, detail="Current mailbox password is incorrect") from exc
-    _apply_password_reset(db, account, payload.new_password)
+    _apply_hostinger_password_reset(db, account, payload.new_password)
     db.commit()
 
 
@@ -1088,12 +1127,92 @@ def admin_switch_account(
 def admin_set_password(
     account_id: uuid.UUID, payload: AdminSetPassword, admin: CurrentAdminAccount, db: DBSession
 ) -> None:
+    """The everyday reset: sets a fresh Novamail-only login for the
+    target mailbox. Never touches its real Hostinger mailbox password -
+    see admin_set_hostinger_password for that separate, confirmed action."""
     target = db.get(MailAccount, account_id)
     if not target:
         raise HTTPException(status_code=404, detail="Mailbox not found")
-    _apply_password_reset(db, target, payload.new_password)
+    _apply_novamail_password_reset(db, target, payload.new_password)
     _audit(db, actor=admin, target=target, action="password_reset")
     db.commit()
+
+
+@router.post(
+    "/admin/accounts/{account_id}/hostinger-password", status_code=status.HTTP_204_NO_CONTENT
+)
+def admin_set_hostinger_password(
+    account_id: uuid.UUID,
+    payload: AdminSetHostingerPassword,
+    admin: CurrentAdminAccount,
+    db: DBSession,
+) -> None:
+    """The rarer, explicit action: actually changes the real Hostinger
+    mailbox password. The target's Novamail login is unaffected by this
+    - if it already has its own Novamail-only password set, that keeps
+    working exactly as before; this only ever changes the real mailbox
+    credential mail_client uses to fetch/send."""
+    target = db.get(MailAccount, account_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+    _apply_hostinger_password_reset(db, target, payload.new_password)
+    _audit(db, actor=admin, target=target, action="hostinger_password_reset")
+    db.commit()
+
+
+@router.get(
+    "/admin/accounts/{account_id}/hostinger-password",
+    response_model=AdminHostingerPasswordResponse,
+)
+def admin_view_hostinger_password(
+    account_id: uuid.UUID, admin: CurrentAdminAccount, db: DBSession
+) -> AdminHostingerPasswordResponse:
+    target = db.get(MailAccount, account_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+    try:
+        password = decrypt_mail_secret(target.credential_ciphertext)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503, detail="Mailbox credential must be reconnected"
+        ) from exc
+    _audit(db, actor=admin, target=target, action="hostinger_password_viewed")
+    db.commit()
+    return AdminHostingerPasswordResponse(address=target.address, password=password)
+
+
+@router.get("/admin/hostinger-mailboxes", response_model=list[HostingerMailboxSummary])
+def admin_hostinger_mailboxes(admin: CurrentAdminAccount, db: DBSession) -> list[HostingerMailboxSummary]:
+    """The live view: every mailbox Hostinger actually has for the
+    domain, cross-referenced with which ones have ever logged into
+    Novamail (and so have a mail_accounts row/role) - not just the ones
+    that happen to be in our own table already."""
+    known = {row.address.lower(): row for row in db.scalars(select(MailAccount))}
+    domains = {item.lower() for item in settings.MAIL_ALLOWED_DOMAINS}
+    try:
+        client = HostingerManagementClient()
+        rows: list[dict] = []
+        for domain in domains:
+            rows.extend(client.list_all_mailboxes(domain))
+    except HostingerApiError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    summaries: list[HostingerMailboxSummary] = []
+    seen: set[str] = set()
+    for row in rows:
+        address = str(row.get("address", "")).lower()
+        if not address or address in seen:
+            continue
+        seen.add(address)
+        match = known.get(address)
+        summaries.append(
+            HostingerMailboxSummary(
+                address=address,
+                connected=match is not None,
+                account_id=match.id if match else None,
+                role=match.role if match else None,
+            )
+        )
+    return summaries
 
 
 @router.patch("/admin/accounts/{account_id}/profile", response_model=AdminAccountSummary)
@@ -1175,7 +1294,7 @@ def admin_approve_change_request(
     if request.request_type == "password":
         assert request.payload_ciphertext is not None
         new_password = decrypt_mail_secret(request.payload_ciphertext)
-        _apply_password_reset(db, target, new_password)
+        _apply_novamail_password_reset(db, target, new_password)
         request.payload_ciphertext = None
     elif request.request_type == "display_name":
         assert request.payload_text is not None
