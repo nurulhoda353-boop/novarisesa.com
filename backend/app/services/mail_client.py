@@ -319,8 +319,16 @@ class HostingerMailboxClient:
             client.noop()
 
     def folders(self) -> list[dict[str, Any]]:
+        t_start = time.monotonic()
         with self.imap() as client:
+            t_borrowed = time.monotonic()
             status, rows = client.list()
+            t_listed = time.monotonic()
+            logger.warning(
+                "folders(): borrow=%.0fms list=%.0fms",
+                (t_borrowed - t_start) * 1000,
+                (t_listed - t_borrowed) * 1000,
+            )
             if status != "OK":
                 raise MailConnectionError("Could not list mailbox folders")
             entries: list[dict[str, Any]] = []
