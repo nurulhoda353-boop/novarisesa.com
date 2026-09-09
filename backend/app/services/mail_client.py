@@ -371,7 +371,7 @@ class HostingerMailboxClient:
             with suppress(Exception):
                 client.logout()
         t2 = time.monotonic()
-        logger.info(
+        logger.warning(
             "status(%s): connect=%.0fms status=%.0fms", name, (t1 - t0) * 1000, (t2 - t1) * 1000
         )
         if status_ok != "OK" or not status_rows or not status_rows[0]:
@@ -389,7 +389,7 @@ class HostingerMailboxClient:
         t0 = time.monotonic()
         with ThreadPoolExecutor(max_workers=min(len(names), STATUS_FETCH_CONCURRENCY)) as pool:
             results = list(pool.map(self._status_one, names))
-        logger.info("_status_many(%d folders) total=%.0fms", len(names), (time.monotonic() - t0) * 1000)
+        logger.warning("_status_many(%d folders) total=%.0fms", len(names), (time.monotonic() - t0) * 1000)
         return dict(zip(names, results, strict=True))
 
     def messages(
