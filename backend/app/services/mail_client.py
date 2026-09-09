@@ -9,6 +9,7 @@ import ssl
 import threading
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from datetime import UTC, date, datetime
 from email import policy
@@ -53,6 +54,10 @@ _pool: dict[str, _PooledConnection] = {}
 _pool_registry_lock = threading.Lock()
 STALE_CHECK_AFTER_SECONDS = 20
 IDLE_CLOSE_AFTER_SECONDS = 300
+# How many of a mailbox's folders can have their unread/total counts
+# fetched at once - bounded so a mailbox with many custom (rule-created)
+# folders can't open unbounded simultaneous IMAP connections in one request.
+STATUS_FETCH_CONCURRENCY = 6
 
 
 def _pooled_connection(address: str) -> _PooledConnection:
@@ -318,7 +323,8 @@ class HostingerMailboxClient:
             status, rows = client.list()
             if status != "OK":
                 raise MailConnectionError("Could not list mailbox folders")
-            folders: list[dict[str, Any]] = []
+            entries: list[dict[str, Any]] = []
+            selectable: list[str] = []
             pattern = re.compile(rb'^\((?P<flags>[^)]*)\)\s+"?(?P<delimiter>[^" ]*)"?\s+"?(?P<name>.*)"?$')
             for row in rows or []:
                 if not isinstance(row, bytes):
@@ -329,30 +335,52 @@ class HostingerMailboxClient:
                 name = match.group("name").rstrip(b'"').decode("utf-8", errors="replace")
                 flags = match.group("flags").decode("ascii", errors="ignore").split()
                 delimiter = match.group("delimiter").decode("ascii", errors="ignore") or None
-                if "\\Noselect" in flags:
-                    folders.append(
-                        {"name": name, "flags": flags, "delimiter": delimiter, "unseen": 0, "total": 0}
-                    )
-                    continue
-                unseen = 0
-                total = 0
-                status_ok, status_rows = client.status(name, "(MESSAGES UNSEEN)")
-                if status_ok == "OK" and status_rows and status_rows[0]:
-                    text = status_rows[0].decode("utf-8", errors="ignore")
-                    messages_match = re.search(r"MESSAGES\s+(\d+)", text)
-                    unseen_match = re.search(r"UNSEEN\s+(\d+)", text)
-                    total = int(messages_match.group(1)) if messages_match else 0
-                    unseen = int(unseen_match.group(1)) if unseen_match else 0
-                folders.append(
-                    {
-                        "name": name,
-                        "flags": flags,
-                        "delimiter": delimiter,
-                        "unseen": unseen,
-                        "total": total,
-                    }
-                )
-            return folders
+                entries.append({"name": name, "flags": flags, "delimiter": delimiter, "unseen": 0, "total": 0})
+                if "\\Noselect" not in flags:
+                    selectable.append(name)
+
+        # STATUS has no batch form - IMAP only takes one mailbox name per
+        # call. Fetching each folder's counts over the single pooled
+        # connection one at a time (the previous approach) made this
+        # endpoint's latency scale linearly with folder count - a plain
+        # 6-folder mailbox alone measured ~900ms. Each folder's STATUS is
+        # independent, so run them concurrently over their own short-lived
+        # connections instead (bounded, so a mailbox with many custom
+        # folders can't open unbounded connections at once); a failure on
+        # any one folder just leaves it at 0/0 rather than failing the list.
+        counts = self._status_many(selectable)
+        for entry in entries:
+            if entry["name"] in counts:
+                entry["unseen"], entry["total"] = counts[entry["name"]]
+        return entries
+
+    def _status_one(self, name: str) -> tuple[int, int]:
+        try:
+            client = self._connect()
+        except MailConnectionError:
+            return 0, 0
+        try:
+            status_ok, status_rows = client.status(name, "(MESSAGES UNSEEN)")
+        except (imaplib.IMAP4.error, OSError, ssl.SSLError):
+            return 0, 0
+        finally:
+            with suppress(Exception):
+                client.logout()
+        if status_ok != "OK" or not status_rows or not status_rows[0]:
+            return 0, 0
+        text = status_rows[0].decode("utf-8", errors="ignore")
+        messages_match = re.search(r"MESSAGES\s+(\d+)", text)
+        unseen_match = re.search(r"UNSEEN\s+(\d+)", text)
+        total = int(messages_match.group(1)) if messages_match else 0
+        unseen = int(unseen_match.group(1)) if unseen_match else 0
+        return unseen, total
+
+    def _status_many(self, names: list[str]) -> dict[str, tuple[int, int]]:
+        if not names:
+            return {}
+        with ThreadPoolExecutor(max_workers=min(len(names), STATUS_FETCH_CONCURRENCY)) as pool:
+            results = list(pool.map(self._status_one, names))
+        return dict(zip(names, results, strict=True))
 
     def messages(
         self,
