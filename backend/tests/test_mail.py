@@ -17,8 +17,10 @@ from app.core.security import (
 from app.models import MailAccount, MailAuditLog, MailChangeRequest, MailRule, MailSnooze
 from app.schemas.mail import (
     AdminContactInfo,
+    AdminCreateMailboxRequest,
     AdminProvisionMailboxRequest,
     AdminSetHostingerPassword,
+    AdminSetRole,
     ContactUpdate,
     FolderResponse,
     HostingerMailboxSummary,
@@ -434,6 +436,31 @@ def test_admin_provision_mailbox_request_requires_a_real_email() -> None:
         AdminProvisionMailboxRequest(address="not-an-email")
     request = AdminProvisionMailboxRequest(address="abdulmomin@novarisesa.com")
     assert request.address == "abdulmomin@novarisesa.com"
+
+
+def test_admin_create_mailbox_request_validates_local_part_and_defaults_role() -> None:
+    # Hostinger's own local-part rules (letters/digits/periods, no leading,
+    # trailing, or consecutive periods) - reject bad ones before they ever
+    # reach Hostinger's API.
+    with pytest.raises(ValueError):
+        AdminCreateMailboxRequest(local_part="bad..name", password="a-fine-password")
+    with pytest.raises(ValueError):
+        AdminCreateMailboxRequest(local_part=".leading", password="a-fine-password")
+    with pytest.raises(ValueError):
+        AdminCreateMailboxRequest(local_part="short", password="short")
+    request = AdminCreateMailboxRequest(local_part="new.hire", password="a-fine-password")
+    assert request.role == "member"
+    admin_request = AdminCreateMailboxRequest(
+        local_part="new.hire", password="a-fine-password", role="admin"
+    )
+    assert admin_request.role == "admin"
+
+
+def test_admin_set_role_only_accepts_admin_or_member() -> None:
+    with pytest.raises(ValueError):
+        AdminSetRole(role="superuser")
+    assert AdminSetRole(role="admin").role == "admin"
+    assert AdminSetRole(role="member").role == "member"
 
 
 def test_hostinger_mailbox_summary_carries_usage_and_defaults_it_to_none() -> None:

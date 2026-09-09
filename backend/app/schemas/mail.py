@@ -299,6 +299,27 @@ class AdminProvisionMailboxRequest(BaseModel):
     address: EmailStr
 
 
+class AdminCreateMailboxRequest(BaseModel):
+    """Creates a mailbox that has never existed on Hostinger at all -
+    distinct from AdminProvisionMailboxRequest, which only ever adopts
+    one that's already there."""
+
+    local_part: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9](?:[a-zA-Z0-9.]*[a-zA-Z0-9])?$")
+    password: str = Field(min_length=8, max_length=50)
+    role: str = Field(default="member", pattern="^(admin|member)$")
+
+    @field_validator("local_part")
+    @classmethod
+    def no_consecutive_dots(cls, value: str) -> str:
+        if ".." in value:
+            raise ValueError("Local part can't contain consecutive periods")
+        return value
+
+
+class AdminSetRole(BaseModel):
+    role: str = Field(pattern="^(admin|member)$")
+
+
 class AdminSetProfile(BaseModel):
     display_name: str = Field(min_length=1, max_length=160)
 

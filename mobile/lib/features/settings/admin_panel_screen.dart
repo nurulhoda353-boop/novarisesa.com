@@ -159,6 +159,15 @@ class _AccountsTabState extends State<_AccountsTab> {
     if (mounted) setState(_reload);
   }
 
+  Future<void> _createMailbox() async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const _CreateMailboxSheet(),
+    );
+    if (created == true && mounted) setState(_reload);
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentAddress = context.watch<AppState>().account?.address;
@@ -188,14 +197,26 @@ class _AccountsTabState extends State<_AccountsTab> {
             return ListView(
               padding: const EdgeInsets.all(12),
               children: [
-                TextField(
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search, size: 20),
-                    hintText: 'Search mailboxes…',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) => setState(() => _query = value),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          prefixIcon: Icon(Icons.search, size: 20),
+                          hintText: 'Search mailboxes…',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: _createMailbox,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('New'),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 for (final account in rows) ...[
@@ -236,6 +257,106 @@ class _AccountsTabState extends State<_AccountsTab> {
           },
         );
       },
+    );
+  }
+}
+
+class _CreateMailboxSheet extends StatefulWidget {
+  const _CreateMailboxSheet();
+  @override
+  State<_CreateMailboxSheet> createState() => _CreateMailboxSheetState();
+}
+
+class _CreateMailboxSheetState extends State<_CreateMailboxSheet> {
+  final _localPart = TextEditingController();
+  final _password = TextEditingController();
+  bool _obscure = true;
+  String _role = 'member';
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _localPart.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    if (_localPart.text.trim().isEmpty || _password.text.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter a mailbox name and a password of at least 8 characters')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final account = await context
+          .read<AppState>()
+          .api
+          .adminCreateMailbox(_localPart.text.trim(), _password.text, _role);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('${account.address} created')));
+        Navigator.pop(context, true);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not create that mailbox — it may already exist')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('New mailbox', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _localPart,
+            decoration: const InputDecoration(
+                labelText: 'Mailbox name', suffixText: '@novarisesa.com'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _password,
+            obscureText: _obscure,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              helperText: 'At least 8 characters',
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'member', label: Text('Member')),
+              ButtonSegment(value: 'admin', label: Text('Admin')),
+            ],
+            selected: {_role},
+            onSelectionChanged: (value) => setState(() => _role = value.first),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _saving ? null : _create,
+            child: Text(_saving ? 'Creating…' : 'Create mailbox'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -365,11 +486,14 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
   bool _busy = false;
   bool _obscurePassword = true;
   String? _revealedHostingerPassword;
+  late String _role;
+  bool _savingRole = false;
 
   @override
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.account.displayName);
+    _role = widget.account.role;
   }
 
   @override
@@ -392,6 +516,27 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
       }
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _toggleRole() async {
+    final next = _role == 'admin' ? 'member' : 'admin';
+    setState(() => _savingRole = true);
+    try {
+      await context.read<AppState>().api.adminSetRole(widget.account.id, next);
+      if (mounted) {
+        setState(() => _role = next);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(next == 'admin'
+                ? '${widget.account.address} is now an admin'
+                : '${widget.account.address} is now a member')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingRole = false);
     }
   }
 
@@ -623,6 +768,12 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
                 label: const Text('Change photo'),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _savingRole ? null : _toggleRole,
+            icon: const Icon(Icons.shield_outlined, size: 16),
+            label: Text(_role == 'admin' ? 'Remove admin' : 'Make admin'),
           ),
           const Divider(height: 32),
 

@@ -130,6 +130,29 @@ class HostingerManagementClient:
             {"password": password},
         )
 
+    def get_order_id_for_domain(self, domain: str) -> str | None:
+        """The order id a new mailbox needs to be created under - callers
+        that already have one (find_mailbox, list_all_mailboxes) skip this
+        and walk /orders themselves; this is for callers (like creating a
+        brand-new mailbox) that start with only a domain name."""
+        query = urllib.parse.urlencode({"domain": domain, "per_page": 1})
+        orders = self._request("GET", f"/orders?{query}")
+        first = next(iter((orders or {}).get("data", [])), None)
+        return str(first["id"]) if first else None
+
+    def create_mailbox(self, order_id: str, local_part: str, password: str) -> dict[str, Any]:
+        """Creates a brand-new mailbox under an order - unlike admin_provision_mailbox
+        (which only ever adopts a mailbox that already exists), this is for adding a
+        seat that's never existed before. The full address is local_part@<order's
+        domain>; Hostinger enforces local_part's charset (letters/digits/periods) and
+        the password's complexity rules itself, so no client-side validation here."""
+        result = self._request(
+            "POST",
+            f"/orders/{urllib.parse.quote(order_id)}/mailboxes",
+            {"local_part": local_part, "password": password},
+        )
+        return dict(result or {})
+
     def list_aliases(self, order_id: str) -> list[dict[str, Any]]:
         result = self._request("GET", f"/orders/{urllib.parse.quote(order_id)}/aliases?per_page=100")
         return list((result or {}).get("data", []))

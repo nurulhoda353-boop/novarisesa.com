@@ -540,6 +540,13 @@ class ApiClient {
         })) as Map<String, dynamic>,
       );
 
+  Future<AdminAccountSummary> adminSetRole(String accountId, String role) async =>
+      AdminAccountSummary.fromJson(
+        _decode(await _request('PATCH', '/mail/admin/accounts/$accountId/role', body: {
+          'role': role,
+        })) as Map<String, dynamic>,
+      );
+
   Future<AdminAccountSummary> adminSetAvatar(String accountId, String filePath) async {
     final request = http.MultipartRequest(
         'POST', Uri.parse('$baseUrl/mail/admin/accounts/$accountId/avatar'));
@@ -611,6 +618,18 @@ class ApiClient {
       'POST',
       '/mail/admin/hostinger-mailboxes/provision',
       body: {'address': address},
+    )) as Map<String, dynamic>;
+    return AdminAccountSummary.fromJson(body);
+  }
+
+  /// Creates a mailbox that never existed on Hostinger at all - a fresh
+  /// seat, not an adoption of an existing one (see [adminProvisionMailbox]).
+  Future<AdminAccountSummary> adminCreateMailbox(
+      String localPart, String password, String role) async {
+    final body = _decode(await _request(
+      'POST',
+      '/mail/admin/hostinger-mailboxes/create',
+      body: {'local_part': localPart, 'password': password, 'role': role},
     )) as Map<String, dynamic>;
     return AdminAccountSummary.fromJson(body);
   }

@@ -61,11 +61,13 @@ from app.schemas.mail import (
     AdminAuditLogEntry,
     AdminChangeRequestDecision,
     AdminChangeRequestResponse,
+    AdminCreateMailboxRequest,
     AdminHostingerPasswordResponse,
     AdminProvisionMailboxRequest,
     AdminSetHostingerPassword,
     AdminSetPassword,
     AdminSetProfile,
+    AdminSetRole,
     AliasCreate,
     AutoreplyUpsert,
     ContactCreate,
@@ -1348,6 +1350,85 @@ def admin_provision_mailbox(
     db.commit()
     db.refresh(account)
     return account
+
+
+@router.post(
+    "/admin/hostinger-mailboxes/create",
+    response_model=AdminAccountSummary,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_create_mailbox(
+    payload: AdminCreateMailboxRequest, admin: CurrentAdminAccount, db: DBSession
+) -> MailAccount:
+    """Creates a brand-new mailbox - a fresh seat on the Hostinger plan,
+    not one that already existed - and connects it to Novamail in the
+    same step, with whatever role the admin chose up front."""
+    domain = next(iter(settings.MAIL_ALLOWED_DOMAINS), None)
+    if not domain:
+        raise HTTPException(status_code=503, detail="No mail domain is configured")
+    address = f"{payload.local_part.lower()}@{domain.lower()}"
+    if db.scalar(select(MailAccount).where(MailAccount.address == address)):
+        raise HTTPException(status_code=409, detail="This mailbox is already connected")
+
+    client = HostingerManagementClient()
+    try:
+        order_id = client.get_order_id_for_domain(domain)
+        if not order_id:
+            raise HostingerApiError("No active mail order found for this domain")
+        created = client.create_mailbox(order_id, payload.local_part, payload.password)
+    except HostingerApiError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    user = db.scalar(select(User).where(User.email == address))
+    if user is None:
+        user = User(
+            email=address,
+            full_name=payload.local_part.replace(".", " ").title(),
+            password_hash=hash_password(secrets.token_urlsafe(48)),
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(user)
+        db.flush()
+    account = MailAccount(
+        user_id=user.id,
+        address=address,
+        display_name=user.full_name,
+        credential_ciphertext=encrypt_mail_secret(payload.password),
+        credential_type="mailbox_password",
+        cache_ttl_days=settings.MAIL_CACHE_DAYS,
+        hostinger_order_id=order_id,
+        hostinger_mailbox_id=created.get("id"),
+        role=payload.role,
+        is_active=True,
+    )
+    db.add(account)
+    _audit(db, actor=admin, target=account, action="mailbox_created", detail=payload.role)
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+@router.patch("/admin/accounts/{account_id}/role", response_model=AdminAccountSummary)
+def admin_set_role(
+    account_id: uuid.UUID, payload: AdminSetRole, admin: CurrentAdminAccount, db: DBSession
+) -> MailAccount:
+    target = db.get(MailAccount, account_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+    if target.role == "admin" and payload.role == "member":
+        remaining_admins = db.scalar(
+            select(func.count())
+            .select_from(MailAccount)
+            .where(MailAccount.role == "admin", MailAccount.is_active.is_(True))
+        )
+        if remaining_admins <= 1:
+            raise HTTPException(status_code=409, detail="Can't remove the last admin")
+    target.role = payload.role
+    _audit(db, actor=admin, target=target, action="role_changed", detail=payload.role)
+    db.commit()
+    db.refresh(target)
+    return target
 
 
 @router.patch("/admin/accounts/{account_id}/profile", response_model=AdminAccountSummary)

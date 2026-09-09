@@ -294,6 +294,11 @@ export const adminSetProfile = (accountId: string, displayName: string) =>
     method: "PATCH",
     body: JSON.stringify({ display_name: displayName }),
   });
+export const adminSetRole = (accountId: string, role: "admin" | "member") =>
+  api<AdminAccountInfo>(`/mail/admin/accounts/${accountId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
 export const adminSetAvatar = (accountId: string, file: File) => {
   const form = new FormData();
   form.append("avatar", file);
@@ -329,6 +334,13 @@ export const adminProvisionMailbox = (address: string) =>
   api<AdminAccountInfo>("/mail/admin/hostinger-mailboxes/provision", {
     method: "POST",
     body: JSON.stringify({ address }),
+  });
+/** Creates a mailbox that never existed on Hostinger at all - a fresh
+ * seat, not an adoption of an existing one (see adminProvisionMailbox). */
+export const adminCreateMailbox = (localPart: string, password: string, role: "admin" | "member") =>
+  api<AdminAccountInfo>("/mail/admin/hostinger-mailboxes/create", {
+    method: "POST",
+    body: JSON.stringify({ local_part: localPart, password, role }),
   });
 
 /** Switches the active session into a member mailbox without its

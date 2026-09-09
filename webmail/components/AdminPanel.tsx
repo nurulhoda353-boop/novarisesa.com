@@ -13,6 +13,7 @@ import {
   KeyRound,
   Mail,
   Pencil,
+  Plus,
   Search,
   Shield,
   ShieldCheck,
@@ -204,6 +205,7 @@ function AccountsTab({
   setHostingerMailboxes: (rows: HostingerMailboxInfo[] | null) => void;
 }) {
   const [editing, setEditing] = useState<AdminAccountInfo | null>(null);
+  const [creating, setCreating] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -282,9 +284,14 @@ function AccountsTab({
       <p className="form-hint" style={{ marginBottom: 16 }}>
         Switch into any mailbox instantly, no password needed — or reset its password, name, or photo directly.
       </p>
-      <div className="admin-search-box">
-        <Search size={15} />
-        <input placeholder="Search mailboxes…" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16 }}>
+        <div className="admin-search-box" style={{ marginBottom: 0, flex: 1 }}>
+          <Search size={15} />
+          <input placeholder="Search mailboxes…" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </div>
+        <button className="btn btn-primary sm" onClick={() => setCreating(true)}>
+          <Plus size={14} /> New mailbox
+        </button>
       </div>
       {accounts === null && <SkeletonRows />}
       {accounts !== null &&
@@ -371,6 +378,107 @@ function AccountsTab({
       {editing && (
         <EditAccountModal account={editing} onClose={() => setEditing(null)} onSaved={reload} />
       )}
+      {creating && (
+        <CreateMailboxModal onClose={() => setCreating(false)} onCreated={reload} />
+      )}
+    </div>
+  );
+}
+
+function CreateMailboxModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [localPart, setLocalPart] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<"admin" | "member">("member");
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  async function create() {
+    if (!localPart.trim() || password.length < 8) {
+      toast.show("Enter a mailbox name and a password of at least 8 characters");
+      return;
+    }
+    setSaving(true);
+    try {
+      const account = await api.adminCreateMailbox(localPart.trim(), password, role);
+      toast.show(`${account.address} created`);
+      onCreated();
+      onClose();
+    } catch {
+      toast.show("Could not create that mailbox — it may already exist");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 420 }} onClick={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <h2>New mailbox</h2>
+          <div className="spacer" />
+          <button className="icon-btn" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="modal-body">
+          <div className="form-group">
+            <label>Mailbox name</label>
+            <div className="form-row" style={{ alignItems: "center" }}>
+              <input
+                className="form-input"
+                placeholder="e.g. sumonrayhan"
+                value={localPart}
+                onChange={(event) => setLocalPart(event.target.value)}
+              />
+              <span style={{ color: "var(--muted)", fontSize: 13 }}>@novarisesa.com</span>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Password</label>
+            <div className="password-field">
+              <input
+                className="form-input"
+                type={showPassword ? "text" : "password"}
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Role</label>
+            <div className="form-row">
+              <button
+                className={`btn ${role === "member" ? "btn-primary" : "btn-secondary"} sm`}
+                style={{ flex: 1 }}
+                onClick={() => setRole("member")}
+              >
+                Member
+              </button>
+              <button
+                className={`btn ${role === "admin" ? "btn-primary" : "btn-secondary"} sm`}
+                style={{ flex: 1 }}
+                onClick={() => setRole("admin")}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+          <button className="btn btn-primary" style={{ width: "100%" }} onClick={create} disabled={saving}>
+            {saving ? "Creating…" : "Create mailbox"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -385,6 +493,8 @@ function EditAccountModal({
   onSaved: () => void;
 }) {
   const [displayName, setDisplayName] = useState(account.display_name);
+  const [role, setRole] = useState<"admin" | "member">((account.role as "admin" | "member") ?? "member");
+  const [savingRole, setSavingRole] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -404,6 +514,22 @@ function EditAccountModal({
       toast.show("Could not update the name");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleRole() {
+    const next = role === "admin" ? "member" : "admin";
+    setSavingRole(true);
+    try {
+      await api.adminSetRole(account.id, next);
+      setRole(next);
+      toast.show(next === "admin" ? `${account.address} is now an admin` : `${account.address} is now a member`);
+      onSaved();
+    } catch (error) {
+      const message = error instanceof api.ApiError ? error.message : "Could not change the role";
+      toast.show(message);
+    } finally {
+      setSavingRole(false);
     }
   }
 
@@ -477,7 +603,7 @@ function EditAccountModal({
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{account.address}</h2>
-            {account.role === "admin" && (
+            {role === "admin" && (
               <span className="role-chip" style={{ marginTop: 4 }}>
                 <Shield size={11} /> Admin
               </span>
@@ -501,19 +627,24 @@ function EditAccountModal({
                 Save
               </button>
             </div>
-            <label className="btn btn-secondary sm" style={{ cursor: "pointer", width: "fit-content", marginTop: 10 }}>
-              <Pencil size={13} /> Change photo
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  if (file) saveAvatar(file);
-                }}
-              />
-            </label>
+            <div className="form-row" style={{ marginTop: 10 }}>
+              <label className="btn btn-secondary sm" style={{ cursor: "pointer", width: "fit-content" }}>
+                <Pencil size={13} /> Change photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) saveAvatar(file);
+                  }}
+                />
+              </label>
+              <button className="btn btn-secondary sm" style={{ width: "fit-content" }} onClick={toggleRole} disabled={savingRole}>
+                <Shield size={13} /> {role === "admin" ? "Remove admin" : "Make admin"}
+              </button>
+            </div>
           </div>
 
           <div className="modal-section">
