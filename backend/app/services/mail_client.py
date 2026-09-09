@@ -355,17 +355,25 @@ class HostingerMailboxClient:
         return entries
 
     def _status_one(self, name: str) -> tuple[int, int]:
+        t0 = time.monotonic()
         try:
             client = self._connect()
         except MailConnectionError:
+            logger.warning("status connect failed for %s after %.0fms", name, (time.monotonic() - t0) * 1000)
             return 0, 0
+        t1 = time.monotonic()
         try:
             status_ok, status_rows = client.status(name, "(MESSAGES UNSEEN)")
-        except (imaplib.IMAP4.error, OSError, ssl.SSLError):
+        except (imaplib.IMAP4.error, OSError, ssl.SSLError) as exc:
+            logger.warning("status command failed for %s: %s", name, exc)
             return 0, 0
         finally:
             with suppress(Exception):
                 client.logout()
+        t2 = time.monotonic()
+        logger.info(
+            "status(%s): connect=%.0fms status=%.0fms", name, (t1 - t0) * 1000, (t2 - t1) * 1000
+        )
         if status_ok != "OK" or not status_rows or not status_rows[0]:
             return 0, 0
         text = status_rows[0].decode("utf-8", errors="ignore")
@@ -378,8 +386,10 @@ class HostingerMailboxClient:
     def _status_many(self, names: list[str]) -> dict[str, tuple[int, int]]:
         if not names:
             return {}
+        t0 = time.monotonic()
         with ThreadPoolExecutor(max_workers=min(len(names), STATUS_FETCH_CONCURRENCY)) as pool:
             results = list(pool.map(self._status_one, names))
+        logger.info("_status_many(%d folders) total=%.0fms", len(names), (time.monotonic() - t0) * 1000)
         return dict(zip(names, results, strict=True))
 
     def messages(
