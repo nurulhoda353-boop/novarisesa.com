@@ -825,8 +825,9 @@ function RequestsTab({ onPendingCountChange }: { onPendingCountChange: (count: n
           <div className="grow">
             <strong>{request.account_address}</strong>
             <span>
-              {requestLabel(request.request_type)}
-              {request.preview ? ` → "${request.preview}"` : ""}
+              {request.request_type === "delete_message"
+                ? request.preview ?? requestLabel(request.request_type)
+                : `${requestLabel(request.request_type)}${request.preview ? ` → "${request.preview}"` : ""}`}
             </span>
           </div>
           <button className="icon-btn" onClick={() => approve(request.id)} title="Approve">
@@ -842,9 +843,12 @@ function RequestsTab({ onPendingCountChange }: { onPendingCountChange: (count: n
 }
 
 function requestLabel(type: string): string {
-  return { password: "wants a new password", display_name: "wants to change their name", avatar: "wants a new photo" }[
-    type
-  ] ?? type;
+  return {
+    password: "wants a new password",
+    display_name: "wants to change their name",
+    avatar: "wants a new photo",
+    delete_message: "wants a message deleted",
+  }[type] ?? type;
 }
 
 function AuditTab() {

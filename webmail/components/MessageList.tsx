@@ -51,17 +51,20 @@ export function MessageList({
   loadingMore: boolean;
   onLoadMore: () => void;
   loading: boolean;
-  /** Members can't archive/delete mail (admin-only per the access policy) -
-      keep the buttons visible but disabled with an explanation, rather than
-      hiding them (which just looks broken) or letting them fail silently
-      against the backend's 403. */
+  /** Members can't archive mail at all (admin-only per the access policy) -
+      keep the button visible but disabled with an explanation, rather than
+      hiding it (which just looks broken) or letting it fail silently
+      against the backend's 403. Delete is different: a member's click
+      still goes through (onDelete branches to a request-to-admin instead
+      of a real delete - see MailApp), so it's never disabled here. */
   readOnly?: boolean;
 }) {
   const allSelected = messages.length > 0 && selected.size === messages.length;
   const someSelected = selected.size > 0 && !allSelected;
   const showArchive = folder === SYSTEM_FOLDERS.inbox;
   const isTrash = folder === SYSTEM_FOLDERS.trash;
-  const restrictedTitle = "Members can't archive or delete mail — ask your admin";
+  const restrictedTitle = "Members can't archive mail — ask your admin";
+  const deleteTitle = readOnly ? "Request deletion from admin" : isTrash ? "Delete forever" : "Move to trash";
   const showSnooze = !(
     [SYSTEM_FOLDERS.snoozed, SYSTEM_FOLDERS.drafts, SYSTEM_FOLDERS.sent, SYSTEM_FOLDERS.trash] as string[]
   ).includes(folder);
@@ -105,8 +108,7 @@ export function MessageList({
             )}
             <button
               className="icon-btn"
-              title={readOnly ? restrictedTitle : isTrash ? "Delete forever" : "Move to trash"}
-              disabled={readOnly}
+              title={deleteTitle}
               onClick={() => selected.forEach((uid) => {
                 const message = messages.find((item) => item.uid === uid);
                 if (message) onDelete(message);
@@ -140,9 +142,9 @@ export function MessageList({
               onArchive={showArchive ? () => onArchive(message) : undefined}
               onDelete={() => onDelete(message)}
               onSnooze={showSnooze ? (anchor) => onSnooze(message, anchor) : undefined}
-              isTrash={isTrash}
               readOnly={readOnly}
               restrictedTitle={restrictedTitle}
+              deleteTitle={deleteTitle}
             />
           ))
         )}
@@ -168,9 +170,9 @@ function MessageRow({
   onArchive,
   onDelete,
   onSnooze,
-  isTrash,
   readOnly,
   restrictedTitle,
+  deleteTitle,
 }: {
   message: MailMessageSummary;
   selected: boolean;
@@ -180,9 +182,9 @@ function MessageRow({
   onArchive?: () => void;
   onDelete: () => void;
   onSnooze?: (anchor: HTMLElement) => void;
-  isTrash: boolean;
   readOnly?: boolean;
   restrictedTitle?: string;
+  deleteTitle: string;
 }) {
   const unread = !message.flags.includes("\\Seen");
   const starred = message.flags.includes("\\Flagged");
@@ -232,9 +234,8 @@ function MessageRow({
           )}
           <button
             className="icon-btn"
-            title={readOnly ? restrictedTitle : isTrash ? "Delete forever" : "Move to trash"}
-            disabled={readOnly}
-            onClick={(event) => { event.stopPropagation(); if (!readOnly) onDelete(); }}
+            title={deleteTitle}
+            onClick={(event) => { event.stopPropagation(); onDelete(); }}
           >
             <Trash2 size={16} />
           </button>

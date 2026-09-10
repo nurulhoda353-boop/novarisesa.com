@@ -265,7 +265,7 @@ export function hasAccessToken(): boolean {
 export const getAccount = () => api<MailAccount>("/mail/account");
 export const updateAccount = (payload: { display_name: string; cache_ttl_days: number; signature: string | null }) =>
   api<MailAccount>("/mail/account", { method: "PATCH", body: JSON.stringify(payload) });
-export const changePassword = (payload: { current_password: string; new_password: string }) =>
+export const changePassword = (payload: { current_password?: string; new_password: string }) =>
   api<void>("/mail/account/password", { method: "POST", body: JSON.stringify(payload) });
 export const uploadAvatar = (file: File) => {
   const form = new FormData();
@@ -278,6 +278,14 @@ export const requestChange = (requestType: "password" | "display_name", value: s
   api<MailChangeRequestInfo>("/mail/account/change-request", {
     method: "POST",
     body: JSON.stringify({ request_type: requestType, value }),
+  });
+/** A member has no other way to remove a message at all - this sends the
+ * same delete an unrestricted user's button would do (move to trash, or
+ * remove outright if it's already there) for an admin to approve. */
+export const requestMessageDelete = (folder: string, uid: number, destination: string | null, subject: string) =>
+  api<MailChangeRequestInfo>("/mail/account/change-request", {
+    method: "POST",
+    body: JSON.stringify({ request_type: "delete_message", folder, uid, destination, subject }),
   });
 export const myChangeRequests = () => api<MailChangeRequestInfo[]>("/mail/account/change-requests");
 export const adminContact = () => api<AdminContactInfo>("/mail/account/admin-contact");

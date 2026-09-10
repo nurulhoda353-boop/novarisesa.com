@@ -115,11 +115,19 @@ def account_response(account: MailAccount) -> MailAccountResponse:
         hostinger_mailbox_id=account.hostinger_mailbox_id,
         signature=account.signature,
         role=account.role,
+        acting_as_admin=bool(getattr(account, "acting_admin", None)),
     )
 
 
+def _acting_admin(account: MailAccount) -> MailAccount | None:
+    """The admin who switched into `account`'s mailbox, if this session
+    exists because of that (see get_mail_account) - None for a mailbox's
+    own normal session, including an admin's own."""
+    return getattr(account, "acting_admin", None)
+
+
 def _require_not_member(account: MailAccount, action: str) -> None:
-    if account.role == "member":
+    if account.role == "member" and not _acting_admin(account):
         raise HTTPException(status_code=403, detail=f"Members can't {action} — ask an admin.")
 
 
@@ -193,10 +201,12 @@ def _apply_hostinger_password_reset(db: Session, target: MailAccount, new_passwo
     _force_logout(db, target)
 
 
-def issue_mobile_session(db: Session, user: User, account: MailAccount) -> MobileSessionResponse:
+def issue_mobile_session(
+    db: Session, user: User, account: MailAccount, *, switched_by_admin_id: str | None = None
+) -> MobileSessionResponse:
     token_id = uuid.uuid4()
-    access = create_mobile_access_token(str(user.id))
-    refresh = create_mobile_refresh_token(str(user.id), str(token_id))
+    access = create_mobile_access_token(str(user.id), switched_by=switched_by_admin_id)
+    refresh = create_mobile_refresh_token(str(user.id), str(token_id), switched_by=switched_by_admin_id)
     db.add(
         RefreshToken(
             id=token_id,
@@ -398,7 +408,12 @@ def refresh(payload: MobileRefreshRequest, db: DBSession) -> MobileSessionRespon
     if not user or not account or not user.is_active or not account.is_active:
         raise unauthorized
     stored.revoked_at = datetime.now(UTC)
-    response = issue_mobile_session(db, user, account)
+    # Carries an admin's "switched into this mailbox" status forward across
+    # refreshes - without re-reading it from the refresh token being
+    # redeemed here, that status would silently disappear the moment the
+    # short-lived (15min) access token it was on first expired.
+    switched_by = decoded.get("switched_by")
+    response = issue_mobile_session(db, user, account, switched_by_admin_id=switched_by)
     db.commit()
     return response
 
@@ -423,14 +438,17 @@ def update_account(
     payload: MailProfileUpdate, account: CurrentMailAccount, db: DBSession
 ) -> MailAccountResponse:
     new_name = payload.display_name.strip()
-    if account.role == "member" and new_name != account.display_name:
+    if account.role == "member" and not _acting_admin(account) and new_name != account.display_name:
         raise HTTPException(
             status_code=403,
             detail="Changing your name needs admin approval — send a change request instead.",
         )
+    name_changed = new_name != account.display_name
     account.display_name = new_name
     account.cache_ttl_days = payload.cache_ttl_days
     account.signature = payload.signature
+    if name_changed and (acting_admin := _acting_admin(account)) is not None:
+        _audit(db, actor=acting_admin, target=account, action="profile_changed", detail="display_name")
     db.commit()
     db.refresh(account)
     return account_response(account)
@@ -445,12 +463,14 @@ async def update_avatar(
     if not (avatar.content_type or "").startswith("image/"):
         raise HTTPException(status_code=415, detail="Avatar must be an image")
     _, url, _, _ = await save_upload(avatar, folder=f"mail/avatars/{account.id}")
-    if account.role == "member":
+    if account.role == "member" and not _acting_admin(account):
         db.add(MailChangeRequest(account_id=account.id, request_type="avatar", payload_url=url))
         _audit(db, actor=account, target=account, action="profile_change_requested", detail="avatar")
         db.commit()
         return account_response(account)
     account.avatar_url = url
+    if (acting_admin := _acting_admin(account)) is not None:
+        _audit(db, actor=acting_admin, target=account, action="profile_changed", detail="avatar")
     db.commit()
     db.refresh(account)
     return account_response(account)
@@ -458,11 +478,25 @@ async def update_avatar(
 
 @router.post("/account/password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(payload: MailPasswordChange, account: CurrentMailAccount, db: DBSession) -> None:
-    if account.role == "member":
+    acting_admin = _acting_admin(account)
+    if account.role == "member" and not acting_admin:
         raise HTTPException(
             status_code=403,
             detail="Password changes need admin approval — send a change request instead.",
         )
+    if acting_admin is not None:
+        # An admin switched into this mailbox has no way to know its real
+        # current password, so this can't be the everyday self-service
+        # flow below (which verifies one) - reset the Novamail-only login
+        # instead, same as the admin panel's everyday reset. The real
+        # Hostinger credential stays a deliberate, separately-confirmed
+        # admin-panel action, not something this casually touches.
+        _apply_novamail_password_reset(db, account, payload.new_password)
+        _audit(db, actor=acting_admin, target=account, action="password_reset")
+        db.commit()
+        return
+    if not payload.current_password:
+        raise HTTPException(status_code=422, detail="Current password is required")
     try:
         HostingerMailboxClient(account.address, payload.current_password).verify()
     except MailConnectionError as exc:
@@ -486,7 +520,17 @@ def create_change_request(
     while it waits for review."""
     request = MailChangeRequest(account_id=account.id, request_type=payload.request_type)
     if payload.request_type == "password":
+        assert payload.value is not None
         request.payload_ciphertext = encrypt_mail_secret(payload.value)
+    elif payload.request_type == "delete_message":
+        request.payload_text = json.dumps(
+            {
+                "folder": payload.folder,
+                "uid": payload.uid,
+                "destination": payload.destination,
+                "subject": (payload.subject or "")[:120],
+            }
+        )
     else:
         request.payload_text = payload.value
     db.add(request)
@@ -1184,7 +1228,7 @@ def admin_switch_account(
     if not target_user:
         raise HTTPException(status_code=404, detail="Mailbox not found")
     _audit(db, actor=admin, target=target, action="switched_in")
-    response = issue_mobile_session(db, target_user, target)
+    response = issue_mobile_session(db, target_user, target, switched_by_admin_id=str(admin.id))
     db.commit()
     return response
 
@@ -1465,6 +1509,19 @@ async def admin_set_avatar(
     return target
 
 
+def _change_request_preview(row: MailChangeRequest) -> str | None:
+    if row.request_type == "password":
+        return None
+    if row.request_type == "delete_message":
+        try:
+            data = json.loads(row.payload_text or "{}")
+        except json.JSONDecodeError:
+            return None
+        subject = data.get("subject") or "(no subject)"
+        return f'Delete "{subject}"'
+    return row.payload_text
+
+
 @router.get("/admin/change-requests", response_model=list[AdminChangeRequestResponse])
 def admin_list_change_requests(
     admin: CurrentAdminAccount,
@@ -1482,7 +1539,7 @@ def admin_list_change_requests(
             account_id=row.account_id,
             account_address=accounts[row.account_id].address if row.account_id in accounts else "",
             request_type=row.request_type,
-            preview=row.payload_text if row.request_type != "password" else None,
+            preview=_change_request_preview(row),
             status=row.status,
             rejection_reason=row.rejection_reason,
             created_at=row.created_at,
@@ -1518,6 +1575,24 @@ def admin_approve_change_request(
     elif request.request_type == "avatar":
         assert request.payload_url is not None
         target.avatar_url = request.payload_url
+    elif request.request_type == "delete_message":
+        assert request.payload_text is not None
+        try:
+            data = json.loads(request.payload_text)
+            folder, uid, destination = data["folder"], int(data["uid"]), data.get("destination")
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=500, detail="Malformed delete request") from exc
+        try:
+            if destination:
+                mailbox_client(target).move(folder, uid, destination)
+            else:
+                mailbox_client(target).delete(folder, uid)
+        except MailConnectionError as exc:
+            # Leaves the request pending rather than marking it approved -
+            # the message was never actually touched, so the admin can
+            # just retry (the message may since have moved/been deleted
+            # some other way, which is the most likely real cause here).
+            raise mail_error(exc) from exc
     request.status = "approved"
     request.resolved_at = datetime.now(UTC)
     request.resolved_by_account_id = admin.id

@@ -54,8 +54,9 @@ export function MessageView({
     [SYSTEM_FOLDERS.archive, SYSTEM_FOLDERS.spam, SYSTEM_FOLDERS.trash] as string[]
   ).includes(folder);
   const isTrash = folder === SYSTEM_FOLDERS.trash;
-  const readOnly = account.role === "member";
-  const restrictedTitle = "Members can't archive or delete mail — ask your admin";
+  const readOnly = account.role === "member" && !account.acting_as_admin;
+  const restrictedTitle = "Members can't archive or move mail — ask your admin";
+  const deleteTitle = readOnly ? "Request deletion from admin" : isTrash ? "Delete forever" : "Move to trash";
 
   async function toggleThreadStar() {
     try {
@@ -94,8 +95,7 @@ export function MessageView({
         )}
         <button
           className="icon-btn"
-          title={readOnly ? restrictedTitle : isTrash ? "Delete forever" : "Move to trash"}
-          disabled={readOnly}
+          title={deleteTitle}
           onClick={() => onThreadAction("trash")}
         >
           <Trash2 size={19} />

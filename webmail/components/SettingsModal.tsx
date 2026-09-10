@@ -81,7 +81,7 @@ function labelFor(tab: Tab): string {
 }
 
 function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAccountUpdated: (account: MailAccount) => void }) {
-  const isMember = account.role === "member";
+  const isMember = account.role === "member" && !account.acting_as_admin;
   const [displayName, setDisplayName] = useState(account.display_name);
   const [signature, setSignature] = useState(account.signature ?? "");
   const [saving, setSaving] = useState(false);
@@ -171,7 +171,11 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
 }
 
 function SecurityTab({ account }: { account: MailAccount }) {
-  const isMember = account.role === "member";
+  const isMember = account.role === "member" && !account.acting_as_admin;
+  // An admin switched into this mailbox can change its password directly
+  // (no approval needed, same as isMember=false below) but has no way to
+  // know its current one, so that field doesn't apply to them either.
+  const needsCurrentPassword = !isMember && !account.acting_as_admin;
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -194,13 +198,16 @@ function SecurityTab({ account }: { account: MailAccount }) {
         setPending(true);
         toast.show("Password change sent for admin approval");
       } else {
-        await api.changePassword({ current_password: currentPassword, new_password: newPassword });
+        await api.changePassword({
+          current_password: needsCurrentPassword ? currentPassword : undefined,
+          new_password: newPassword,
+        });
         toast.show("Password changed");
         setCurrentPassword("");
       }
       setNewPassword("");
     } catch {
-      toast.show(isMember ? "Could not send that request" : "Could not change your password — check the current password");
+      toast.show(isMember ? "Could not send that request" : "Could not change the password");
     } finally {
       setSaving(false);
     }
@@ -214,12 +221,12 @@ function SecurityTab({ account }: { account: MailAccount }) {
             ? "A password change is waiting for admin approval."
             : "Password changes need admin approval — pick a new one below and send it for review."}
         </p>
-      ) : (
+      ) : needsCurrentPassword ? (
         <div className="form-group">
           <label>Current password</label>
           <input className="form-input" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
         </div>
-      )}
+      ) : null}
       <div className="form-group">
         <label>New password</label>
         <input className="form-input" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
@@ -228,7 +235,7 @@ function SecurityTab({ account }: { account: MailAccount }) {
       <button
         className="btn btn-primary"
         onClick={submit}
-        disabled={saving || (!isMember && !currentPassword) || newPassword.length < 8}
+        disabled={saving || (needsCurrentPassword && !currentPassword) || newPassword.length < 8}
       >
         {saving ? "Sending…" : isMember ? "Send for approval" : "Change password"}
       </button>
@@ -291,7 +298,12 @@ function StatusDot({ status }: { status: string }) {
 }
 
 function requestHistoryLabel(type: string): string {
-  return { password: "Password change", display_name: "Name change", avatar: "Photo change" }[type] ?? type;
+  return {
+    password: "Password change",
+    display_name: "Name change",
+    avatar: "Photo change",
+    delete_message: "Message deletion",
+  }[type] ?? type;
 }
 
 function ContactsTab() {

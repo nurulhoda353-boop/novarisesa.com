@@ -27,6 +27,7 @@ from app.schemas.mail import (
     MailAccountResponse,
     MailChangeRequestCreate,
     MailLoginRequest,
+    MailPasswordChange,
     MailProfileUpdate,
     MailRuleUpsert,
     SnoozeRequest,
@@ -409,6 +410,32 @@ def test_change_request_rejects_a_short_pending_password() -> None:
     assert MailChangeRequestCreate(request_type="display_name", value="A").value == "A"
 
 
+def test_change_request_requires_a_value_for_password_and_display_name() -> None:
+    with pytest.raises(ValueError):
+        MailChangeRequestCreate(request_type="password")
+    with pytest.raises(ValueError):
+        MailChangeRequestCreate(request_type="display_name")
+
+
+def test_change_request_delete_message_requires_folder_and_uid() -> None:
+    with pytest.raises(ValueError):
+        MailChangeRequestCreate(request_type="delete_message")
+    with pytest.raises(ValueError):
+        MailChangeRequestCreate(request_type="delete_message", folder="INBOX")
+    with pytest.raises(ValueError):
+        MailChangeRequestCreate(request_type="delete_message", uid=5)
+    request = MailChangeRequestCreate(
+        request_type="delete_message",
+        folder="INBOX",
+        uid=5,
+        destination="INBOX.Trash",
+        subject="Meeting notes",
+    )
+    assert request.folder == "INBOX"
+    assert request.uid == 5
+    assert request.destination == "INBOX.Trash"
+
+
 def test_mail_account_model_has_a_separate_novamail_password_column() -> None:
     # This is the whole point of the split: novamail_password_hash must be
     # its own column, distinct from credential_ciphertext (the real
@@ -461,6 +488,31 @@ def test_admin_set_role_only_accepts_admin_or_member() -> None:
         AdminSetRole(role="superuser")
     assert AdminSetRole(role="admin").role == "admin"
     assert AdminSetRole(role="member").role == "member"
+
+
+def test_mobile_access_token_carries_switched_by_when_given() -> None:
+    # An admin's "switch into this mailbox" session needs to be
+    # distinguishable from that mailbox's own normal login - switched_by
+    # is how get_mail_account tells the two apart.
+    plain = create_mobile_access_token("11111111-1111-1111-1111-111111111111")
+    assert "switched_by" not in jwt.decode(plain, options={"verify_signature": False})
+
+    switched = create_mobile_access_token(
+        "11111111-1111-1111-1111-111111111111",
+        switched_by="22222222-2222-2222-2222-222222222222",
+    )
+    payload = decode_mobile_token(switched, "access")
+    assert payload["switched_by"] == "22222222-2222-2222-2222-222222222222"
+
+
+def test_mail_password_change_current_password_is_optional() -> None:
+    # Required for a mailbox changing its own password (verified against
+    # Hostinger); omitted when an admin resets another mailbox's password
+    # after switching in, since they have no way to know its current one.
+    with_current = MailPasswordChange(current_password="the-old-one", new_password="a-new-password")
+    assert with_current.current_password == "the-old-one"
+    without_current = MailPasswordChange(new_password="a-new-password")
+    assert without_current.current_password is None
 
 
 def test_hostinger_mailbox_summary_carries_usage_and_defaults_it_to_none() -> None:

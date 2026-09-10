@@ -57,11 +57,16 @@ export interface MailAccount {
   hostinger_mailbox_id: string | null;
   signature: string | null;
   role: "admin" | "member";
+  /** True only when an admin switched into this mailbox - the mailbox's
+      own `role` above still reflects what it really is (so the UI still
+      looks like that mailbox), this just means the current session has
+      full admin permissions here regardless. */
+  acting_as_admin: boolean;
 }
 
 export interface MailChangeRequestInfo {
   id: string;
-  request_type: "password" | "display_name" | "avatar";
+  request_type: "password" | "display_name" | "avatar" | "delete_message";
   status: "pending" | "approved" | "rejected";
   rejection_reason: string | null;
   created_at: string;
@@ -82,7 +87,7 @@ export interface AdminChangeRequestInfo {
   id: string;
   account_id: string;
   account_address: string;
-  request_type: "password" | "display_name" | "avatar";
+  request_type: "password" | "display_name" | "avatar" | "delete_message";
   preview: string | null;
   status: "pending" | "approved" | "rejected";
   rejection_reason: string | null;

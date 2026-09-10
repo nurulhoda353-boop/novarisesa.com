@@ -329,7 +329,30 @@ function MailAppInner() {
   async function handleArchive(message: MailMessageSummary) {
     await moveAndDrop(message, SYSTEM_FOLDERS.archive);
   }
+  const isRealMember = !!account && account.role === "member" && !account.acting_as_admin;
+  async function requestDelete(message: MailMessageSummary) {
+    // Doesn't remove the message from view - it's still sitting there
+    // untouched until an admin actually approves the request, so the list
+    // should keep showing it (matches how a photo/name change-request
+    // never optimistically applies itself either).
+    const inTrash = activeFolder === SYSTEM_FOLDERS.trash;
+    try {
+      await api.requestMessageDelete(
+        imapFolderFor(activeFolder),
+        message.uid,
+        inTrash ? null : imapFolderFor(SYSTEM_FOLDERS.trash),
+        message.subject || "(no subject)",
+      );
+      toast.show("Delete request sent for admin approval");
+    } catch {
+      toast.show("Could not send that request");
+    }
+  }
   async function handleDelete(message: MailMessageSummary) {
+    if (isRealMember) {
+      await requestDelete(message);
+      return;
+    }
     if (activeFolder === SYSTEM_FOLDERS.trash) {
       try {
         await api.deleteMessage(imapFolderFor(activeFolder), message.uid);
@@ -398,6 +421,26 @@ function MailAppInner() {
   async function handleThreadAction(action: "archive" | "trash" | "unread" | "moveToInbox") {
     if (!openThread) return;
     const uids = openThread.messages.map((m) => m.uid);
+    if (action === "trash" && isRealMember) {
+      const inTrash = activeFolder === SYSTEM_FOLDERS.trash;
+      try {
+        await Promise.all(
+          openThread.messages.map((message) =>
+            api.requestMessageDelete(
+              imapFolderFor(activeFolder),
+              message.uid,
+              inTrash ? null : imapFolderFor(SYSTEM_FOLDERS.trash),
+              message.subject || "(no subject)",
+            )
+          )
+        );
+        toast.show("Delete request sent for admin approval");
+        setOpenThread(null);
+      } catch {
+        toast.show("Could not send that request");
+      }
+      return;
+    }
     try {
       if (action === "unread") {
         await Promise.all(uids.map((uid) => api.setRead(imapFolderFor(activeFolder), uid, false)));
@@ -632,7 +675,7 @@ function MailAppInner() {
                     loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch, filters: activeFilters })
                   }
                   loading={loading}
-                  readOnly={account.role === "member"}
+                  readOnly={account.role === "member" && !account.acting_as_admin}
                 />
               </div>
               <div className="split-reading-pane">
@@ -685,7 +728,7 @@ function MailAppInner() {
                 loadMessages(activeFolder, { append: true, beforeUid: nextBeforeUid, q: activeSearch, filters: activeFilters })
               }
               loading={loading}
-              readOnly={account.role === "member"}
+              readOnly={account.role === "member" && !account.acting_as_admin}
             />
           )}
         </div>

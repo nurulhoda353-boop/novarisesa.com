@@ -50,9 +50,40 @@ def get_mobile_user(
 MobileUser = Annotated[User, Depends(get_mobile_user)]
 
 
+def _resolve_acting_admin(
+    db: Session, authorization: str | None, access_token: str | None
+) -> MailAccount | None:
+    """If this request's token was issued by admin_switch_account (carries
+    a `switched_by` claim), returns that admin's own MailAccount - re-
+    checked fresh against the DB on every call (not just once, at token-
+    issue time) so a since-demoted or deactivated admin's old tokens stop
+    granting elevated access immediately, the same guarantee every other
+    permission check in this app already makes."""
+    token = authorization[7:] if authorization and authorization.startswith("Bearer ") else access_token
+    if not token:
+        return None
+    try:
+        payload = decode_mobile_token(token, "access")
+    except jwt.InvalidTokenError:
+        return None
+    switched_by = payload.get("switched_by")
+    if not switched_by:
+        return None
+    try:
+        admin_id = uuid.UUID(switched_by)
+    except ValueError:
+        return None
+    admin_account = db.get(MailAccount, admin_id)
+    if admin_account and admin_account.role == "admin" and admin_account.is_active:
+        return admin_account
+    return None
+
+
 def get_mail_account(
     user: MobileUser,
     db: Annotated[Session, Depends(get_db)],
+    authorization: Annotated[str | None, Header()] = None,
+    access_token: Annotated[str | None, Query()] = None,
 ) -> MailAccount:
     account = db.scalar(
         select(MailAccount).where(
@@ -62,6 +93,10 @@ def get_mail_account(
     )
     if not account:
         raise HTTPException(status_code=404, detail="Mailbox account is not connected")
+    # Not a mapped column - never persisted, just carries the "which admin
+    # switched into this session" context to route handlers/permission
+    # checks for the life of this one request.
+    account.acting_admin = _resolve_acting_admin(db, authorization, access_token)
     return account
 
 

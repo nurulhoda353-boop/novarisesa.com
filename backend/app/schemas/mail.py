@@ -34,6 +34,12 @@ class MailAccountResponse(BaseModel):
     hostinger_mailbox_id: str | None
     signature: str | None = None
     role: str = "member"
+    # True only when an admin switched into this mailbox (see
+    # admin_switch_account) - the mailbox's own `role` above stays whatever
+    # it really is (so the UI still looks like that mailbox, no admin badge
+    # appears), this just tells the client its current session has full
+    # admin permissions here regardless.
+    acting_as_admin: bool = False
 
 
 class MailProfileUpdate(BaseModel):
@@ -43,7 +49,10 @@ class MailProfileUpdate(BaseModel):
 
 
 class MailPasswordChange(BaseModel):
-    current_password: str = Field(min_length=8, max_length=256)
+    # Not required when an admin switched into this mailbox and is
+    # resetting its password directly - they have no way to know its
+    # current one. Still required for a mailbox changing its own.
+    current_password: str | None = Field(default=None, min_length=8, max_length=256)
     new_password: str = Field(min_length=8, max_length=50)
 
 
@@ -216,17 +225,32 @@ class AutoreplyUpsert(BaseModel):
 
 
 class MailChangeRequestCreate(BaseModel):
-    """A member's own request to change something an admin must approve."""
+    """A member's own request to change something an admin must approve -
+    password/display_name use `value`; delete_message (a member has no
+    other way to remove a message at all) instead identifies the message
+    via folder/uid, plus a destination to move it to once approved (the
+    same "move to trash" a non-restricted user's delete button would do)
+    or none if it's already in trash and approval should remove it
+    outright, and a subject purely so the admin's review list is
+    readable instead of a bare UID."""
 
-    request_type: str = Field(pattern="^(password|display_name)$")
-    value: str = Field(min_length=1, max_length=500)
+    request_type: str = Field(pattern="^(password|display_name|delete_message)$")
+    value: str | None = Field(default=None, max_length=500)
+    folder: str | None = Field(default=None, min_length=1, max_length=200)
+    uid: int | None = Field(default=None, ge=1)
+    destination: str | None = Field(default=None, max_length=200)
+    subject: str | None = Field(default=None, max_length=200)
 
-    @field_validator("value")
-    @classmethod
-    def password_min_length(cls, value: str, info) -> str:  # noqa: ANN001
-        if info.data.get("request_type") == "password" and len(value) < 8:
-            raise ValueError("Password must be at least 8 characters")
-        return value
+    @model_validator(mode="after")
+    def check_required_fields(self) -> "MailChangeRequestCreate":
+        if self.request_type in ("password", "display_name"):
+            if not self.value:
+                raise ValueError(f"{self.request_type} requires a value")
+            if self.request_type == "password" and len(self.value) < 8:
+                raise ValueError("Password must be at least 8 characters")
+        elif self.request_type == "delete_message" and (not self.folder or not self.uid):
+            raise ValueError("delete_message requires 'folder' and 'uid'")
+        return self
 
 
 class MailChangeRequestResponse(BaseModel):
