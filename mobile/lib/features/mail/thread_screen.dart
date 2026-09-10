@@ -160,23 +160,38 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   Future<void> _deleteThread() async {
     final state = context.read<AppState>();
+    final isRestrictedMember = state.account?.isRestrictedMember ?? false;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(
-            'Delete this conversation (${_summaries.length} ${_summaries.length == 1 ? 'email' : 'emails'})?'),
-        content: const Text('This cannot be undone.'),
+        title: Text(isRestrictedMember
+            ? 'Request deletion of this conversation (${_summaries.length} ${_summaries.length == 1 ? 'email' : 'emails'})?'
+            : 'Delete this conversation (${_summaries.length} ${_summaries.length == 1 ? 'email' : 'emails'})?'),
+        content: Text(isRestrictedMember
+            ? 'An admin will need to approve this before anything is deleted.'
+            : 'This cannot be undone.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel')),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+              child: Text(isRestrictedMember ? 'Send request' : 'Delete')),
         ],
       ),
     );
     if (confirmed != true) return;
+    if (isRestrictedMember) {
+      for (final summary in _summaries) {
+        await state.requestMessageDelete(summary, null);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Delete request sent for admin approval')));
+        Navigator.pop(context);
+      }
+      return;
+    }
     await state.bulkDelete(_summaries);
     if (mounted) Navigator.pop(context);
   }
@@ -184,10 +199,12 @@ class _ThreadScreenState extends State<ThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final latest = _summaries.last;
-    // Member mailboxes can't archive or delete (the backend 403s these
-    // too) - snooze stays available, it's a personal productivity feature
-    // like mail rules/contacts/drafts, not one of the restricted actions.
-    final canArchiveOrDelete = context.watch<AppState>().account?.isAdmin ?? true;
+    // Members can't archive at all, but delete still does something
+    // useful for them (sends an admin a request) - snooze stays available
+    // regardless, it's a personal productivity feature like mail
+    // rules/contacts/drafts, not one of the restricted actions.
+    final account = context.watch<AppState>().account;
+    final isRestrictedMember = account?.isRestrictedMember ?? false;
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -200,16 +217,15 @@ class _ThreadScreenState extends State<ThreadScreen> {
               tooltip: 'Snooze',
               onPressed: _snoozeThread,
               icon: const Icon(Icons.snooze_outlined)),
-          if (canArchiveOrDelete) ...[
+          if (!isRestrictedMember)
             IconButton(
                 tooltip: 'Archive',
                 onPressed: _archiveThread,
                 icon: const Icon(Icons.archive_outlined)),
-            IconButton(
-                tooltip: 'Delete',
-                onPressed: _deleteThread,
-                icon: const Icon(Icons.delete_outline)),
-          ],
+          IconButton(
+              tooltip: isRestrictedMember ? 'Request deletion from admin' : 'Delete',
+              onPressed: _deleteThread,
+              icon: const Icon(Icons.delete_outline)),
         ],
       ),
       body: Column(

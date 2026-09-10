@@ -7,6 +7,7 @@ class MailAccount {
     this.avatarUrl,
     this.signature,
     this.role = 'member',
+    this.actingAsAdmin = false,
   });
 
   final String id;
@@ -16,8 +17,14 @@ class MailAccount {
   final int cacheTtlDays;
   final String? signature;
   final String role;
+  // True only when an admin switched into this mailbox - `role` above
+  // still reflects what the mailbox really is (so the UI still looks like
+  // that mailbox), this just means the session has full admin permissions
+  // here regardless.
+  final bool actingAsAdmin;
 
   bool get isAdmin => role == 'admin';
+  bool get isRestrictedMember => role == 'member' && !actingAsAdmin;
 
   factory MailAccount.fromJson(Map<String, dynamic> json) => MailAccount(
         id: json['id'] as String,
@@ -27,6 +34,7 @@ class MailAccount {
         cacheTtlDays: json['cache_ttl_days'] as int? ?? 30,
         signature: json['signature'] as String?,
         role: json['role'] as String? ?? 'member',
+        actingAsAdmin: json['acting_as_admin'] as bool? ?? false,
       );
 }
 

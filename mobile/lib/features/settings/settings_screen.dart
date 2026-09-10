@@ -63,7 +63,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _save() async {
     final state = context.read<AppState>();
     final account = state.account!;
-    final isMember = !account.isAdmin;
+    final isMember = account.isRestrictedMember;
     final nameChanged = _name.text.trim() != account.displayName;
     try {
       if (isMember && nameChanged) {
@@ -364,6 +364,8 @@ class _RequestHistoryScreenState extends State<_RequestHistoryScreen> {
         return 'Name change';
       case 'avatar':
         return 'Photo change';
+      case 'delete_message':
+        return 'Message deletion';
       default:
         return type;
     }
@@ -477,7 +479,12 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMember = !(context.read<AppState>().account?.isAdmin ?? true);
+    final account = context.read<AppState>().account;
+    final isMember = account?.isRestrictedMember ?? false;
+    // An admin switched into this mailbox can change its password
+    // directly (no approval needed) but has no way to know its current
+    // one, so that field doesn't apply to them either.
+    final needsCurrentPassword = !isMember && !(account?.actingAsAdmin ?? false);
     return AlertDialog(
       title: Text(isMember ? 'Request a new password' : 'Change mailbox password'),
       content: Column(
@@ -488,7 +495,7 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               padding: EdgeInsets.only(bottom: 12),
               child: Text('This needs admin approval before it takes effect.'),
             )
-          else
+          else if (needsCurrentPassword)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: TextField(
@@ -521,7 +528,9 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               if (isMember) {
                 await context.read<AppState>().requestChange('password', next.text);
               } else {
-                await context.read<AppState>().changePassword(current.text, next.text);
+                await context
+                    .read<AppState>()
+                    .changePassword(needsCurrentPassword ? current.text : null, next.text);
               }
               if (context.mounted) Navigator.pop(context);
             } on ApiException catch (error) {

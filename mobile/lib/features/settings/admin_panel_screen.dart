@@ -898,6 +898,8 @@ class _RequestsTabState extends State<_RequestsTab> {
             '${request.preview != null ? ' to "${request.preview}"' : ''}';
       case 'avatar':
         return 'wants a new photo';
+      case 'delete_message':
+        return request.preview ?? 'wants a message deleted';
       default:
         return request.requestType;
     }

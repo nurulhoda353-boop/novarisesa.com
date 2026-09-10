@@ -154,7 +154,10 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
           ? _SelectionAppBar(
               count: _selectedKeys.length,
               allSelected: _selectedKeys.length == state.messages.length,
-              canArchiveOrDelete: state.account?.isAdmin ?? true,
+              canArchive: !(state.account?.isRestrictedMember ?? false),
+              deleteTooltip: (state.account?.isRestrictedMember ?? false)
+                  ? 'Request deletion from admin'
+                  : 'Delete',
               onClose: _clearSelection,
               onSelectAll: () => setState(() {
                 if (_selectedKeys.length == state.messages.length) {
@@ -189,25 +192,39 @@ class _InboxScreenState extends State<InboxScreen> with WidgetsBindingObserver {
               },
               onDelete: () async {
                 final selected = _selectedMessages(state.messages);
+                final isRestrictedMember = state.account?.isRestrictedMember ?? false;
                 final confirmed = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: Text(
-                        'Delete ${selected.length} ${selected.length == 1 ? 'email' : 'emails'}?'),
-                    content: const Text('This cannot be undone.'),
+                    title: Text(isRestrictedMember
+                        ? 'Request deletion of ${selected.length} ${selected.length == 1 ? 'email' : 'emails'}?'
+                        : 'Delete ${selected.length} ${selected.length == 1 ? 'email' : 'emails'}?'),
+                    content: Text(isRestrictedMember
+                        ? 'An admin will need to approve this before anything is deleted.'
+                        : 'This cannot be undone.'),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(context, false),
                           child: const Text('Cancel')),
                       FilledButton(
                           onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Delete')),
+                          child: Text(isRestrictedMember ? 'Send request' : 'Delete')),
                     ],
                   ),
                 );
                 if (confirmed != true) return;
                 _clearSelection();
-                await state.bulkDelete(selected);
+                if (isRestrictedMember) {
+                  for (final message in selected) {
+                    await state.requestMessageDelete(message, null);
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Delete request sent for admin approval')));
+                  }
+                } else {
+                  await state.bulkDelete(selected);
+                }
               },
             )
           : AppBar(
@@ -668,7 +685,8 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onMarkRead,
     required this.onArchive,
     required this.onDelete,
-    required this.canArchiveOrDelete,
+    required this.canArchive,
+    required this.deleteTooltip,
   });
 
   final int count;
@@ -678,7 +696,8 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onMarkRead;
   final VoidCallback onArchive;
   final VoidCallback onDelete;
-  final bool canArchiveOrDelete;
+  final bool canArchive;
+  final String deleteTooltip;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -697,16 +716,15 @@ class _SelectionAppBar extends StatelessWidget implements PreferredSizeWidget {
               tooltip: 'Mark as read',
               onPressed: onMarkRead,
               icon: const Icon(Icons.mark_email_read_outlined)),
-          if (canArchiveOrDelete) ...[
+          if (canArchive)
             IconButton(
                 tooltip: 'Archive',
                 onPressed: onArchive,
                 icon: const Icon(Icons.archive_outlined)),
-            IconButton(
-                tooltip: 'Delete',
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline)),
-          ],
+          IconButton(
+              tooltip: deleteTooltip,
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline)),
         ],
       );
 }
@@ -853,9 +871,12 @@ class _MessageTile extends StatelessWidget {
         ),
       ),
     );
-    // Member mailboxes can't archive or delete (the backend 403s these too)
-    // - skip the swipe gesture entirely rather than let it fail silently.
-    if (selectionMode || !(state.account?.isAdmin ?? true)) return row;
+    // Members can't archive at all, and can only request a delete (the
+    // backend 403s a real archive/delete attempt too) - the swipe gesture
+    // stays available either way rather than disappearing, since delete
+    // still does something useful for a member (sends a request).
+    if (selectionMode) return row;
+    final isRestrictedMember = state.account?.isRestrictedMember ?? false;
 
     return Dismissible(
       key: ValueKey('${message.folder}-${message.uid}'),
@@ -869,10 +890,35 @@ class _MessageTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         color: Theme.of(context).colorScheme.error,
         icon: Icons.delete_outline,
-        label: 'Delete',
+        label: isRestrictedMember ? 'Request delete' : 'Delete',
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.endToStart) {
+          if (isRestrictedMember) {
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Request deletion of this email?'),
+                content: const Text(
+                    'An admin will need to approve this before anything is deleted.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Send request')),
+                ],
+              ),
+            );
+            if (confirmed != true) return false;
+            unawaited(state.requestMessageDelete(message, null));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Delete request sent for admin approval')));
+            }
+            return false;
+          }
           final confirmed = await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -892,6 +938,11 @@ class _MessageTile extends StatelessWidget {
           state.removeLocally(message);
           unawaited(state.deleteMessage(message));
           return true;
+        }
+        if (isRestrictedMember) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("Members can't archive mail — ask your admin")));
+          return false;
         }
         final archiveFolder = state.folders.resolve(
           flagHints: const [r'\Archive'],

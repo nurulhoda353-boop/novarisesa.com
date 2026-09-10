@@ -423,8 +423,22 @@ class AppState extends ChangeNotifier {
     await _guard(() => api.requestChange(requestType, value));
   }
 
+  /// Doesn't remove the message from view - it's still sitting there
+  /// untouched until an admin actually approves the request.
+  Future<void> requestMessageDelete(MailMessage message, String? destination) async {
+    await _guard(
+      () => api.requestMessageDelete(
+        message.folder,
+        message.uid,
+        destination,
+        message.subject.isEmpty ? '(no subject)' : message.subject,
+      ),
+      showBusy: false,
+    );
+  }
+
   Future<void> changePassword(
-      String currentPassword, String newPassword) async {
+      String? currentPassword, String newPassword) async {
     await _guard(() => api.changePassword(currentPassword, newPassword));
   }
 

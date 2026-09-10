@@ -362,7 +362,10 @@ class ApiClient {
     return MailAccount.fromJson(_decode(response) as Map<String, dynamic>);
   }
 
-  Future<void> changePassword(String currentPassword, String newPassword) =>
+  /// currentPassword is omitted when an admin switched into this mailbox
+  /// and is resetting its password directly - they have no way to know
+  /// its current one. Still required for a mailbox changing its own.
+  Future<void> changePassword(String? currentPassword, String newPassword) =>
       _request(
         'POST',
         '/mail/account/password',
@@ -490,6 +493,22 @@ class ApiClient {
         _decode(await _request('POST', '/mail/account/change-request', body: {
           'request_type': requestType,
           'value': value,
+        })) as Map<String, dynamic>,
+      );
+
+  /// A member has no other way to remove a message at all - sends the
+  /// same delete an unrestricted user would do (move to trash, or remove
+  /// outright with destination null if it's already there) for an admin
+  /// to approve.
+  Future<MailChangeRequest> requestMessageDelete(
+      String folder, int uid, String? destination, String subject) async =>
+      MailChangeRequest.fromJson(
+        _decode(await _request('POST', '/mail/account/change-request', body: {
+          'request_type': 'delete_message',
+          'folder': folder,
+          'uid': uid,
+          'destination': destination,
+          'subject': subject,
         })) as Map<String, dynamic>,
       );
 
