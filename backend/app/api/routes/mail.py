@@ -411,8 +411,20 @@ def refresh(payload: MobileRefreshRequest, db: DBSession) -> MobileSessionRespon
     # Carries an admin's "switched into this mailbox" status forward across
     # refreshes - without re-reading it from the refresh token being
     # redeemed here, that status would silently disappear the moment the
-    # short-lived (15min) access token it was on first expired.
+    # short-lived (15min) access token it was on first expired. Re-checked
+    # fresh (not just carried through blindly) so a since-demoted or
+    # deactivated admin's claim quietly stops propagating instead of
+    # persisting in every renewed token forever.
     switched_by = decoded.get("switched_by")
+    if switched_by:
+        try:
+            admin_account = db.get(MailAccount, uuid.UUID(switched_by))
+        except ValueError:
+            admin_account = None
+        if admin_account and admin_account.role == "admin" and admin_account.is_active:
+            account.acting_admin = admin_account
+        else:
+            switched_by = None
     response = issue_mobile_session(db, user, account, switched_by_admin_id=switched_by)
     db.commit()
     return response
@@ -1228,6 +1240,12 @@ def admin_switch_account(
     if not target_user:
         raise HTTPException(status_code=404, detail="Mailbox not found")
     _audit(db, actor=admin, target=target, action="switched_in")
+    # issue_mobile_session's account_response reads this off `target`
+    # directly - without it, this specific response (unlike every request
+    # afterward, which goes through get_mail_account and sets it fresh)
+    # would report acting_as_admin: false on the very session that just
+    # granted it.
+    target.acting_admin = admin
     response = issue_mobile_session(db, target_user, target, switched_by_admin_id=str(admin.id))
     db.commit()
     return response

@@ -1,6 +1,7 @@
 import asyncio
 import imaplib
 import inspect
+import uuid
 from datetime import UTC, datetime
 from email.message import EmailMessage
 
@@ -32,7 +33,7 @@ from app.schemas.mail import (
     MailRuleUpsert,
     SnoozeRequest,
 )
-from app.api.routes.mail import mail_events
+from app.api.routes.mail import account_response, mail_events
 from app.services.mail_client import HostingerMailboxClient, _attachment_from_raw, _summary
 from app.services.mail_snooze import SNOOZE_FOLDER
 from app.services.mail_watcher import WatcherRegistry, rule_matches
@@ -503,6 +504,28 @@ def test_mobile_access_token_carries_switched_by_when_given() -> None:
     )
     payload = decode_mobile_token(switched, "access")
     assert payload["switched_by"] == "22222222-2222-2222-2222-222222222222"
+
+
+def test_account_response_reports_acting_as_admin_when_set() -> None:
+    # Regression: admin_switch_account builds its MailAccount straight from
+    # db.get() rather than the get_mail_account dependency, so unless it
+    # sets `acting_admin` itself, account_response would report
+    # acting_as_admin: false on the very response that just granted it -
+    # every request *after* that one would be correct (get_mail_account
+    # sets it fresh each time), but the client's first read of its own new
+    # session would be wrong.
+    plain = MailAccount(
+        id=uuid.uuid4(), address="member@novarisesa.com", display_name="Member",
+        role="member", cache_ttl_days=30,
+    )
+    assert account_response(plain).acting_as_admin is False
+
+    admin = MailAccount(
+        id=uuid.uuid4(), address="admin@novarisesa.com", display_name="Admin",
+        role="admin", cache_ttl_days=30,
+    )
+    plain.acting_admin = admin
+    assert account_response(plain).acting_as_admin is True
 
 
 def test_mail_password_change_current_password_is_optional() -> None:
