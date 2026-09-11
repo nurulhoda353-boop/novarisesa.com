@@ -206,6 +206,7 @@ function AccountsTab({
 }) {
   const [editing, setEditing] = useState<AdminAccountInfo | null>(null);
   const [creating, setCreating] = useState(false);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const [provisioning, setProvisioning] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -292,6 +293,9 @@ function AccountsTab({
         <button className="btn btn-primary sm" onClick={() => setCreating(true)}>
           <Plus size={14} /> New mailbox
         </button>
+        <button className="btn btn-secondary sm" onClick={() => setConnectingGoogle(true)}>
+          <Plus size={14} /> Connect Google mailbox
+        </button>
       </div>
       {accounts === null && <SkeletonRows />}
       {accounts !== null &&
@@ -315,6 +319,7 @@ function AccountsTab({
                       <Shield size={11} /> Admin
                     </span>
                   )}
+                  {account.provider === "google" && <span className="role-chip">Google</span>}
                 </strong>
                 <span>{account.address}</span>
                 <div className="admin-account-meta">
@@ -380,6 +385,9 @@ function AccountsTab({
       )}
       {creating && (
         <CreateMailboxModal onClose={() => setCreating(false)} onCreated={reload} />
+      )}
+      {connectingGoogle && (
+        <ConnectGoogleMailboxModal onClose={() => setConnectingGoogle(false)} onConnected={reload} />
       )}
     </div>
   );
@@ -476,6 +484,106 @@ function CreateMailboxModal({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
           <button className="btn btn-primary" style={{ width: "100%" }} onClick={create} disabled={saving}>
             {saving ? "Creating…" : "Create mailbox"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectGoogleMailboxModal({ onClose, onConnected }: { onClose: () => void; onConnected: () => void }) {
+  const [address, setAddress] = useState("");
+  const [appPassword, setAppPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<"admin" | "member">("member");
+  const [saving, setSaving] = useState(false);
+  const toast = useToast();
+
+  async function connect() {
+    if (!address.trim() || appPassword.replace(/\s/g, "").length < 8) {
+      toast.show("Enter the mailbox address and its 16-character app password");
+      return;
+    }
+    setSaving(true);
+    try {
+      const account = await api.adminConnectGoogleMailbox(address.trim(), appPassword, role);
+      toast.show(`${account.address} connected`);
+      onConnected();
+      onClose();
+    } catch {
+      toast.show("Could not connect — check the address and app password");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 420 }} onClick={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <h2>Connect Google mailbox</h2>
+          <div className="spacer" />
+          <button className="icon-btn" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="modal-body">
+          <p className="form-hint" style={{ marginBottom: 16 }}>
+            For a mailbox that already exists on Google Workspace, not Hostinger — its owner needs
+            2-Step Verification on and an App Password generated first (myaccount.google.com → Security
+            → App passwords).
+          </p>
+          <div className="form-group">
+            <label>Mailbox address</label>
+            <input
+              className="form-input"
+              placeholder="e.g. ceo@novarisesa.com"
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label>App password</label>
+            <div className="password-field">
+              <input
+                className="form-input"
+                type={showPassword ? "text" : "password"}
+                placeholder="abcd efgh ijkl mnop"
+                value={appPassword}
+                onChange={(event) => setAppPassword(event.target.value)}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Role</label>
+            <div className="form-row">
+              <button
+                className={`btn ${role === "member" ? "btn-primary" : "btn-secondary"} sm`}
+                style={{ flex: 1 }}
+                onClick={() => setRole("member")}
+              >
+                Member
+              </button>
+              <button
+                className={`btn ${role === "admin" ? "btn-primary" : "btn-secondary"} sm`}
+                style={{ flex: 1 }}
+                onClick={() => setRole("admin")}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+          <button className="btn btn-primary" style={{ width: "100%" }} onClick={connect} disabled={saving}>
+            {saving ? "Connecting…" : "Connect mailbox"}
           </button>
         </div>
       </div>
@@ -678,7 +786,8 @@ function EditAccountModal({
 
           <div className="modal-section modal-danger-zone">
             <div className="modal-section-title">
-              <AlertTriangle size={13} /> Hostinger mailbox password
+              <AlertTriangle size={13} />
+              {account.provider === "google" ? "Google app password" : "Hostinger mailbox password"}
             </div>
             {revealedPassword ? (
               <div className="form-row">
@@ -692,8 +801,14 @@ function EditAccountModal({
                 <Eye size={14} /> Show current password
               </button>
             )}
+            {account.provider === "google" && (
+              <p className="form-hint" style={{ marginTop: 8 }}>
+                This is managed by Google, not us — to change it, generate a new App Password from this
+                mailbox's Google Account and reconnect it here.
+              </p>
+            )}
 
-            {hostingerStep === 0 && (
+            {account.provider !== "google" && hostingerStep === 0 && (
               <button
                 className="btn btn-danger sm"
                 style={{ marginTop: 10 }}

@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     MAIL_IMAP_PORT: int = 993
     MAIL_SMTP_HOST: str = "smtp.hostinger.com"
     MAIL_SMTP_PORT: int = 465
+    # A handful of mailboxes on this same domain live on Google Workspace,
+    # not Hostinger (see MailAccount.provider) - Google's IMAP/SMTP are
+    # well-known, stable endpoints, but kept configurable rather than
+    # hardcoded in mail_client.py for the same reason the Hostinger ones are.
+    MAIL_GOOGLE_IMAP_HOST: str = "imap.gmail.com"
+    MAIL_GOOGLE_IMAP_PORT: int = 993
+    MAIL_GOOGLE_SMTP_HOST: str = "smtp.gmail.com"
+    MAIL_GOOGLE_SMTP_PORT: int = 465
     MAIL_CACHE_DAYS: int = 30
     MAIL_MAX_ATTACHMENT_MB: int = 20
     MAIL_ALLOWED_DOMAINS: list[str] = Field(default=["novarisesa.com"])

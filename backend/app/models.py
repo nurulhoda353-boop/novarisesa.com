@@ -178,6 +178,13 @@ class MailAccount(UUIDMixin, TimestampMixin, Base):
     # out a fresh Novamail login without disturbing the mailbox's real
     # credential (which mail_client still uses to actually fetch/send).
     novamail_password_hash: Mapped[str | None] = mapped_column(Text)
+    # Which real mailbox service this address's IMAP/SMTP traffic actually
+    # goes to - "hostinger" (the default; hostinger_order_id/mailbox_id are
+    # only meaningful for these) or "google" (a Google Workspace mailbox on
+    # the same domain, connected via an app password - credential_ciphertext
+    # holds that instead of a Hostinger mailbox password, and Hostinger-only
+    # admin features like aliases/forwarders/autoreply don't apply).
+    provider: Mapped[str] = mapped_column(String(20), default="hostinger")
 
 
 class MailChangeRequest(UUIDMixin, Base):

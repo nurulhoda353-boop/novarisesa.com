@@ -62,6 +62,7 @@ export interface MailAccount {
       looks like that mailbox), this just means the current session has
       full admin permissions here regardless. */
   acting_as_admin: boolean;
+  provider: "hostinger" | "google";
 }
 
 export interface MailChangeRequestInfo {
@@ -81,6 +82,7 @@ export interface AdminAccountInfo {
   role: "admin" | "member";
   is_active: boolean;
   last_connected_at: string | null;
+  provider: "hostinger" | "google";
 }
 
 export interface AdminChangeRequestInfo {

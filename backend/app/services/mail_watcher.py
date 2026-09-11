@@ -53,10 +53,12 @@ class MailboxWatcher:
         password: str,
         loop: asyncio.AbstractEventLoop,
         on_event: Callable[[dict[str, Any]], None],
+        provider: str = "hostinger",
     ) -> None:
         self.account_id = account_id
         self.address = address
         self.password = password
+        self.provider = provider
         self._loop = loop
         self._on_event = on_event
         self._stop_event = threading.Event()
@@ -93,9 +95,12 @@ class MailboxWatcher:
                 backoff = min(backoff * 2, MAX_BACKOFF_SECONDS)
 
     def _watch_once(self) -> None:
-        with IMAPClient(
-            settings.MAIL_IMAP_HOST, port=settings.MAIL_IMAP_PORT, ssl=True, timeout=20
-        ) as client:
+        imap_host, imap_port = (
+            (settings.MAIL_GOOGLE_IMAP_HOST, settings.MAIL_GOOGLE_IMAP_PORT)
+            if self.provider == "google"
+            else (settings.MAIL_IMAP_HOST, settings.MAIL_IMAP_PORT)
+        )
+        with IMAPClient(imap_host, port=imap_port, ssl=True, timeout=20) as client:
             client.login(self.address, self.password)
             client.select_folder("INBOX", readonly=True)
             last_uid = self._max_uid(client)
@@ -146,7 +151,7 @@ class MailboxWatcher:
             )
         if not rules:
             return
-        mail_client = HostingerMailboxClient(self.address, self.password)
+        mail_client = HostingerMailboxClient(self.address, self.password, provider=self.provider)
         detail = mail_client.message("INBOX", uid)
         sender = f"{detail['sender'].get('name', '')} {detail['sender'].get('email', '')}".lower()
         subject = detail.get("subject", "").lower()
@@ -172,14 +177,21 @@ class WatcherRegistry:
         self._subscribers: dict[str, set[WebSocket]] = {}
         self._lock = threading.Lock()
 
-    async def subscribe(self, account_id: str, address: str, password: str, websocket: WebSocket) -> None:
+    async def subscribe(
+        self,
+        account_id: str,
+        address: str,
+        password: str,
+        websocket: WebSocket,
+        provider: str = "hostinger",
+    ) -> None:
         loop = asyncio.get_running_loop()
         with self._lock:
             subscribers = self._subscribers.setdefault(account_id, set())
             subscribers.add(websocket)
             if account_id not in self._watchers:
                 watcher = MailboxWatcher(
-                    account_id, address, password, loop, self._broadcaster(account_id)
+                    account_id, address, password, loop, self._broadcaster(account_id), provider=provider
                 )
                 self._watchers[account_id] = watcher
                 watcher.start()

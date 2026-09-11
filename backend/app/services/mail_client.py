@@ -268,15 +268,31 @@ def _attachment_from_raw(raw: bytes, part_number: str) -> tuple[str, str, bytes]
 
 
 class HostingerMailboxClient:
-    def __init__(self, address: str, password: str):
+    """Despite the name (most mailboxes on this domain are Hostinger-hosted,
+    and this predates any other kind), this is provider-agnostic - `provider`
+    picks which IMAP/SMTP endpoints a given mailbox actually lives behind
+    (see MailAccount.provider). Renaming this class would touch a lot of
+    call sites for no functional gain, so it's left as-is."""
+
+    def __init__(self, address: str, password: str, provider: str = "hostinger"):
         self.address = address
         self.password = password
+        if provider == "google":
+            self._imap_host = settings.MAIL_GOOGLE_IMAP_HOST
+            self._imap_port = settings.MAIL_GOOGLE_IMAP_PORT
+            self._smtp_host = settings.MAIL_GOOGLE_SMTP_HOST
+            self._smtp_port = settings.MAIL_GOOGLE_SMTP_PORT
+        else:
+            self._imap_host = settings.MAIL_IMAP_HOST
+            self._imap_port = settings.MAIL_IMAP_PORT
+            self._smtp_host = settings.MAIL_SMTP_HOST
+            self._smtp_port = settings.MAIL_SMTP_PORT
 
     def _connect(self) -> imaplib.IMAP4_SSL:
         try:
             client = imaplib.IMAP4_SSL(
-                settings.MAIL_IMAP_HOST,
-                settings.MAIL_IMAP_PORT,
+                self._imap_host,
+                self._imap_port,
                 ssl_context=ssl.create_default_context(),
                 timeout=20,
             )
@@ -615,8 +631,8 @@ class HostingerMailboxClient:
         recipients = [*payload["to"], *payload.get("cc", []), *payload.get("bcc", [])]
         try:
             with smtplib.SMTP_SSL(
-                settings.MAIL_SMTP_HOST,
-                settings.MAIL_SMTP_PORT,
+                self._smtp_host,
+                self._smtp_port,
                 context=ssl.create_default_context(),
                 timeout=30,
             ) as smtp:

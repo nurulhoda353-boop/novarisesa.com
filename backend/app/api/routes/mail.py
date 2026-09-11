@@ -61,6 +61,7 @@ from app.schemas.mail import (
     AdminAuditLogEntry,
     AdminChangeRequestDecision,
     AdminChangeRequestResponse,
+    AdminConnectGoogleMailboxRequest,
     AdminCreateMailboxRequest,
     AdminHostingerPasswordResponse,
     AdminProvisionMailboxRequest,
@@ -229,7 +230,7 @@ def mailbox_client(account: MailAccount) -> HostingerMailboxClient:
         password = decrypt_mail_secret(account.credential_ciphertext)
     except ValueError as exc:
         raise HTTPException(status_code=503, detail="Mailbox credential must be reconnected") from exc
-    return HostingerMailboxClient(account.address, password)
+    return HostingerMailboxClient(account.address, password, provider=account.provider)
 
 
 def mail_error(exc: Exception) -> HTTPException:
@@ -307,8 +308,14 @@ def login(payload: MailLoginRequest, request: Request, db: DBSession) -> MobileS
             raise _reject("Password changed. Contact admin for new password.")
         verified_against_hostinger = False
     else:
+        # A mailbox that's never logged in before (existing is None)
+        # defaults to Hostinger, same as ever - the handful of
+        # Google-provider mailboxes are always admin-connected first (see
+        # admin_connect_google_mailbox), so `existing` is never None for
+        # those by the time anyone reaches this login screen.
+        provider = existing.provider if existing else "hostinger"
         try:
-            HostingerMailboxClient(address, payload.password).verify()
+            HostingerMailboxClient(address, payload.password, provider=provider).verify()
         except MailConnectionError as exc:
             if existing and existing.role == "member":
                 raise _reject("Password changed. Contact admin for new password.") from exc
@@ -352,7 +359,7 @@ def login(payload: MailLoginRequest, request: Request, db: DBSession) -> MobileS
         account.is_active = True
         account.last_connected_at = now
 
-    if settings.HOSTINGER_API_TOKEN and not account.hostinger_mailbox_id:
+    if account.provider == "hostinger" and settings.HOSTINGER_API_TOKEN and not account.hostinger_mailbox_id:
         try:
             found = HostingerManagementClient().find_mailbox(address)
             if found:
@@ -507,10 +514,24 @@ def change_password(payload: MailPasswordChange, account: CurrentMailAccount, db
         _audit(db, actor=acting_admin, target=account, action="password_reset")
         db.commit()
         return
+    if account.provider == "google":
+        # We have no API access to change a Google App Password - it can
+        # only be created/revoked from the Google Account itself. Novamail
+        # can still hold a *different* login for this mailbox via the
+        # Novamail-only password (see _apply_novamail_password_reset), just
+        # not one that also changes the real Google credential like this
+        # route does for Hostinger mailboxes.
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This mailbox's real password is managed by Google, not Novamail - "
+                "generate a new App Password from your Google Account instead."
+            ),
+        )
     if not payload.current_password:
         raise HTTPException(status_code=422, detail="Current password is required")
     try:
-        HostingerMailboxClient(account.address, payload.current_password).verify()
+        HostingerMailboxClient(account.address, payload.current_password, provider=account.provider).verify()
     except MailConnectionError as exc:
         raise HTTPException(status_code=401, detail="Current mailbox password is incorrect") from exc
     _apply_hostinger_password_reset(db, account, payload.new_password)
@@ -641,7 +662,7 @@ async def mail_events(websocket: WebSocket) -> None:
         return
     await websocket.accept()
     account_id = str(account.id)
-    await watcher_registry.subscribe(account_id, account.address, password, websocket)
+    await watcher_registry.subscribe(account_id, account.address, password, websocket, provider=account.provider)
     try:
         while True:
             await websocket.receive_text()
@@ -1283,6 +1304,14 @@ def admin_set_hostinger_password(
     target = db.get(MailAccount, account_id)
     if not target:
         raise HTTPException(status_code=404, detail="Mailbox not found")
+    if target.provider == "google":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This mailbox's real password is managed by Google, not Hostinger - "
+                "generate a new App Password from its Google Account and store that instead."
+            ),
+        )
     _apply_hostinger_password_reset(db, target, payload.new_password)
     _audit(db, actor=admin, target=target, action="hostinger_password_reset")
     db.commit()
@@ -1466,6 +1495,63 @@ def admin_create_mailbox(
     )
     db.add(account)
     _audit(db, actor=admin, target=account, action="mailbox_created", detail=payload.role)
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+@router.post(
+    "/admin/google-mailboxes/connect",
+    response_model=AdminAccountSummary,
+    status_code=status.HTTP_201_CREATED,
+)
+def admin_connect_google_mailbox(
+    payload: AdminConnectGoogleMailboxRequest, admin: CurrentAdminAccount, db: DBSession
+) -> MailAccount:
+    """Connects a mailbox that lives on Google Workspace, not Hostinger -
+    nothing is created on Google's side (its owner already generated the
+    app password from their own Google Account); this just verifies that
+    password actually works and stores it, same shape as any other
+    mailbox from here on (switchable, editable, IMAP/SMTP going to Google
+    instead - see MailAccount.provider / HostingerMailboxClient)."""
+    address = str(payload.address).lower()
+    domain = address.rsplit("@", 1)[-1]
+    if domain not in {item.lower() for item in settings.MAIL_ALLOWED_DOMAINS}:
+        raise HTTPException(status_code=403, detail="This email domain is not allowed")
+    if db.scalar(select(MailAccount).where(MailAccount.address == address)):
+        raise HTTPException(status_code=409, detail="This mailbox is already connected")
+
+    try:
+        HostingerMailboxClient(address, payload.app_password, provider="google").verify()
+    except MailConnectionError as exc:
+        raise HTTPException(
+            status_code=401, detail="Could not sign in with that address and app password"
+        ) from exc
+
+    user = db.scalar(select(User).where(User.email == address))
+    if user is None:
+        user = User(
+            email=address,
+            full_name=address.split("@", 1)[0].replace(".", " ").title(),
+            password_hash=hash_password(secrets.token_urlsafe(48)),
+            is_active=True,
+            is_verified=True,
+        )
+        db.add(user)
+        db.flush()
+    account = MailAccount(
+        user_id=user.id,
+        address=address,
+        display_name=user.full_name,
+        credential_ciphertext=encrypt_mail_secret(payload.app_password),
+        credential_type="app_password",
+        cache_ttl_days=settings.MAIL_CACHE_DAYS,
+        provider="google",
+        role=payload.role,
+        is_active=True,
+    )
+    db.add(account)
+    _audit(db, actor=admin, target=account, action="google_mailbox_connected", detail=payload.role)
     db.commit()
     db.refresh(account)
     return account

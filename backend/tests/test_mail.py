@@ -17,6 +17,8 @@ from app.core.security import (
 )
 from app.models import MailAccount, MailAuditLog, MailChangeRequest, MailRule, MailSnooze
 from app.schemas.mail import (
+    AdminAccountSummary,
+    AdminConnectGoogleMailboxRequest,
     AdminContactInfo,
     AdminCreateMailboxRequest,
     AdminProvisionMailboxRequest,
@@ -484,6 +486,47 @@ def test_admin_create_mailbox_request_validates_local_part_and_defaults_role() -
     assert admin_request.role == "admin"
 
 
+def test_admin_connect_google_mailbox_request_strips_spaces_from_app_password() -> None:
+    # Google shows app passwords grouped in 4s with spaces
+    # ("abcd efgh ijkl mnop") - accept it pasted either way.
+    request = AdminConnectGoogleMailboxRequest(
+        address="ceo@novarisesa.com", app_password="abcd efgh ijkl mnop"
+    )
+    assert request.app_password == "abcdefghijklmnop"
+    assert request.role == "member"
+    with pytest.raises(ValueError):
+        AdminConnectGoogleMailboxRequest(address="not-an-email", app_password="abcdefghijklmnop")
+
+
+def test_hostinger_mailbox_client_resolves_google_hosts() -> None:
+    google_client = HostingerMailboxClient("ceo@novarisesa.com", "secret", provider="google")
+    assert google_client._imap_host == "imap.gmail.com"
+    assert google_client._smtp_host == "smtp.gmail.com"
+    hostinger_client = HostingerMailboxClient("info@novarisesa.com", "secret")
+    assert hostinger_client._imap_host == "imap.hostinger.com"
+    assert hostinger_client._smtp_host == "smtp.hostinger.com"
+
+
+def test_admin_account_summary_defaults_provider_to_hostinger() -> None:
+    # Regression: provider was bolted onto an existing, widely-used response
+    # schema - a missing default would break every call site that builds
+    # this response without explicitly passing one.
+    summary = AdminAccountSummary(
+        id="00000000-0000-0000-0000-000000000001",
+        address="info@novarisesa.com",
+        display_name="Info",
+        avatar_url=None,
+        role="member",
+        is_active=True,
+    )
+    assert summary.provider == "hostinger"
+
+
+def test_mail_account_model_has_a_provider_column() -> None:
+    columns = {column.name for column in MailAccount.__table__.columns}
+    assert "provider" in columns
+
+
 def test_admin_set_role_only_accepts_admin_or_member() -> None:
     with pytest.raises(ValueError):
         AdminSetRole(role="superuser")
@@ -570,7 +613,7 @@ def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() 
     stopped: list[str] = []
 
     class _FakeWatcher:
-        def __init__(self, account_id, address, password, loop, on_event):  # noqa: ANN001
+        def __init__(self, account_id, address, password, loop, on_event, provider="hostinger"):  # noqa: ANN001
             self.account_id = account_id
 
         def start(self) -> None:

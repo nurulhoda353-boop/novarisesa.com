@@ -350,6 +350,14 @@ export const adminCreateMailbox = (localPart: string, password: string, role: "a
     method: "POST",
     body: JSON.stringify({ local_part: localPart, password, role }),
   });
+/** Connects a mailbox that already exists on Google Workspace, not
+ * Hostinger - nothing is created on Google's side, this just verifies the
+ * app password its owner already generated and stores it. */
+export const adminConnectGoogleMailbox = (address: string, appPassword: string, role: "admin" | "member") =>
+  api<AdminAccountInfo>("/mail/admin/google-mailboxes/connect", {
+    method: "POST",
+    body: JSON.stringify({ address, app_password: appPassword, role }),
+  });
 
 /** Switches the active session into a member mailbox without its
  * password - the same "saved account" storage the manual switch-account

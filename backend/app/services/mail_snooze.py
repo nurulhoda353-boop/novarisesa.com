@@ -29,7 +29,7 @@ POLL_INTERVAL_SECONDS = 30
 def _wake_one(db, snooze: MailSnooze, account: MailAccount) -> None:
     try:
         password = decrypt_mail_secret(account.credential_ciphertext)
-        client = HostingerMailboxClient(account.address, password)
+        client = HostingerMailboxClient(account.address, password, provider=account.provider)
         uid = client.find_uid_by_message_id(snooze.snoozed_folder, snooze.message_id)
         if uid is not None:
             client.move(snooze.snoozed_folder, uid, snooze.original_folder)

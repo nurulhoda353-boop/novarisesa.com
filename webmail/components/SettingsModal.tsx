@@ -176,6 +176,9 @@ function SecurityTab({ account }: { account: MailAccount }) {
   // (no approval needed, same as isMember=false below) but has no way to
   // know its current one, so that field doesn't apply to them either.
   const needsCurrentPassword = !isMember && !account.acting_as_admin;
+  // Google manages this mailbox's real password, not us - we have no API
+  // access to change it, only to hold an app password its owner generates.
+  const isGoogleManaged = account.provider === "google" && !isMember && !account.acting_as_admin;
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -211,6 +214,16 @@ function SecurityTab({ account }: { account: MailAccount }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (isGoogleManaged) {
+    return (
+      <p className="form-hint">
+        This mailbox's real password is managed by Google, not Novamail — generate a new App Password
+        from its Google Account (myaccount.google.com → Security → App passwords) and give it to your
+        admin to reconnect.
+      </p>
+    );
   }
 
   return (
