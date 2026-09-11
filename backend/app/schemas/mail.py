@@ -40,6 +40,7 @@ class MailAccountResponse(BaseModel):
     # appears), this just tells the client its current session has full
     # admin permissions here regardless.
     acting_as_admin: bool = False
+    provider: str = "hostinger"
 
 
 class MailProfileUpdate(BaseModel):

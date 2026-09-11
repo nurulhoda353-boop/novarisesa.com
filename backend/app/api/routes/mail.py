@@ -117,6 +117,7 @@ def account_response(account: MailAccount) -> MailAccountResponse:
         signature=account.signature,
         role=account.role,
         acting_as_admin=bool(getattr(account, "acting_admin", None)),
+        provider=account.provider,
     )
 
 

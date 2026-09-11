@@ -559,16 +559,33 @@ def test_account_response_reports_acting_as_admin_when_set() -> None:
     # session would be wrong.
     plain = MailAccount(
         id=uuid.uuid4(), address="member@novarisesa.com", display_name="Member",
-        role="member", cache_ttl_days=30,
+        role="member", cache_ttl_days=30, provider="hostinger",
     )
     assert account_response(plain).acting_as_admin is False
 
     admin = MailAccount(
         id=uuid.uuid4(), address="admin@novarisesa.com", display_name="Admin",
-        role="admin", cache_ttl_days=30,
+        role="admin", cache_ttl_days=30, provider="hostinger",
     )
     plain.acting_admin = admin
     assert account_response(plain).acting_as_admin is True
+
+
+def test_account_response_reports_the_real_provider() -> None:
+    # Regression: caught live against production - account_response built
+    # MailAccountResponse without passing provider at all, so every login/
+    # session response silently reported "hostinger" (the schema default)
+    # for a connected Google mailbox instead of its real provider.
+    google_account = MailAccount(
+        id=uuid.uuid4(), address="ceo@novarisesa.com", display_name="Ceo",
+        role="admin", cache_ttl_days=30, provider="google",
+    )
+    assert account_response(google_account).provider == "google"
+    hostinger_account = MailAccount(
+        id=uuid.uuid4(), address="info@novarisesa.com", display_name="Info",
+        role="member", cache_ttl_days=30, provider="hostinger",
+    )
+    assert account_response(hostinger_account).provider == "hostinger"
 
 
 def test_mail_password_change_current_password_is_optional() -> None:
