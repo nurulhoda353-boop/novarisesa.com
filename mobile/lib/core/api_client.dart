@@ -653,6 +653,19 @@ class ApiClient {
     return AdminAccountSummary.fromJson(body);
   }
 
+  /// Connects a mailbox that already exists on Google Workspace, not
+  /// Hostinger - nothing is created on Google's side, this just verifies
+  /// the app password its owner already generated and stores it.
+  Future<AdminAccountSummary> adminConnectGoogleMailbox(
+      String address, String appPassword, String role) async {
+    final body = _decode(await _request(
+      'POST',
+      '/mail/admin/google-mailboxes/connect',
+      body: {'address': address, 'app_password': appPassword, 'role': role},
+    )) as Map<String, dynamic>;
+    return AdminAccountSummary.fromJson(body);
+  }
+
   Future<List<MailDraft>> drafts() async {
     final rows =
         _decode(await _request('GET', '/mail/drafts')) as List<dynamic>;

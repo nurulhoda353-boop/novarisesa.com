@@ -485,6 +485,22 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
     // directly (no approval needed) but has no way to know its current
     // one, so that field doesn't apply to them either.
     final needsCurrentPassword = !isMember && !(account?.actingAsAdmin ?? false);
+    final isGoogleManaged =
+        needsCurrentPassword && (account?.isGoogleManaged ?? false);
+    if (isGoogleManaged) {
+      return AlertDialog(
+        title: const Text('Change mailbox password'),
+        content: const Text(
+          "This mailbox's real password is managed by Google, not Novamail — generate a "
+          'new App Password from its Google Account (myaccount.google.com → Security → '
+          'App passwords) and give it to your admin to reconnect.',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('OK')),
+        ],
+      );
+    }
     return AlertDialog(
       title: Text(isMember ? 'Request a new password' : 'Change mailbox password'),
       content: Column(

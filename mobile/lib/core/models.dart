@@ -8,6 +8,7 @@ class MailAccount {
     this.signature,
     this.role = 'member',
     this.actingAsAdmin = false,
+    this.provider = 'hostinger',
   });
 
   final String id;
@@ -22,9 +23,15 @@ class MailAccount {
   // that mailbox), this just means the session has full admin permissions
   // here regardless.
   final bool actingAsAdmin;
+  // Which real mailbox service this address's IMAP/SMTP traffic actually
+  // goes to - "hostinger" or "google" (Google Workspace, connected via an
+  // app password its owner generated - we have no API access to change
+  // that password ourselves, unlike a Hostinger mailbox's).
+  final String provider;
 
   bool get isAdmin => role == 'admin';
   bool get isRestrictedMember => role == 'member' && !actingAsAdmin;
+  bool get isGoogleManaged => provider == 'google';
 
   factory MailAccount.fromJson(Map<String, dynamic> json) => MailAccount(
         id: json['id'] as String,
@@ -35,6 +42,7 @@ class MailAccount {
         signature: json['signature'] as String?,
         role: json['role'] as String? ?? 'member',
         actingAsAdmin: json['acting_as_admin'] as bool? ?? false,
+        provider: json['provider'] as String? ?? 'hostinger',
       );
 }
 
@@ -77,6 +85,7 @@ class AdminAccountSummary {
     required this.isActive,
     this.avatarUrl,
     this.lastConnectedAt,
+    this.provider = 'hostinger',
   });
   final String id;
   final String address;
@@ -85,6 +94,9 @@ class AdminAccountSummary {
   final String role;
   final bool isActive;
   final DateTime? lastConnectedAt;
+  final String provider;
+
+  bool get isGoogleManaged => provider == 'google';
 
   factory AdminAccountSummary.fromJson(Map<String, dynamic> json) => AdminAccountSummary(
         id: json['id'] as String,
@@ -95,6 +107,7 @@ class AdminAccountSummary {
         isActive: json['is_active'] as bool? ?? true,
         lastConnectedAt:
             json['last_connected_at'] != null ? DateTime.parse(json['last_connected_at'] as String) : null,
+        provider: json['provider'] as String? ?? 'hostinger',
       );
 }
 

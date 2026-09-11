@@ -168,6 +168,15 @@ class _AccountsTabState extends State<_AccountsTab> {
     if (created == true && mounted) setState(_reload);
   }
 
+  Future<void> _connectGoogleMailbox() async {
+    final connected = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => const _ConnectGoogleMailboxSheet(),
+    );
+    if (connected == true && mounted) setState(_reload);
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentAddress = context.watch<AppState>().account?.address;
@@ -197,24 +206,32 @@ class _AccountsTabState extends State<_AccountsTab> {
             return ListView(
               padding: const EdgeInsets.all(12),
               children: [
+                TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search, size: 20),
+                    hintText: 'Search mailboxes…',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          prefixIcon: Icon(Icons.search, size: 20),
-                          hintText: 'Search mailboxes…',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
-                        onChanged: (value) => setState(() => _query = value),
+                      child: FilledButton.icon(
+                        onPressed: _createMailbox,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('New mailbox'),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: _createMailbox,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('New'),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _connectGoogleMailbox,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Connect Google'),
+                      ),
                     ),
                   ],
                 ),
@@ -361,6 +378,114 @@ class _CreateMailboxSheetState extends State<_CreateMailboxSheet> {
   }
 }
 
+class _ConnectGoogleMailboxSheet extends StatefulWidget {
+  const _ConnectGoogleMailboxSheet();
+  @override
+  State<_ConnectGoogleMailboxSheet> createState() => _ConnectGoogleMailboxSheetState();
+}
+
+class _ConnectGoogleMailboxSheetState extends State<_ConnectGoogleMailboxSheet> {
+  final _address = TextEditingController();
+  final _appPassword = TextEditingController();
+  bool _obscure = true;
+  String _role = 'member';
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _address.dispose();
+    _appPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _connect() async {
+    final password = _appPassword.text.replaceAll(' ', '');
+    if (_address.text.trim().isEmpty || password.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter the mailbox address and its 16-character app password')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final account = await context
+          .read<AppState>()
+          .api
+          .adminConnectGoogleMailbox(_address.text.trim(), password, _role);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('${account.address} connected')));
+        Navigator.pop(context, true);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not connect — check the address and app password')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Connect Google mailbox', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'For a mailbox that already exists on Google Workspace, not Hostinger — its owner '
+            'needs 2-Step Verification on and an App Password generated first '
+            '(myaccount.google.com → Security → App passwords).',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _address,
+            decoration: const InputDecoration(
+                labelText: 'Mailbox address', hintText: 'e.g. ceo@novarisesa.com'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _appPassword,
+            obscureText: _obscure,
+            decoration: InputDecoration(
+              labelText: 'App password',
+              hintText: 'abcd efgh ijkl mnop',
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'member', label: Text('Member')),
+              ButtonSegment(value: 'admin', label: Text('Admin')),
+            ],
+            selected: {_role},
+            onSelectionChanged: (value) => setState(() => _role = value.first),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(
+            onPressed: _saving ? null : _connect,
+            child: Text(_saving ? 'Connecting…' : 'Connect mailbox'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _formatKb(int kb) {
   if (kb >= 1024 * 1024) return '${(kb / (1024 * 1024)).toStringAsFixed(1)} GB';
   if (kb >= 1024) return '${(kb / 1024).toStringAsFixed(1)} MB';
@@ -414,6 +539,15 @@ class _AccountCard extends StatelessWidget {
               const SizedBox(width: 6),
               const Chip(
                 label: Text('ADMIN', style: TextStyle(fontSize: 10)),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+            if (account.isGoogleManaged) ...[
+              const SizedBox(width: 6),
+              const Chip(
+                label: Text('GOOGLE', style: TextStyle(fontSize: 10)),
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -808,7 +942,12 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle(context, Icons.warning_amber_outlined, 'Hostinger mailbox password', color: scheme.error),
+                _sectionTitle(
+                  context,
+                  Icons.warning_amber_outlined,
+                  widget.account.isGoogleManaged ? 'Google app password' : 'Hostinger mailbox password',
+                  color: scheme.error,
+                ),
                 if (_revealedHostingerPassword != null)
                   Row(
                     children: [
@@ -828,12 +967,23 @@ class _EditAccountSheetState extends State<_EditAccountSheet> {
                     icon: const Icon(Icons.visibility_outlined, size: 16),
                     label: const Text('Show current password'),
                   ),
-                const SizedBox(height: 10),
-                TextButton.icon(
-                  onPressed: _busy ? null : _changeHostingerPasswordFlow,
-                  icon: Icon(Icons.warning_amber_outlined, size: 16, color: scheme.error),
-                  label: Text('Change the real Hostinger password…', style: TextStyle(color: scheme.error)),
-                ),
+                if (widget.account.isGoogleManaged)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'This is managed by Google, not us — to change it, generate a new App '
+                      "Password from this mailbox's Google Account and reconnect it here.",
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                else ...[
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: _busy ? null : _changeHostingerPasswordFlow,
+                    icon: Icon(Icons.warning_amber_outlined, size: 16, color: scheme.error),
+                    label: Text('Change the real Hostinger password…', style: TextStyle(color: scheme.error)),
+                  ),
+                ],
               ],
             ),
           ),
