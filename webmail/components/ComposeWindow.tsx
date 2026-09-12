@@ -268,10 +268,17 @@ export function ComposeWindow({
   // separate inline attachments referenced by cid: - the shape the SMTP
   // side (and every real email client on the receiving end) expects,
   // rather than a multi-megabyte data: URL sitting in the HTML itself.
+  //
+  // Uses DOMParser rather than a plain detached <div> - the latter is
+  // still enough of a "real" element for Chrome to eagerly try loading
+  // each <img>'s src the moment innerHTML is parsed into it, including a
+  // second load attempt the instant that src is rewritten to cid:... (a
+  // scheme no browser can fetch), which the page's CSP then logs as a
+  // blocked request every single send. A DOMParser document has no
+  // browsing context, so nothing on it ever attempts to load.
   function extractInlineImages(html: string): { html: string; inline: SendAttachment[] } {
-    if (typeof document === "undefined") return { html, inline: [] };
-    const container = document.createElement("div");
-    container.innerHTML = html;
+    if (typeof DOMParser === "undefined") return { html, inline: [] };
+    const container = new DOMParser().parseFromString(html, "text/html").body;
     const inline: SendAttachment[] = [];
     container.querySelectorAll('img[src^="data:"]').forEach((img, index) => {
       const src = img.getAttribute("src") || "";
