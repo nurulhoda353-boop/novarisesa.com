@@ -297,6 +297,30 @@ class MailSnooze(UUIDMixin, TimestampMixin, Base):
     woken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class MailScheduledSend(UUIDMixin, TimestampMixin, Base):
+    """A compose that hasn't gone out over SMTP yet - either because the
+    user picked "Send later" (send_at in the future) or because it's still
+    inside the client-side "Undo send" delay window (send_at a few seconds
+    out). scheduled_send_loop (app.services.mail_scheduled_send) polls for
+    due, not-yet-sent rows the same way mail_snooze's loop wakes snoozed
+    messages."""
+
+    __tablename__ = "mail_scheduled_sends"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("mail_accounts.id", ondelete="CASCADE"), index=True
+    )
+    subject: Mapped[str] = mapped_column(String(998), default="")
+    to_addresses: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    # The full SendMailRequest (to/cc/bcc/subject/text_body/html_body/
+    # reply_to_message_id/attachments/from_address) as JSON, replayed
+    # as-is into HostingerMailboxClient.send() once due.
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    send_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class MailRule(UUIDMixin, TimestampMixin, Base):
     """A filter applied to new INBOX mail by the IMAP watcher (see
     mail_watcher.MailboxWatcher._apply_rules) — first enabled rule whose

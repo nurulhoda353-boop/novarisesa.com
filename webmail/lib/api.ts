@@ -17,6 +17,8 @@ import type {
   MailMessageList,
   MailRuleInfo,
   MobileSession,
+  ScheduledSendInfo,
+  ScheduleSendRequest,
   SendMailRequest,
   SnoozeInfo,
 } from "./types";
@@ -420,6 +422,13 @@ export const sendMessage = (payload: SendMailRequest) =>
     method: "POST",
     body: JSON.stringify(payload),
   });
+// Backs both "Send later" and the few-seconds-out "Undo send" window -
+// see ComposeWindow's handleSend.
+export const scheduleSend = (payload: ScheduleSendRequest) =>
+  api<ScheduledSendInfo>("/mail/messages/send-later", { method: "POST", body: JSON.stringify(payload) });
+export const listScheduledSends = () => api<ScheduledSendInfo[]>("/mail/scheduled-sends");
+export const cancelScheduledSend = (id: string) =>
+  api<void>(`/mail/scheduled-sends/${id}`, { method: "DELETE" });
 
 // ---- Snooze ----
 export const snoozeMessage = (folder: string, uid: number, wakeAt: string) =>

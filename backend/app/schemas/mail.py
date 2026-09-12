@@ -111,6 +111,10 @@ class SendAttachment(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     content_type: str = Field(default="application/octet-stream", max_length=150)
     content_base64: str
+    # Set together for an inline image referenced by the HTML body as
+    # <img src="cid:...">, rather than a file the recipient downloads.
+    content_id: str | None = Field(default=None, max_length=255)
+    is_inline: bool = False
 
 
 class SendMailRequest(BaseModel):
@@ -123,6 +127,18 @@ class SendMailRequest(BaseModel):
     reply_to_message_id: str | None = Field(default=None, max_length=1000)
     attachments: list[SendAttachment] = Field(default=[], max_length=20)
     from_address: EmailStr | None = None
+
+
+class ScheduleSendRequest(SendMailRequest):
+    send_at: datetime
+
+
+class ScheduledSendResponse(BaseModel):
+    id: uuid.UUID
+    subject: str
+    to_addresses: list[str]
+    send_at: datetime
+    sent_at: datetime | None = None
 
 
 class ContactCreate(BaseModel):

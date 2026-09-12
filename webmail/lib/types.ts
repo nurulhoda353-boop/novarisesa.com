@@ -135,6 +135,8 @@ export interface SendAttachment {
   filename: string;
   content_type: string;
   content_base64: string;
+  content_id?: string | null;
+  is_inline?: boolean;
 }
 
 export interface SendMailRequest {
@@ -147,6 +149,18 @@ export interface SendMailRequest {
   reply_to_message_id: string | null;
   attachments: SendAttachment[];
   from_address?: string | null;
+}
+
+export interface ScheduleSendRequest extends SendMailRequest {
+  send_at: string;
+}
+
+export interface ScheduledSendInfo {
+  id: string;
+  subject: string;
+  to_addresses: string[];
+  send_at: string;
+  sent_at: string | null;
 }
 
 export interface DirectoryEntry {

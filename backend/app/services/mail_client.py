@@ -651,6 +651,12 @@ class HostingerMailboxClient:
         message.set_content(payload.get("text_body") or "")
         if payload.get("html_body"):
             message.add_alternative(payload["html_body"], subtype="html")
+        # An inline image (composed body has <img src="cid:...">) has to be
+        # attached to the *html part itself* as a "related" sub-part with a
+        # matching Content-ID, not to the message as a whole - add_attachment
+        # on the top-level message always produces a regular, downloadable
+        # attachment instead.
+        html_part = message.get_body(preferencelist=("html",)) if payload.get("html_body") else None
         total_attachment_bytes = 0
         for attachment in payload.get("attachments", []):
             decoded = base64.b64decode(attachment["content_base64"], validate=True)
@@ -659,12 +665,20 @@ class HostingerMailboxClient:
                 raise ValueError("Attachments exceed the configured size limit")
             content_type = attachment.get("content_type", "application/octet-stream")
             main_type, _, sub_type = content_type.partition("/")
-            message.add_attachment(
-                decoded,
-                maintype=main_type or "application",
-                subtype=sub_type or "octet-stream",
-                filename=attachment["filename"],
-            )
+            if attachment.get("is_inline") and attachment.get("content_id") and html_part is not None:
+                html_part.add_related(
+                    decoded,
+                    maintype=main_type or "application",
+                    subtype=sub_type or "octet-stream",
+                    cid=f"<{attachment['content_id']}>",
+                )
+            else:
+                message.add_attachment(
+                    decoded,
+                    maintype=main_type or "application",
+                    subtype=sub_type or "octet-stream",
+                    filename=attachment["filename"],
+                )
         recipients = [*payload["to"], *payload.get("cc", []), *payload.get("bcc", [])]
         try:
             with smtplib.SMTP_SSL(

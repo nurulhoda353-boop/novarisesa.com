@@ -51,6 +51,7 @@ from app.models import (
     MailDraft,
     MailMessageCache,
     MailRule,
+    MailScheduledSend,
     MailSnooze,
     RefreshToken,
     User,
@@ -94,6 +95,8 @@ from app.schemas.mail import (
     MobileRefreshRequest,
     MobileSessionResponse,
     MoveRequest,
+    ScheduledSendResponse,
+    ScheduleSendRequest,
     SendMailRequest,
     SnoozeRequest,
     SnoozeResponse,
@@ -896,18 +899,29 @@ def cancel_snooze(snooze_id: uuid.UUID, account: CurrentMailAccount, db: DBSessi
     db.commit()
 
 
+def _validate_from_address(payload: SendMailRequest, account: MailAccount, db: Session) -> str | None:
+    """Raises if `from_address` is set to something other than the
+    mailbox's own address that isn't one of its verified aliases - shared
+    by the immediate-send and send-later/schedule routes so a bad alias
+    fails fast at compose time either way, not only when it's finally
+    due."""
+    from_address = str(payload.from_address).lower() if payload.from_address else None
+    if not from_address or from_address == account.address.lower():
+        return from_address
+    client = management_client(account, db)
+    try:
+        aliases = owned_items(client.list_aliases(account.hostinger_order_id or ""), account)
+    except HostingerApiError as exc:
+        raise mail_error(exc) from exc
+    alias_addresses = {str(item.get("address", "")).lower() for item in aliases}
+    if from_address not in alias_addresses:
+        raise HTTPException(status_code=400, detail="That address isn't one of your aliases")
+    return from_address
+
+
 @router.post("/messages/send")
 def send_message(payload: SendMailRequest, account: CurrentMailAccount, db: DBSession) -> dict[str, str]:
-    from_address = str(payload.from_address).lower() if payload.from_address else None
-    if from_address and from_address != account.address.lower():
-        client = management_client(account, db)
-        try:
-            aliases = owned_items(client.list_aliases(account.hostinger_order_id or ""), account)
-        except HostingerApiError as exc:
-            raise mail_error(exc) from exc
-        alias_addresses = {str(item.get("address", "")).lower() for item in aliases}
-        if from_address not in alias_addresses:
-            raise HTTPException(status_code=400, detail="That address isn't one of your aliases")
+    from_address = _validate_from_address(payload, account, db)
     try:
         message_id = mailbox_client(account).send(
             payload.model_dump(mode="json"), account.display_name, from_address=from_address
@@ -915,6 +929,66 @@ def send_message(payload: SendMailRequest, account: CurrentMailAccount, db: DBSe
     except (MailConnectionError, ValueError) as exc:
         raise mail_error(exc) from exc
     return {"status": "sent", "message_id": message_id}
+
+
+@router.post(
+    "/messages/send-later",
+    response_model=ScheduledSendResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def schedule_send(
+    payload: ScheduleSendRequest, account: CurrentMailAccount, db: DBSession
+) -> MailScheduledSend:
+    """Backs both "Send later" (send_at hours/days out, picked by the
+    user) and "Undo send" (send_at a few seconds out) - the same table,
+    the same background loop, the only difference is how far out send_at
+    is and that the client immediately shows an "Undo" toast for the
+    latter. Validates the from-alias now rather than waiting for the
+    scheduler to hit the same HostingerApiError later with no one
+    watching."""
+    _validate_from_address(payload, account, db)
+    send_payload = payload.model_dump(mode="json", exclude={"send_at"})
+    scheduled = MailScheduledSend(
+        account_id=account.id,
+        subject=payload.subject,
+        to_addresses=[str(item) for item in payload.to],
+        payload=send_payload,
+        send_at=payload.send_at,
+    )
+    db.add(scheduled)
+    db.commit()
+    db.refresh(scheduled)
+    return scheduled
+
+
+@router.get("/scheduled-sends", response_model=list[ScheduledSendResponse])
+def list_scheduled_sends(account: CurrentMailAccount, db: DBSession) -> list[MailScheduledSend]:
+    return list(
+        db.scalars(
+            select(MailScheduledSend)
+            .where(
+                MailScheduledSend.account_id == account.id,
+                MailScheduledSend.sent_at.is_(None),
+                MailScheduledSend.cancelled_at.is_(None),
+            )
+            .order_by(MailScheduledSend.send_at)
+        )
+    )
+
+
+@router.delete("/scheduled-sends/{scheduled_id}", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_scheduled_send(scheduled_id: uuid.UUID, account: CurrentMailAccount, db: DBSession) -> None:
+    """Also how "Undo send" cancels the actual send: the client schedules
+    a few-seconds-out send instead of calling /messages/send directly,
+    and clicking "Undo" within that window calls this before the
+    scheduler ever picks it up."""
+    scheduled = db.get(MailScheduledSend, scheduled_id)
+    if scheduled is None or scheduled.account_id != account.id:
+        raise HTTPException(status_code=404, detail="Scheduled message not found")
+    if scheduled.sent_at is not None:
+        raise HTTPException(status_code=409, detail="This message has already been sent")
+    scheduled.cancelled_at = datetime.now(UTC)
+    db.commit()
 
 
 @router.get("/directory", response_model=list[DirectoryEntry])

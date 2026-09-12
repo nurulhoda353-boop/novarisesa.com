@@ -60,11 +60,6 @@ function imapFolderFor(key: string): string {
   return key;
 }
 
-interface PendingSend {
-  id: number;
-  timer: number;
-}
-
 export function MailApp() {
   return (
     <ToastProvider>
@@ -108,8 +103,6 @@ function MailAppInner() {
 
   const [composeWindows, setComposeWindows] = useState<ComposeWindowHandle[]>([]);
   const composeCounter = useRef(0);
-  const pendingSendCounter = useRef(0);
-  const pendingSends = useRef<Map<number, PendingSend>>(new Map());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [snoozeTarget, setSnoozeTarget] = useState<{ anchor: HTMLElement; apply: (date: Date) => void } | null>(null);
@@ -481,34 +474,33 @@ function MailAppInner() {
     loadFolders();
   }
 
-  function handleSendRequest(
+  async function handleSendRequest(
     payload: SendMailRequest,
     meta: { draftId: string | null; files: File[]; initial: ComposeInitial },
   ) {
-    pendingSendCounter.current += 1;
-    const id = pendingSendCounter.current;
-
-    async function actuallySend() {
-      try {
-        await api.sendMessage(payload);
-        if (meta.draftId) await api.deleteDraft(meta.draftId).catch(() => {});
-        loadFolders();
-      } catch {
-        toast.show("Could not send the message — it was not sent");
-      }
-      pendingSends.current.delete(id);
+    // Scheduled server-side a few seconds out (not a client setTimeout) so
+    // "Undo" is real even if this tab closes during the window - the old
+    // in-memory timer meant closing the tab within those 5s silently
+    // dropped the message forever instead of sending it.
+    try {
+      const sendAt = new Date(Date.now() + UNDO_SEND_MS).toISOString();
+      const scheduled = await api.scheduleSend({ ...payload, send_at: sendAt });
+      if (meta.draftId) await api.deleteDraft(meta.draftId).catch(() => {});
+      toast.show("Sending…", {
+        actionLabel: "Undo",
+        onAction: async () => {
+          try {
+            await api.cancelScheduledSend(scheduled.id);
+            openCompose({ ...meta.initial, draftId: meta.draftId, attachmentFiles: meta.files });
+          } catch {
+            toast.show("Too late to undo — it already sent");
+          }
+        },
+      });
+      window.setTimeout(loadFolders, UNDO_SEND_MS + 2000);
+    } catch {
+      toast.show("Could not send the message — it was not sent");
     }
-
-    const timer = window.setTimeout(actuallySend, UNDO_SEND_MS);
-    pendingSends.current.set(id, { id, timer });
-    toast.show("Sending…", {
-      actionLabel: "Undo",
-      onAction: () => {
-        window.clearTimeout(timer);
-        pendingSends.current.delete(id);
-        openCompose({ ...meta.initial, draftId: meta.draftId, attachmentFiles: meta.files });
-      },
-    });
   }
 
   async function handleAddAccount(nextAccount: MailAccount) {

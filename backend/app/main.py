@@ -13,6 +13,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.storage import media_root
 from app.services.mail_client import close_all_imap_connections, imap_pool_maintenance_loop
+from app.services.mail_scheduled_send import scheduled_send_loop
 from app.services.mail_snooze import snooze_scheduler_loop
 
 
@@ -69,14 +70,18 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     media_root()
     scheduler_task = asyncio.create_task(snooze_scheduler_loop())
+    scheduled_send_task = asyncio.create_task(scheduled_send_loop())
     pool_maintenance_task = asyncio.create_task(imap_pool_maintenance_loop())
     try:
         yield
     finally:
         scheduler_task.cancel()
+        scheduled_send_task.cancel()
         pool_maintenance_task.cancel()
         with suppress(asyncio.CancelledError):
             await scheduler_task
+        with suppress(asyncio.CancelledError):
+            await scheduled_send_task
         with suppress(asyncio.CancelledError):
             await pool_maintenance_task
         close_all_imap_connections()

@@ -34,6 +34,7 @@ from app.schemas.mail import (
     MailPasswordChange,
     MailProfileUpdate,
     MailRuleUpsert,
+    ScheduleSendRequest,
     SnoozeRequest,
 )
 from app.api.routes.mail import account_response, mail_events
@@ -389,6 +390,81 @@ def test_preview_from_body_strips_invisible_preheader_padding_characters() -> No
     assert _preview_from_body(padded, None) == "Welcome to Hostinger Email! real words here"
 
 
+def test_send_puts_inline_images_in_the_html_part_not_as_downloads(monkeypatch) -> None:
+    # Regression/new-feature test: an inline image (the compose body has
+    # <img src="cid:...">) must land as a "related" sub-part of the HTML
+    # body with a matching Content-ID, not as a regular attachment - the
+    # difference between an image that renders inline for the recipient
+    # and one that shows up as a random download alongside a real
+    # attachment (e.g. a PDF) sent in the same message.
+    import base64
+
+    captured = {}
+
+    class _FakeSMTP:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def login(self, *args, **kwargs):
+            pass
+
+        def send_message(self, message, from_addr=None, to_addrs=None):
+            captured["message"] = message
+
+    monkeypatch.setattr("smtplib.SMTP_SSL", _FakeSMTP)
+    # send() best-effort copies the sent message into "Sent" over IMAP
+    # afterwards (wrapped in a bare `suppress(Exception)`) - failing fast
+    # here instead of letting a real connection attempt time out keeps
+    # this test from taking ~20s for no reason.
+    monkeypatch.setattr(
+        HostingerMailboxClient, "_connect", lambda self: (_ for _ in ()).throw(OSError("no network in tests"))
+    )
+    mailbox = HostingerMailboxClient("sender@novarisesa.com", "secret")
+
+    inline_bytes = b"\x89PNG\r\n\x1a\nfake-png-bytes"
+    doc_bytes = b"%PDF-1.4 fake pdf bytes"
+    payload = {
+        "to": ["recipient@example.com"],
+        "cc": [],
+        "bcc": [],
+        "subject": "Photo attached",
+        "text_body": "See below",
+        "html_body": '<p>Look:</p><img src="cid:logo123">',
+        "attachments": [
+            {
+                "filename": "logo.png",
+                "content_type": "image/png",
+                "content_base64": base64.b64encode(inline_bytes).decode(),
+                "content_id": "logo123",
+                "is_inline": True,
+            },
+            {
+                "filename": "report.pdf",
+                "content_type": "application/pdf",
+                "content_base64": base64.b64encode(doc_bytes).decode(),
+            },
+        ],
+    }
+    mailbox.send(payload, "Sender Name")
+
+    message = captured["message"]
+    all_parts = list(message.walk())
+    inline_matches = [part for part in all_parts if part.get("Content-ID", "").strip("<>") == "logo123"]
+    assert len(inline_matches) == 1
+    assert inline_matches[0].get_content_disposition() != "attachment"
+    assert inline_matches[0].get_content_type() == "image/png"
+
+    pdf_matches = [part for part in all_parts if part.get_filename() == "report.pdf"]
+    assert len(pdf_matches) == 1
+    assert pdf_matches[0].get_content_disposition() == "attachment"
+
+
 def test_mail_profile_update_accepts_optional_signature() -> None:
     without_signature = MailProfileUpdate(display_name="Novarise", cache_ttl_days=30)
     assert without_signature.signature is None
@@ -625,6 +701,13 @@ def test_hostinger_mailbox_client_resolves_google_hosts() -> None:
     hostinger_client = HostingerMailboxClient("info@novarisesa.com", "secret")
     assert hostinger_client._imap_host == "imap.hostinger.com"
     assert hostinger_client._smtp_host == "smtp.hostinger.com"
+
+
+def test_schedule_send_request_requires_a_send_at_time() -> None:
+    with pytest.raises(ValueError):
+        ScheduleSendRequest(to=["a@example.com"])
+    request = ScheduleSendRequest(to=["a@example.com"], send_at=datetime(2026, 9, 20, 9, 0, tzinfo=UTC))
+    assert request.send_at.year == 2026
 
 
 def test_directory_entry_exposes_nothing_beyond_address_name_and_avatar() -> None:
