@@ -406,6 +406,16 @@ class ApiClient {
     }
   }
 
+  /// Every other active teammate mailbox, for the compose recipient
+  /// dropdown - distinct from the personal Contacts list below.
+  Future<List<DirectoryEntry>> directory() async {
+    final rows =
+        _decode(await _request('GET', '/mail/directory')) as List<dynamic>;
+    return rows
+        .map((row) => DirectoryEntry.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<MailContact>> contacts() async {
     final rows =
         _decode(await _request('GET', '/mail/contacts')) as List<dynamic>;

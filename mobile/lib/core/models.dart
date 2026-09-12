@@ -461,6 +461,26 @@ class MailContact {
       );
 }
 
+/// One entry in the org-wide teammate directory (every other active
+/// mailbox), used to populate the compose recipient dropdown - distinct
+/// from the personal, per-account [MailContact] list above.
+class DirectoryEntry {
+  const DirectoryEntry({
+    required this.address,
+    required this.displayName,
+    this.avatarUrl,
+  });
+  final String address;
+  final String displayName;
+  final String? avatarUrl;
+
+  factory DirectoryEntry.fromJson(Map<String, dynamic> json) => DirectoryEntry(
+        address: json['address'] as String,
+        displayName: json['display_name'] as String? ?? '',
+        avatarUrl: json['avatar_url'] as String?,
+      );
+}
+
 /// A server-side auto-filing rule: new mail matching [fromContains] and/or
 /// [subjectContains] is moved into [destinationFolder] the moment it
 /// arrives (see the IMAP IDLE watcher). Mirrors the web client's RulesTab.
