@@ -6,6 +6,7 @@ import type {
   AliasInfo,
   AutoreplyInfo,
   ContactInfo,
+  DirectoryEntry,
   DraftInfo,
   FolderInfo,
   ForwarderInfo,
@@ -428,6 +429,10 @@ export const snoozeMessage = (folder: string, uid: number, wakeAt: string) =>
   });
 export const listSnoozes = () => api<SnoozeInfo[]>("/mail/snoozes");
 export const cancelSnooze = (id: string) => api<void>(`/mail/snoozes/${id}`, { method: "DELETE" });
+
+// ---- Directory (every teammate mailbox, for the compose recipient
+// dropdown - distinct from the personal Contacts list below) ----
+export const listDirectory = () => api<DirectoryEntry[]>("/mail/directory");
 
 // ---- Contacts ----
 export const listContacts = () => api<ContactInfo[]>("/mail/contacts");

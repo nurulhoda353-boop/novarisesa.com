@@ -149,6 +149,17 @@ class ContactResponse(ContactCreate):
     id: uuid.UUID
 
 
+class DirectoryEntry(BaseModel):
+    """One teammate's mailbox, for the compose recipient dropdown - a
+    stripped-down view of MailAccount with nothing sensitive (no id,
+    role, or hostinger identifiers), visible to every mail user rather
+    than gated to admins like AdminAccountSummary is."""
+
+    address: str
+    display_name: str
+    avatar_url: str | None = None
+
+
 class DraftUpsert(BaseModel):
     to: list[EmailStr] = []
     cc: list[EmailStr] = []

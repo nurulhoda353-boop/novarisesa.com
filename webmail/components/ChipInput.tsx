@@ -3,23 +3,41 @@
 import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { X } from "lucide-react";
 import * as api from "@/lib/api";
-import type { ContactInfo } from "@/lib/types";
+import type { ContactInfo, DirectoryEntry } from "@/lib/types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SPLIT_RE = /[,;\s]+/;
 
+type Person = { email: string; name: string; isTeammate: boolean };
+
 // Shared across every ChipInput on the page (To/Cc/Bcc each mount their
-// own) so opening a compose window fetches the contact list once, not
-// three times.
-let contactsCache: ContactInfo[] | null = null;
-let contactsPromise: Promise<ContactInfo[]> | null = null;
-function loadContacts(): Promise<ContactInfo[]> {
-  if (contactsCache) return Promise.resolve(contactsCache);
-  contactsPromise ??= api
-    .listContacts()
-    .then((rows) => (contactsCache = rows))
-    .catch(() => []);
-  return contactsPromise;
+// own) so opening a compose window fetches these lists once, not three
+// times each.
+let peopleCache: Person[] | null = null;
+let peoplePromise: Promise<Person[]> | null = null;
+function loadPeople(): Promise<Person[]> {
+  if (peopleCache) return Promise.resolve(peopleCache);
+  peoplePromise ??= Promise.all([
+    api.listDirectory().catch(() => [] as DirectoryEntry[]),
+    api.listContacts().catch(() => [] as ContactInfo[]),
+  ]).then(([directory, contacts]) => {
+    // Every teammate mailbox first (an internal work address is almost
+    // always who you meant), then personal contacts not already covered
+    // by the directory, de-duplicated by email.
+    const seen = new Set<string>();
+    const merged: Person[] = [];
+    for (const entry of directory) {
+      seen.add(entry.address.toLowerCase());
+      merged.push({ email: entry.address, name: entry.display_name, isTeammate: true });
+    }
+    for (const contact of contacts) {
+      if (seen.has(contact.email.toLowerCase())) continue;
+      seen.add(contact.email.toLowerCase());
+      merged.push({ email: contact.email, name: contact.display_name, isTeammate: false });
+    }
+    return (peopleCache = merged);
+  });
+  return peoplePromise;
 }
 
 export function ChipInput({
@@ -37,13 +55,13 @@ export function ChipInput({
 }) {
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
-  const [contacts, setContacts] = useState<ContactInfo[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadContacts().then(setContacts);
+    loadPeople().then(setPeople);
   }, []);
 
   useEffect(() => {
@@ -57,17 +75,18 @@ export function ChipInput({
   }, []);
 
   const query = input.trim().toLowerCase();
+  const available = people.filter((person) => !values.includes(person.email));
+  // Nothing typed yet -> browse the whole directory (capped) straight from
+  // a click, same as this field's placeholder promised: pick a teammate
+  // without typing at all. One character narrows it down from there.
   const suggestions =
     query.length === 0
-      ? []
-      : contacts
+      ? available.slice(0, 8)
+      : available
           .filter(
-            (contact) =>
-              !values.includes(contact.email) &&
-              (contact.email.toLowerCase().includes(query) ||
-                contact.display_name.toLowerCase().includes(query)),
+            (person) => person.email.toLowerCase().includes(query) || person.name.toLowerCase().includes(query),
           )
-          .slice(0, 6);
+          .slice(0, 8);
 
   function addChip(candidate: string): boolean {
     const email = candidate.trim().replace(/,$/, "");
@@ -91,8 +110,8 @@ export function ChipInput({
     }
   }
 
-  function pickSuggestion(contact: ContactInfo) {
-    onChange([...values, contact.email]);
+  function pickSuggestion(person: Person) {
+    onChange([...values, person.email]);
     setInput("");
     setError(false);
     setShowSuggestions(false);
@@ -184,17 +203,18 @@ export function ChipInput({
       {trailing}
       {showSuggestions && suggestions.length > 0 && (
         <div className="recipient-suggestions">
-          {suggestions.map((contact, index) => (
+          {suggestions.map((person, index) => (
             <button
-              key={contact.id}
+              key={person.email}
               type="button"
               className={`recipient-suggestion ${index === highlighted ? "highlighted" : ""}`}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => pickSuggestion(contact)}
+              onClick={() => pickSuggestion(person)}
               onMouseEnter={() => setHighlighted(index)}
             >
-              <span className="name">{contact.display_name || contact.email}</span>
-              {contact.display_name && <span className="email">{contact.email}</span>}
+              <span className="name">{person.name || person.email}</span>
+              {person.name && <span className="email">{person.email}</span>}
+              {person.isTeammate && <span className="badge">Team</span>}
             </button>
           ))}
         </div>

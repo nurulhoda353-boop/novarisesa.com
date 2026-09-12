@@ -502,9 +502,17 @@ html.dark .btn-ghost:hover { background: var(--surface2); }
   padding: 7px 10px; border-radius: var(--r-sm);
   text-align: left; font-size: 13px; color: var(--ink);
 }
-.recipient-suggestion .name { font-weight: 600; }
-.recipient-suggestion .email { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recipient-suggestion .name { font-weight: 600; flex-shrink: 0; }
+.recipient-suggestion .email {
+  flex: 1; color: var(--muted); font-size: 12px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.recipient-suggestion .badge {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 2px 7px; border-radius: var(--r-pill); background: var(--chip-bg); color: var(--brand);
+}
 .recipient-suggestion:hover, .recipient-suggestion.highlighted { background: var(--chip-bg); }
+.recipient-suggestion.highlighted .badge, .recipient-suggestion:hover .badge { background: var(--surface); }
 
 /* ============================================================
    COMPOSE DOCK (Gmail-style floating window)

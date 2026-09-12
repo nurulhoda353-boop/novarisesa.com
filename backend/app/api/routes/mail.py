@@ -74,6 +74,7 @@ from app.schemas.mail import (
     ContactCreate,
     ContactResponse,
     ContactUpdate,
+    DirectoryEntry,
     DraftResponse,
     DraftUpsert,
     FlagRequest,
@@ -914,6 +915,22 @@ def send_message(payload: SendMailRequest, account: CurrentMailAccount, db: DBSe
     except (MailConnectionError, ValueError) as exc:
         raise mail_error(exc) from exc
     return {"status": "sent", "message_id": message_id}
+
+
+@router.get("/directory", response_model=list[DirectoryEntry])
+def list_directory(account: CurrentMailAccount, db: DBSession) -> list[MailAccount]:
+    """Every other active teammate mailbox in the system, for the compose
+    recipient dropdown - so CC'ing a colleague doesn't require typing
+    (or remembering) their full address, the same way an internal work
+    email client lists coworkers. Unlike /contacts (personal, per-account),
+    this is one shared org-wide list every mail user can see."""
+    return list(
+        db.scalars(
+            select(MailAccount)
+            .where(MailAccount.is_active.is_(True), MailAccount.id != account.id)
+            .order_by(MailAccount.display_name, MailAccount.address)
+        )
+    )
 
 
 @router.get("/contacts", response_model=list[ContactResponse])

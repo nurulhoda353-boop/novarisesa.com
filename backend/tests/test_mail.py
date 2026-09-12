@@ -25,6 +25,7 @@ from app.schemas.mail import (
     AdminSetHostingerPassword,
     AdminSetRole,
     ContactUpdate,
+    DirectoryEntry,
     FolderResponse,
     HostingerMailboxSummary,
     MailAccountResponse,
@@ -624,6 +625,20 @@ def test_hostinger_mailbox_client_resolves_google_hosts() -> None:
     hostinger_client = HostingerMailboxClient("info@novarisesa.com", "secret")
     assert hostinger_client._imap_host == "imap.hostinger.com"
     assert hostinger_client._smtp_host == "smtp.hostinger.com"
+
+
+def test_directory_entry_exposes_nothing_beyond_address_name_and_avatar() -> None:
+    # The compose recipient dropdown's org-wide directory (unlike
+    # AdminAccountSummary) is visible to every mail user, not just admins -
+    # this pins down that its response shape carries nothing sensitive
+    # (no id/role/hostinger_mailbox_id) if a field is ever added here by
+    # copy-pasting from a richer schema.
+    entry = DirectoryEntry(address="rabbani@novarisesa.com", display_name="Rabbani")
+    assert entry.model_dump() == {
+        "address": "rabbani@novarisesa.com",
+        "display_name": "Rabbani",
+        "avatar_url": None,
+    }
 
 
 def test_admin_account_summary_defaults_provider_to_hostinger() -> None:

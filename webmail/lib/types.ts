@@ -149,6 +149,12 @@ export interface SendMailRequest {
   from_address?: string | null;
 }
 
+export interface DirectoryEntry {
+  address: string;
+  display_name: string;
+  avatar_url: string | null;
+}
+
 export interface ContactInfo {
   id: string;
   email: string;
