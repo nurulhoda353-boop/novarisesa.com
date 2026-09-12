@@ -36,7 +36,12 @@ from app.schemas.mail import (
     SnoozeRequest,
 )
 from app.api.routes.mail import account_response, mail_events
-from app.services.mail_client import HostingerMailboxClient, _attachment_from_raw, _summary
+from app.services.mail_client import (
+    HostingerMailboxClient,
+    _attachment_from_raw,
+    _preview_from_body,
+    _summary,
+)
 from app.services.mail_snooze import SNOOZE_FOLDER
 from app.services.mail_watcher import WatcherRegistry, rule_matches
 
@@ -318,6 +323,69 @@ def test_messages_list_preview_decodes_a_multipart_message_instead_of_showing_ra
     assert "Content-Type" not in preview
     assert "boundary" not in preview
     assert "--" not in preview
+
+
+def test_messages_list_preview_is_blank_not_raw_headers_when_header_block_is_huge(
+    monkeypatch,
+) -> None:
+    # Regression: a message relayed through Google routinely carries
+    # several KB of Received/DKIM-Signature/ARC-* headers alone. If that
+    # header block ate the entire BODY[]<0.N> partial-fetch budget before
+    # any real body part appeared, the old fallback path re-decoded the
+    # raw (header-only) bytes as if they were the preview - showing
+    # "Return-Path: ... Received: from mail-pf1-f198.google.com ..." to
+    # the user. Rather than guess a byte budget that's always big enough,
+    # the fix simply never shows raw bytes as a preview - it shows blank
+    # instead in the (now rare, given the 32KB budget) case where the
+    # body still wasn't reached.
+    huge_headers = (
+        b"Return-Path: <sender@example.com>\r\n"
+        + b"Received: from mail-relay-hop.example.com (mail-relay-hop.example.com [10.0.0.1])\r\n"
+        b" by mx.hostinger.com with ESMTPS id abc123\r\n" * 400
+    )
+    real_message = EmailMessage()
+    real_message["Subject"] = "Final Check"
+    real_message.set_content("Novarise is our company.")
+    raw = real_message.as_bytes()
+    separator = b"\r\n\r\n" if b"\r\n\r\n" in raw else b"\n\n"
+    header_end = raw.index(separator)
+    own_headers = raw[:header_end]
+    body_only = raw[header_end:]
+    # The partial fetch is bounded, so once the synthetic huge header
+    # block alone blows past that bound, none of `body_only` (the actual
+    # "Novarise is our company." content) is included at all.
+    body_slice = (huge_headers + own_headers + body_only)[:2000]
+    assert b"Novarise" not in body_slice
+
+    def _fetch_response(uid: str) -> tuple[str, list]:
+        marker = (
+            f"{uid} (FLAGS (\\Seen) RFC822.SIZE {len(raw)} "
+            'BODYSTRUCTURE ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 60 1) BODY[HEADER] {N}'
+        ).encode()
+        return "OK", [(marker, own_headers), (b" BODY[]<0> {N}", body_slice), b")"]
+
+    fake_client = _FakeListFetchImap({"301": _fetch_response("301")})
+    monkeypatch.setattr(HostingerMailboxClient, "_connect", lambda self: fake_client)  # noqa: ARG005
+
+    mailbox = HostingerMailboxClient("huge-headers-test@novarisesa.com", "secret")
+    results = mailbox.messages(folder="INBOX", limit=10)
+
+    assert len(results) == 1
+    preview = results[0]["preview"]
+    assert preview == ""
+    assert "Return-Path" not in preview
+    assert "Received" not in preview
+
+
+def test_preview_from_body_strips_invisible_preheader_padding_characters() -> None:
+    # Regression: marketing templates often pad the very start of the
+    # HTML body with a long run of invisible characters (zero-width
+    # space/joiner, BOM, combining grapheme joiner) purely to control
+    # what Gmail/Outlook show as the inbox snippet - e.g. Hostinger's own
+    # "Get started with business email" welcome mail showed up as a wall
+    # of "﻿ ͏ ﻿ ͏ ..." instead of readable text.
+    padded = "Welcome to Hostinger Email! ﻿ ͏ ﻿ ͏ ​‌‍ real words here"
+    assert _preview_from_body(padded, None) == "Welcome to Hostinger Email! real words here"
 
 
 def test_mail_profile_update_accepts_optional_signature() -> None:

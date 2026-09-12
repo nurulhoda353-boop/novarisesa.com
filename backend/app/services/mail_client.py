@@ -191,12 +191,22 @@ def _references(message: Message) -> list[str]:
     return [ref.strip() for ref in raw.split() if ref.strip()]
 
 
+def _preview_from_body(text: str, html: str | None) -> str:
+    html_without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", html or "")
+    preview_source = text or html_lib.unescape(re.sub(r"<[^>]+>", " ", html_without_style))
+    # Marketing templates often pad the start of the HTML body with a long
+    # run of invisible characters (zero-width space/joiner, BOM, combining
+    # grapheme joiner) to control what Gmail/Outlook show as the inbox
+    # snippet - strip them before collapsing whitespace, or the preview is
+    # just that padding instead of the real first words.
+    preview_source = re.sub(r"[​‌‍﻿͏]+", "", preview_source)
+    return re.sub(r"\s+", " ", preview_source).strip()[:220]
+
+
 def _summary(uid: int, folder: str, raw: bytes, flags: list[str], size: int | None = None) -> dict[str, Any]:
     message = BytesParser(policy=policy.default).parsebytes(raw)
     text, html, attachments = _body_parts(message)
-    html_without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", html or "")
-    preview_source = text or html_lib.unescape(re.sub(r"<[^>]+>", " ", html_without_style))
-    preview = re.sub(r"\s+", " ", preview_source).strip()[:220]
+    preview = _preview_from_body(text, html)
     senders = _addresses(message, ["From"])
     return {
         "uid": uid,
@@ -244,16 +254,12 @@ def _list_summary(
         text, html, _ = _body_parts(snippet_message)
     except Exception:
         text, html = "", None
-    html_without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", html or "")
-    preview_source = text or html_lib.unescape(re.sub(r"<[^>]+>", " ", html_without_style))
-    if not preview_source.strip():
-        # Fall back to the old raw-strip behavior rather than showing
-        # nothing - e.g. a plain, non-multipart message whose partial fetch
-        # got cut off before `_body_parts` could see a full decoded part.
-        decoded_snippet = text_snippet.decode("utf-8", errors="replace")
-        without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", decoded_snippet)
-        preview_source = html_lib.unescape(re.sub(r"<[^>]+>", " ", without_style))
-    preview = re.sub(r"\s+", " ", preview_source).strip()[:220]
+    # No raw-bytes fallback here on purpose: a message whose header block
+    # (Received/DKIM-Signature/ARC-* chains routinely run several KB on
+    # mail relayed through Google) ate the whole partial-fetch budget
+    # before any real body part showed up would otherwise show that raw
+    # header soup as the "preview" - worse than just leaving it blank.
+    preview = _preview_from_body(text, html)
     senders = _addresses(message, ["From"])
     return {
         "uid": uid,
@@ -486,10 +492,14 @@ class HostingerMailboxClient:
                 # etc.), not any part's decoded text. Fetching a slice of
                 # the *whole* message from byte 0 instead lets it be parsed
                 # as a real (if truncated) MIME message in _list_summary.
+                # 32KB (not the original 4-8KB) because a message relayed
+                # through Google routinely carries several KB of Received/
+                # DKIM-Signature/ARC-* headers alone - a smaller budget can
+                # be entirely consumed before reaching any real body part.
                 fetch_status, rows = client.uid(
                     "fetch",
                     str(uid),
-                    "(FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[]<0.8000>)",
+                    "(FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[]<0.32000>)",
                 )
                 if fetch_status != "OK" or not rows:
                     continue
