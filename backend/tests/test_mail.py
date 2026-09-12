@@ -269,6 +269,57 @@ def test_messages_list_fetches_headers_only_and_detects_real_attachments(monkeyp
     assert by_uid[103]["has_attachments"] is False
 
 
+def test_messages_list_preview_decodes_a_multipart_message_instead_of_showing_raw_mime(
+    monkeypatch,
+) -> None:
+    # Regression: BODY[TEXT] only means "everything after the top-level
+    # headers" - for a multipart message that's the raw MIME envelope
+    # itself (--boundary markers, nested Content-Type/Content-Transfer-
+    # Encoding headers, base64 preamble), not any part's decoded text. The
+    # list view's preview column was showing that raw envelope verbatim
+    # (e.g. "-- 00000000000063838e065b42250f Content-Type: multipart/
+    # related...") instead of the message's actual text. The fix fetches a
+    # bounded slice of the *whole* message (BODY[]<0.N>, not BODY[TEXT])
+    # and parses it as a real MIME message before extracting the preview.
+    real_message = EmailMessage()
+    real_message["From"] = "Rabbani <rabbani@novarisesa.com>"
+    real_message["To"] = "info@novarisesa.com"
+    real_message["Subject"] = "Final Check"
+    real_message.set_content("Please review the attached document and confirm by Friday.")
+    real_message.add_alternative(
+        "<p>Please review the attached document and confirm by Friday.</p>", subtype="html"
+    )
+    raw = real_message.as_bytes()
+    # BODY[HEADER] is its own separate literal (as the real IMAP fetch
+    # does). BODY[]<0.8000> is a *different* section - "" means the whole
+    # message, headers included - sliced from byte 0, the same bounded way
+    # the real fetch is; it isn't the header-stripped remainder.
+    separator = b"\r\n\r\n" if b"\r\n\r\n" in raw else b"\n\n"
+    header_end = raw.index(separator) + len(separator)
+    headers = raw[:header_end]
+    body_slice = raw[:8000]
+
+    def _fetch_response(uid: str) -> tuple[str, list]:
+        marker = (
+            f"{uid} (FLAGS (\\Seen) RFC822.SIZE {len(raw)} "
+            'BODYSTRUCTURE ("TEXT" "PLAIN" NIL NIL NIL "7BIT" 60 1) BODY[HEADER] {N}'
+        ).encode()
+        return "OK", [(marker, headers), (b" BODY[]<0> {N}", body_slice), b")"]
+
+    fake_client = _FakeListFetchImap({"201": _fetch_response("201")})
+    monkeypatch.setattr(HostingerMailboxClient, "_connect", lambda self: fake_client)  # noqa: ARG005
+
+    mailbox = HostingerMailboxClient("preview-fix-test@novarisesa.com", "secret")
+    results = mailbox.messages(folder="INBOX", limit=10)
+
+    assert len(results) == 1
+    preview = results[0]["preview"]
+    assert preview == "Please review the attached document and confirm by Friday."
+    assert "Content-Type" not in preview
+    assert "boundary" not in preview
+    assert "--" not in preview
+
+
 def test_mail_profile_update_accepts_optional_signature() -> None:
     without_signature = MailProfileUpdate(display_name="Novarise", cache_ttl_days=30)
     assert without_signature.signature is None

@@ -229,9 +229,30 @@ def _list_summary(
     doesn't pull every message's full body - attachments included - over the
     wire just to show a subject line and a snippet."""
     message = BytesParser(policy=policy.default).parsebytes(header_bytes)
-    decoded_snippet = text_snippet.decode("utf-8", errors="replace")
-    without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", decoded_snippet)
-    preview_source = html_lib.unescape(re.sub(r"<[^>]+>", " ", without_style))
+    # `text_snippet` is a bounded byte-range fetch of the *whole* raw message
+    # (headers + start of body), not the decoded body text - for a
+    # multipart message, a naive HTML-strip of these raw bytes shows the
+    # MIME envelope itself (--boundary markers, "Content-Type:
+    # multipart/related", base64 preamble, etc.) verbatim, which is exactly
+    # what showed up as garbage previews. Parsing it as a MIME message and
+    # reusing the same body-extraction _summary() uses fixes that; a
+    # partial fetch parses fine as long as the first text part landed
+    # inside the byte budget, which it does for the near-universal case of
+    # senders putting the text/plain or text/html part before attachments.
+    try:
+        snippet_message = BytesParser(policy=policy.default).parsebytes(text_snippet)
+        text, html, _ = _body_parts(snippet_message)
+    except Exception:
+        text, html = "", None
+    html_without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", html or "")
+    preview_source = text or html_lib.unescape(re.sub(r"<[^>]+>", " ", html_without_style))
+    if not preview_source.strip():
+        # Fall back to the old raw-strip behavior rather than showing
+        # nothing - e.g. a plain, non-multipart message whose partial fetch
+        # got cut off before `_body_parts` could see a full decoded part.
+        decoded_snippet = text_snippet.decode("utf-8", errors="replace")
+        without_style = re.sub(r"(?is)<(style|script)\b[^>]*>.*?</\1>", " ", decoded_snippet)
+        preview_source = html_lib.unescape(re.sub(r"<[^>]+>", " ", without_style))
     preview = re.sub(r"\s+", " ", preview_source).strip()[:220]
     senders = _addresses(message, ["From"])
     return {
@@ -459,10 +480,16 @@ class HostingerMailboxClient:
                 # pull tens of megabytes over IMAP just to render subject
                 # lines. message() below still fetches the full body, but
                 # only for the one message actually being opened.
+                # BODY[TEXT] only means "everything after the top-level
+                # headers" - for a multipart message that's the raw MIME
+                # envelope (boundary markers, nested Content-Type headers,
+                # etc.), not any part's decoded text. Fetching a slice of
+                # the *whole* message from byte 0 instead lets it be parsed
+                # as a real (if truncated) MIME message in _list_summary.
                 fetch_status, rows = client.uid(
                     "fetch",
                     str(uid),
-                    "(FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[TEXT]<0.4000>)",
+                    "(FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[]<0.8000>)",
                 )
                 if fetch_status != "OK" or not rows:
                     continue
@@ -475,7 +502,7 @@ class HostingerMailboxClient:
                         metadata += marker
                         if b"HEADER" in marker:
                             header_bytes += literal
-                        elif b"TEXT" in marker:
+                        else:
                             text_bytes += literal
                     elif isinstance(row, bytes):
                         metadata += row
