@@ -74,7 +74,8 @@ export function ChipInput({
     return () => document.removeEventListener("mousedown", onOutsideClick);
   }, []);
 
-  const query = input.trim().toLowerCase();
+  const trimmedInput = input.trim();
+  const query = trimmedInput.toLowerCase();
   const available = people.filter((person) => !values.includes(person.email));
   // Nothing typed yet -> browse the whole directory (capped) straight from
   // a click, same as this field's placeholder promised: pick a teammate
@@ -87,6 +88,16 @@ export function ChipInput({
             (person) => person.email.toLowerCase().includes(query) || person.name.toLowerCase().includes(query),
           )
           .slice(0, 8);
+  // A fully-typed, valid address that isn't already one of the matches
+  // above (an outside address, or a teammate/contact typed out in full
+  // rather than picked from the list) still gets its own row - otherwise
+  // the dropdown just goes empty and looks like nothing registered, even
+  // though the address is perfectly valid and Enter/Tab would accept it.
+  const showAddNew =
+    EMAIL_RE.test(trimmedInput) &&
+    !values.includes(trimmedInput) &&
+    !suggestions.some((person) => person.email.toLowerCase() === query);
+  const dropdownCount = suggestions.length + (showAddNew ? 1 : 0);
 
   function addChip(candidate: string): boolean {
     const email = candidate.trim().replace(/,$/, "");
@@ -110,28 +121,34 @@ export function ChipInput({
     }
   }
 
-  function pickSuggestion(person: Person) {
-    onChange([...values, person.email]);
+  function pickPerson(email: string) {
+    onChange([...values, email]);
     setInput("");
     setError(false);
     setShowSuggestions(false);
   }
 
+  function pickDropdownIndex(rawIndex: number) {
+    const index = Math.min(Math.max(rawIndex, 0), dropdownCount - 1);
+    if (index < suggestions.length) pickPerson(suggestions[index].email);
+    else pickPerson(trimmedInput);
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (showSuggestions && suggestions.length > 0) {
+    if (showSuggestions && dropdownCount > 0) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setHighlighted((value) => (value + 1) % suggestions.length);
+        setHighlighted((value) => (value + 1) % dropdownCount);
         return;
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        setHighlighted((value) => (value - 1 + suggestions.length) % suggestions.length);
+        setHighlighted((value) => (value - 1 + dropdownCount) % dropdownCount);
         return;
       }
       if (event.key === "Enter") {
         event.preventDefault();
-        pickSuggestion(suggestions[highlighted]);
+        pickDropdownIndex(highlighted);
         return;
       }
       if (event.key === "Escape") {
@@ -201,7 +218,7 @@ export function ChipInput({
         <span className="recipient-error">Enter a valid email address</span>
       )}
       {trailing}
-      {showSuggestions && suggestions.length > 0 && (
+      {showSuggestions && dropdownCount > 0 && (
         <div className="recipient-suggestions">
           {suggestions.map((person, index) => (
             <button
@@ -209,7 +226,7 @@ export function ChipInput({
               type="button"
               className={`recipient-suggestion ${index === highlighted ? "highlighted" : ""}`}
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => pickSuggestion(person)}
+              onClick={() => pickPerson(person.email)}
               onMouseEnter={() => setHighlighted(index)}
             >
               <span className="name">{person.name || person.email}</span>
@@ -217,6 +234,18 @@ export function ChipInput({
               {person.isTeammate && <span className="badge">Team</span>}
             </button>
           ))}
+          {showAddNew && (
+            <button
+              type="button"
+              className={`recipient-suggestion ${suggestions.length === highlighted ? "highlighted" : ""}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => pickPerson(trimmedInput)}
+              onMouseEnter={() => setHighlighted(suggestions.length)}
+            >
+              <span className="email">{trimmedInput}</span>
+              <span className="badge new">Add</span>
+            </button>
+          )}
         </div>
       )}
     </div>
