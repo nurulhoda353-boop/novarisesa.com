@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -239,6 +240,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: state.notificationsEnabled,
               onChanged: state.setNotificationsEnabled,
             ),
+          ),
+          if (state.notificationsEnabled &&
+              state.notificationsPermissionGranted == false)
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: ListTile(
+                leading: Icon(Icons.notifications_off_outlined,
+                    color: Theme.of(context).colorScheme.onErrorContainer),
+                title: Text('Notifications are blocked for this app',
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onErrorContainer)),
+                subtitle: Text(
+                  'The toggle above is on, but the system permission was denied, so nothing will actually show up. Open system settings to allow it.',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer),
+                ),
+                trailing: TextButton(
+                  onPressed: openAppSettings,
+                  child: const Text('Open settings'),
+                ),
+              ),
+            ),
+          _SettingsTile(
+            icon: Icons.battery_saver_outlined,
+            title: 'Improve notification reliability',
+            subtitle:
+                'Some phones (especially Xiaomi/MIUI, Oppo, Huawei) aggressively stop background apps, which can delay or block mail notifications. Tap to exempt Novamail from battery optimization.',
+            onTap: () async {
+              final status = await Permission.ignoreBatteryOptimizations.request();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(status.isGranted
+                    ? 'Battery optimization exemption granted'
+                    : 'Could not grant the exemption - check your phone\'s battery settings manually'),
+              ));
+            },
           ),
           const SizedBox(height: 18),
           const _SectionTitle('Mailbox management'),

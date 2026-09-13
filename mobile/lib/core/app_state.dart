@@ -27,6 +27,12 @@ class AppState extends ChangeNotifier {
   ThemeMode themeMode = ThemeMode.system;
   bool notificationsEnabled = true;
 
+  /// Whether the OS actually granted the notification permission the last
+  /// time it was requested - `null` until that's happened this run. The
+  /// settings screen uses this to warn the user instead of leaving the
+  /// in-app toggle looking "on" while nothing is actually delivered.
+  bool? notificationsPermissionGranted;
+
   int? _nextBeforeUid;
   String? _activeQuery;
   MessageFilter? _activeFilter;
@@ -73,7 +79,8 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('notifications_enabled', value);
     if (value) {
-      await initLocalNotifications();
+      notificationsPermissionGranted = await initLocalNotifications();
+      notifyListeners();
       push.start();
       await registerBackgroundSync();
     } else {
@@ -173,8 +180,9 @@ class AppState extends ChangeNotifier {
       const Duration(minutes: 5),
       (_) => loadMessages(silent: true),
     );
+    push.accountAddress = account?.address;
     if (notificationsEnabled) {
-      await initLocalNotifications();
+      notificationsPermissionGranted = await initLocalNotifications();
       push.onNewMail = () => loadMessages(silent: true);
       push.start();
       await registerBackgroundSync();
@@ -247,6 +255,10 @@ class AppState extends ChangeNotifier {
       hasMore = page.nextBeforeUid != null;
       offline = false;
       folders = await api.folders();
+      final address = account?.address;
+      if (address != null && currentFolder == 'INBOX') {
+        unawaited(reconcileReadNotifications(address, messages));
+      }
       final isPlainFolderView =
           (_activeQuery == null || _activeQuery!.isEmpty) &&
               (_activeFilter?.isEmpty ?? true);
@@ -310,6 +322,10 @@ class AppState extends ChangeNotifier {
     final detail = await api.message(summary.folder, summary.uid);
     if (!summary.isRead) {
       await api.setRead(summary.folder, summary.uid, true);
+      final address = account?.address;
+      if (address != null) {
+        unawaited(cancelNotificationFor(address, summary.uid));
+      }
       unawaited(loadMessages(silent: true));
     }
     return detail;
@@ -371,6 +387,14 @@ class AppState extends ChangeNotifier {
     await Future.wait(selected
         .map((message) => api.setRead(message.folder, message.uid, value))
         .map((future) => future.catchError((_) {})));
+    if (value) {
+      final address = account?.address;
+      if (address != null) {
+        for (final message in selected) {
+          unawaited(cancelNotificationFor(address, message.uid));
+        }
+      }
+    }
     await loadMessages(silent: true);
   }
 
