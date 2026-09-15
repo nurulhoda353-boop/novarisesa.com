@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tells AAPT2's resource shrinker to keep these even though it can't
+     trace their use statically - they're only referenced by name string
+     through a plugin's platform channel (flutter_local_notifications'
+     AndroidInitializationSettings('@drawable/ic_stat_mail')), which the
+     shrinker's reachability analysis can't see, so it silently dropped
+     ic_stat_mail from release builds and initLocalNotifications() threw
+     PlatformException(invalid_icon) at runtime - only in release, never
+     in debug, which is why this went unnoticed for a while. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_mail" />

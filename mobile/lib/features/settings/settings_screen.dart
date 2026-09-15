@@ -236,7 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: SwitchListTile(
               title: const Text('New mail notifications'),
               subtitle: const Text(
-                  'Instant while the app is open, periodic checks otherwise'),
+                  'Keeps a background connection open for instant delivery - shows a permanent low-priority "Watching for new mail" notification while on'),
               value: state.notificationsEnabled,
               onChanged: state.setNotificationsEnabled,
             ),

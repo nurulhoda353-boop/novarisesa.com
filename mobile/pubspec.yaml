@@ -1,7 +1,7 @@
 name: novarise_mail
 description: Secure first-party mobile client for Novarise mailboxes.
 publish_to: none
-version: 1.7.1+16
+version: 1.7.3+18
 
 environment:
   sdk: ">=3.6.0 <4.0.0"
@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   file_picker: ^10.3.3
+  flutter_foreground_task: ^8.13.0
   flutter_local_notifications: ^19.0.0
   flutter_widget_from_html_core: ^0.17.3
   flutter_secure_storage: ^10.0.0

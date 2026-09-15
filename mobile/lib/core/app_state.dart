@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
+import 'live_push_service.dart';
 import 'models.dart';
 import 'push_service.dart';
 
@@ -83,9 +84,11 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       push.start();
       await registerBackgroundSync();
+      await startLivePushService();
     } else {
       push.stop();
       await cancelBackgroundSync();
+      await stopLivePushService();
     }
   }
 
@@ -168,6 +171,7 @@ class AppState extends ChangeNotifier {
   void _teardownMailbox() {
     _refreshTimer?.cancel();
     push.stop();
+    unawaited(stopLivePushService());
   }
 
   Future<void> _loadMailbox() async {
@@ -186,6 +190,7 @@ class AppState extends ChangeNotifier {
       push.onNewMail = () => loadMessages(silent: true);
       push.start();
       await registerBackgroundSync();
+      await startLivePushService();
     }
   }
 
