@@ -23,6 +23,10 @@ function platformLabel(platform: string): string {
   return platform;
 }
 
+function downloadFileName(platform: string): string {
+  return platform === "ios" ? "Novamail.ipa" : "Novamail.apk";
+}
+
 function Badge({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
@@ -97,7 +101,7 @@ export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }
 
               <a
                 href={release.file_url}
-                download
+                download={downloadFileName(release.platform)}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-sm font-semibold text-gold-foreground shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 sm:w-auto sm:px-8"
                 style={{ background: "var(--gradient-gold)" }}
               >

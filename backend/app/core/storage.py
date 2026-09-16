@@ -46,9 +46,15 @@ def sanitize_filename(name: str) -> str:
 
 
 def build_storage_key(folder: str | None, file_name: str) -> str:
+    # The random component lives in its own path segment rather than being
+    # prefixed onto the filename, so the last URL segment - which is what a
+    # browser/downloader uses as the saved file's name when the response has
+    # no Content-Disposition filename - stays a clean, human-readable name
+    # instead of showing a random hex code (e.g. a downloaded APK reads
+    # "Novamail.apk", not "a1b2c3d4e5f6-Novamail.apk").
     safe_folder = re.sub(r"[^\w/\-]+", "", (folder or "uploads").strip("/")) or "uploads"
     unique = uuid.uuid4().hex[:12]
-    return f"{safe_folder}/{unique}-{sanitize_filename(file_name)}"
+    return f"{safe_folder}/{unique}/{sanitize_filename(file_name)}"
 
 
 def public_url_for(storage_key: str) -> str:
