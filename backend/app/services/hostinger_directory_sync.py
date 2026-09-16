@@ -44,10 +44,12 @@ def sync_hostinger_directory() -> int:
     """Creates directory-stub rows for any Hostinger mailbox we don't
     already know about. Returns how many were created."""
     if not settings.HOSTINGER_API_TOKEN:
+        logger.warning("Hostinger directory sync: HOSTINGER_API_TOKEN is not configured, skipping")
         return 0
     try:
         client = HostingerManagementClient()
     except HostingerApiError:
+        logger.exception("Hostinger directory sync: could not build a Hostinger client")
         return 0
 
     domains = {item.lower() for item in settings.MAIL_ALLOWED_DOMAINS}
@@ -107,8 +109,12 @@ def sync_hostinger_directory() -> int:
 
         if created:
             db.commit()
-    if created:
-        logger.info("Hostinger directory sync: added %s mailbox(es)", created)
+    logger.info(
+        "Hostinger directory sync: %s mailbox(es) listed on Hostinger, %s already known, %s created",
+        len(rows),
+        len(rows) - created,
+        created,
+    )
     return created
 
 
