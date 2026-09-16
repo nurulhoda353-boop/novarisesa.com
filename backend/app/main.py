@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 
@@ -16,6 +17,13 @@ from app.services.hostinger_directory_sync import hostinger_directory_sync_loop
 from app.services.mail_client import close_all_imap_connections, imap_pool_maintenance_loop
 from app.services.mail_scheduled_send import scheduled_send_loop
 from app.services.mail_snooze import snooze_scheduler_loop
+
+# Nothing else in this app configures logging, so the "novarise.*" loggers
+# used by the background poll loops (scheduled send, snooze, IMAP pool
+# maintenance, Hostinger directory sync) have no handler and Python's
+# default "last resort" fallback only surfaces WARNING and above - their
+# INFO-level activity logs would otherwise be invisible in production.
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
