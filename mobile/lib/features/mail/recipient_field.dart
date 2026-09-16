@@ -167,12 +167,12 @@ class RecipientChipFieldState extends State<RecipientChipField> {
     // this field's placeholder promised: pick a teammate without typing at
     // all. One character narrows it down from there.
     final suggestions = query.isEmpty
-        ? available.take(8).toList()
+        ? available.take(50).toList()
         : available
             .where((person) =>
                 person.email.toLowerCase().contains(query) ||
                 person.name.toLowerCase().contains(query))
-            .take(8)
+            .take(50)
             .toList();
     // A fully-typed, valid address that isn't already one of the matches
     // above still gets its own row - otherwise the dropdown just goes

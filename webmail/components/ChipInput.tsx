@@ -82,12 +82,12 @@ export function ChipInput({
   // without typing at all. One character narrows it down from there.
   const suggestions =
     query.length === 0
-      ? available.slice(0, 8)
+      ? available.slice(0, 50)
       : available
           .filter(
             (person) => person.email.toLowerCase().includes(query) || person.name.toLowerCase().includes(query),
           )
-          .slice(0, 8);
+          .slice(0, 50);
   // A fully-typed, valid address that isn't already one of the matches
   // above (an outside address, or a teammate/contact typed out in full
   // rather than picked from the list) still gets its own row - otherwise
