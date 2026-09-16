@@ -115,6 +115,8 @@ class HostingerManagementClient:
                     f"/orders/{urllib.parse.quote(str(order_id))}/mailboxes?per_page=100&page={page}",
                 )
                 rows = (result or {}).get("data", [])
+                for row in rows:
+                    row.setdefault("order_id", str(order_id))
                 mailboxes.extend(rows)
                 meta = (result or {}).get("meta", {})
                 last_page = meta.get("last_page", page)
