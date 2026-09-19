@@ -1,0 +1,38 @@
+name: iOS build check
+
+# This exists so the iOS side of the Flutter app can be validated at all -
+# nobody on this project has a Mac, and Apple's toolchain (Xcode/CocoaPods)
+# only runs on macOS. GitHub's macOS runners are free for public repos, so
+# this is the only place `flutter build ios` has ever actually run for this
+# project. It builds with --no-codesign: real device installs and App Store
+# submission need a paid Apple Developer account ($99/yr) for signing, which
+# this workflow deliberately does not attempt - it only proves the Dart/
+# native code and CocoaPods dependencies actually compile for iOS.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+
+      - run: flutter pub get
+
+      - run: flutter build ios --release --no-codesign
