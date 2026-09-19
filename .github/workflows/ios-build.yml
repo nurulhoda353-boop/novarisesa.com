@@ -19,7 +19,9 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    # workmanager_apple references iOS 26 SDK symbols (BGContinuedProcessingTask),
+    # so this needs a runner recent enough to carry an Xcode with that SDK.
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: mobile
