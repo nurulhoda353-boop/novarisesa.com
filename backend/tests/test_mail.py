@@ -42,6 +42,7 @@ from app.services.mail_client import (
     HostingerMailboxClient,
     _attachment_from_raw,
     _preview_from_body,
+    _quote_mailbox,
     _summary,
 )
 from app.services.mail_snooze import SNOOZE_FOLDER
@@ -197,6 +198,65 @@ def test_message_summary_ignores_inline_cid_images_for_has_attachments() -> None
     )
     parsed_with_attachment = _summary(45, "INBOX", with_real_attachment.as_bytes(), [])
     assert parsed_with_attachment["has_attachments"] is True
+
+
+def test_quote_mailbox_wraps_and_escapes_for_the_imap_wire() -> None:
+    # imaplib never quotes command arguments itself - it just joins
+    # whatever string it's given with a bare space. A mailbox name with a
+    # space in it (Gmail's "[Gmail]/All Mail") must come back as a single
+    # quoted token or the server splits it into two and rejects the
+    # command outright (this is exactly the "STATUS command failed ...
+    # BAD Could not parse command" incident with Gmail-connected mailboxes).
+    assert _quote_mailbox("[Gmail]/All Mail") == '"[Gmail]/All Mail"'
+    assert _quote_mailbox("INBOX") == '"INBOX"'
+    # A literal quote or backslash inside the name must itself be escaped,
+    # not left to break out of the wrapping quotes.
+    assert _quote_mailbox('We"ird') == '"We\\"ird"'
+    assert _quote_mailbox("back\\slash") == '"back\\\\slash"'
+
+
+class _FakeFolderListImap:
+    """Stands in for imaplib.IMAP4_SSL for folders()'s IMAP calls: list,
+    status. Records the exact mailbox argument every call receives so a
+    test can assert it was quoted, not just that some call happened."""
+
+    def __init__(self) -> None:
+        self.status_calls: list[str] = []
+
+    def list(self):
+        return "OK", [
+            b'(\\HasNoChildren) "/" "INBOX"',
+            b'(\\HasNoChildren) "/" "[Gmail]/All Mail"',
+        ]
+
+    def status(self, mailbox, names):  # noqa: ANN001, ARG002
+        self.status_calls.append(mailbox)
+        if mailbox == '"[Gmail]/All Mail"':
+            return "OK", [b'"[Gmail]/All Mail" (MESSAGES 10 UNSEEN 2)']
+        return "OK", [b'"INBOX" (MESSAGES 3 UNSEEN 1)']
+
+    def logout(self) -> None:
+        pass
+
+
+def test_folders_sends_a_quoted_status_command_for_multi_word_mailbox_names(monkeypatch) -> None:
+    # Regression: a Gmail-connected mailbox's "[Gmail]/All Mail" and
+    # "[Gmail]/Sent Mail" folders always showed 0/0 (and spammed the log
+    # with warnings) because their names were sent to STATUS unquoted.
+    fake_client = _FakeFolderListImap()
+    monkeypatch.setattr(HostingerMailboxClient, "_connect", lambda self: fake_client)  # noqa: ARG005
+
+    mailbox = HostingerMailboxClient("gmail-test@novarisesa.com", "secret")
+    entries = mailbox.folders()
+
+    # The bare (unquoted) name must never hit the wire - that's the exact
+    # shape of the original bug.
+    assert "[Gmail]/All Mail" not in fake_client.status_calls
+    assert '"[Gmail]/All Mail"' in fake_client.status_calls
+
+    by_name = {entry["name"]: entry for entry in entries}
+    assert by_name["[Gmail]/All Mail"]["total"] == 10
+    assert by_name["[Gmail]/All Mail"]["unseen"] == 2
 
 
 class _FakeListFetchImap:
