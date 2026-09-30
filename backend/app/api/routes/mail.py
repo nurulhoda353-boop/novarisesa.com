@@ -42,6 +42,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.storage import save_upload
+from app.services.mail_health_monitor import record_refresh_failure
 from app.models import (
     MailAccount,
     MailAuditLog,
@@ -395,13 +396,20 @@ def login(payload: MailLoginRequest, request: Request, db: DBSession) -> MobileS
 
 @router.post("/auth/refresh", response_model=MobileSessionResponse)
 def refresh(payload: MobileRefreshRequest, db: DBSession) -> MobileSessionResponse:
-    unauthorized = HTTPException(status_code=401, detail="Session expired")
+    def unauthorized() -> HTTPException:
+        # Feeds mail_health_monitor's cross-tab-refresh-race alarm - a
+        # healthy client only hits this on genuine session expiry, so a
+        # sustained spike here means sessions are dying for some other
+        # reason (see webmail/lib/api.ts's retry-with-rotated-token fix).
+        record_refresh_failure()
+        return HTTPException(status_code=401, detail="Session expired")
+
     try:
         decoded = decode_mobile_token(payload.refresh_token, "refresh")
         token_id = uuid.UUID(decoded["jti"])
         user_id = uuid.UUID(decoded["sub"])
     except (jwt.InvalidTokenError, KeyError, ValueError) as exc:
-        raise unauthorized from exc
+        raise unauthorized() from exc
     stored = db.scalar(
         select(RefreshToken).where(
             RefreshToken.id == token_id,
@@ -414,11 +422,11 @@ def refresh(payload: MobileRefreshRequest, db: DBSession) -> MobileSessionRespon
         or stored.expires_at < datetime.now(UTC)
         or stored.token_hash != digest_token(payload.refresh_token)
     ):
-        raise unauthorized
+        raise unauthorized()
     user = db.get(User, user_id)
     account = db.scalar(select(MailAccount).where(MailAccount.user_id == user_id))
     if not user or not account or not user.is_active or not account.is_active:
-        raise unauthorized
+        raise unauthorized()
     stored.revoked_at = datetime.now(UTC)
     # Carries an admin's "switched into this mailbox" status forward across
     # refreshes - without re-reading it from the refresh token being

@@ -15,6 +15,7 @@ from app.core.config import settings
 from app.core.storage import media_root
 from app.services.hostinger_directory_sync import hostinger_directory_sync_loop
 from app.services.mail_client import close_all_imap_connections, imap_pool_maintenance_loop
+from app.services.mail_health_monitor import mail_health_monitor_loop
 from app.services.mail_scheduled_send import scheduled_send_loop
 from app.services.mail_snooze import snooze_scheduler_loop
 
@@ -35,6 +36,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                     f"{settings.API_V1_PREFIX}/cms",
                     f"{settings.API_V1_PREFIX}/auth",
                     f"{settings.API_V1_PREFIX}/mail",
+                    f"{settings.API_V1_PREFIX}/novafin",
                 )
             )
         ):
@@ -59,6 +61,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 f"{settings.API_V1_PREFIX}/cms",
                 f"{settings.API_V1_PREFIX}/auth",
                 f"{settings.API_V1_PREFIX}/mail",
+                f"{settings.API_V1_PREFIX}/novafin",
             )
         ):
             response.headers["Cache-Control"] = "no-store"
@@ -82,6 +85,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     scheduled_send_task = asyncio.create_task(scheduled_send_loop())
     pool_maintenance_task = asyncio.create_task(imap_pool_maintenance_loop())
     directory_sync_task = asyncio.create_task(hostinger_directory_sync_loop())
+    health_monitor_task = asyncio.create_task(mail_health_monitor_loop())
     try:
         yield
     finally:
@@ -89,6 +93,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         scheduled_send_task.cancel()
         pool_maintenance_task.cancel()
         directory_sync_task.cancel()
+        health_monitor_task.cancel()
         with suppress(asyncio.CancelledError):
             await scheduler_task
         with suppress(asyncio.CancelledError):
@@ -97,6 +102,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             await pool_maintenance_task
         with suppress(asyncio.CancelledError):
             await directory_sync_task
+        with suppress(asyncio.CancelledError):
+            await health_monitor_task
         close_all_imap_connections()
 
 
