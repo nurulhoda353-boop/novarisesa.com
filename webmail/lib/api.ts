@@ -129,11 +129,15 @@ function resolveDetail(body: unknown): string {
   return "Something went wrong";
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 async function performRefresh(): Promise<boolean> {
   const address = activeAddress();
   const stored = readAccounts().find((item) => item.address === address);
   if (!stored) return false;
-  return performRefreshWithToken(address!, stored.refresh_token, true);
+  return performRefreshWithToken(address!, stored.refresh_token, 3);
 }
 
 // Refresh tokens are single-use (rotated on every call), but `accessToken`
@@ -141,14 +145,13 @@ async function performRefresh(): Promise<boolean> {
 // shared via localStorage. With more than one tab open on the same
 // mailbox, both can read the same still-valid refresh token and race to
 // redeem it: the loser gets a 401 even though the session is fine. Instead
-// of forcing that tab to a dead login screen, re-read localStorage for
-// whatever token the winner just wrote and retry once with that before
-// giving up.
-async function performRefreshWithToken(
-  address: string,
-  refreshToken: string,
-  allowRetryOnRotation: boolean,
-): Promise<boolean> {
+// of forcing that tab to a dead login screen, wait briefly for the winner
+// to finish writing its rotated token to localStorage and retry with that
+// - a real cross-tab round trip (network + one localStorage write) easily
+// finishes well inside these delays, so a few short retries are enough
+// without ever blocking a single-tab refresh (which never sees a 401 here
+// and returns on the first attempt).
+async function performRefreshWithToken(address: string, refreshToken: string, attemptsLeft: number): Promise<boolean> {
   try {
     const response = await timedFetch(`${API_URL}/mail/auth/refresh`, {
       method: "POST",
@@ -156,10 +159,11 @@ async function performRefreshWithToken(
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
     if (!response.ok) {
-      if (allowRetryOnRotation && response.status === 401) {
+      if (response.status === 401 && attemptsLeft > 1) {
+        await delay(200);
         const latest = readAccounts().find((item) => item.address === address);
-        if (latest && latest.refresh_token !== refreshToken) {
-          return performRefreshWithToken(address, latest.refresh_token, false);
+        if (latest) {
+          return performRefreshWithToken(address, latest.refresh_token, attemptsLeft - 1);
         }
       }
       return false;

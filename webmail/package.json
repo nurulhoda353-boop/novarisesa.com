@@ -6,7 +6,8 @@
     "dev": "next dev -p 3002",
     "build": "next build",
     "start": "next start -p 3002",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "dompurify": "^3.2.4",
@@ -23,7 +24,8 @@
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.32.0",
     "eslint-config-next": "^15.5.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^5.0.3"
   },
   "overrides": {
     "nanoid": "^3.3.17",
