@@ -60,6 +60,17 @@ IDLE_CLOSE_AFTER_SECONDS = 300
 STATUS_FETCH_CONCURRENCY = 6
 
 
+def _quote_mailbox(name: str) -> str:
+    """imaplib joins command arguments with a bare space and never quotes
+    them itself - a mailbox name containing a space (Gmail's "[Gmail]/All
+    Mail", "[Gmail]/Sent Mail", etc.) goes out as two unparseable tokens
+    and the server rejects the command with a BAD response. IMAP quoted
+    strings are valid for any mailbox name, so quoting unconditionally is
+    always safe, not just for names that happen to need it."""
+    escaped = name.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def _pooled_connection(address: str) -> _PooledConnection:
     with _pool_registry_lock:
         entry = _pool.get(address)
@@ -404,7 +415,7 @@ class HostingerMailboxClient:
             logger.warning("Could not open a connection to fetch STATUS for %s", name)
             return 0, 0
         try:
-            status_ok, status_rows = client.status(name, "(MESSAGES UNSEEN)")
+            status_ok, status_rows = client.status(_quote_mailbox(name), "(MESSAGES UNSEEN)")
         except (imaplib.IMAP4.error, OSError, ssl.SSLError) as exc:
             logger.warning("STATUS command failed for %s: %s", name, exc)
             return 0, 0
@@ -445,7 +456,7 @@ class HostingerMailboxClient:
         if folder != "INBOX":
             self.ensure_folder(folder)
         with self.imap() as client:
-            status, _ = client.select(folder, readonly=True)
+            status, _ = client.select(_quote_mailbox(folder), readonly=True)
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
             clauses: list[str] = []
@@ -535,7 +546,7 @@ class HostingerMailboxClient:
 
     def message(self, folder: str, uid: int) -> dict[str, Any]:
         with self.imap() as client:
-            status, _ = client.select(folder, readonly=True)
+            status, _ = client.select(_quote_mailbox(folder), readonly=True)
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
             status, rows = client.uid("fetch", str(uid), "(FLAGS RFC822.SIZE BODY.PEEK[])")
@@ -564,7 +575,7 @@ class HostingerMailboxClient:
 
     def attachment(self, folder: str, uid: int, part_number: str) -> tuple[str, str, bytes]:
         with self.imap() as client:
-            status, _ = client.select(folder, readonly=True)
+            status, _ = client.select(_quote_mailbox(folder), readonly=True)
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
             status, rows = client.uid("fetch", str(uid), "(BODY.PEEK[])")
@@ -577,7 +588,7 @@ class HostingerMailboxClient:
 
     def set_flag(self, folder: str, uid: int, flag: str, value: bool) -> None:
         with self.imap() as client:
-            status, _ = client.select(folder)
+            status, _ = client.select(_quote_mailbox(folder))
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
             operation = "+FLAGS.SILENT" if value else "-FLAGS.SILENT"
@@ -588,10 +599,10 @@ class HostingerMailboxClient:
     def move(self, folder: str, uid: int, destination: str) -> None:
         self.ensure_folder(destination)
         with self.imap() as client:
-            status, _ = client.select(folder)
+            status, _ = client.select(_quote_mailbox(folder))
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
-            status, _ = client.uid("copy", str(uid), destination)
+            status, _ = client.uid("copy", str(uid), _quote_mailbox(destination))
             if status != "OK":
                 raise MailConnectionError("Message could not be moved")
             client.uid("store", str(uid), "+FLAGS.SILENT", "(\\Deleted)")
@@ -599,7 +610,7 @@ class HostingerMailboxClient:
 
     def delete(self, folder: str, uid: int) -> None:
         with self.imap() as client:
-            status, _ = client.select(folder)
+            status, _ = client.select(_quote_mailbox(folder))
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
             status, _ = client.uid("store", str(uid), "+FLAGS.SILENT", "(\\Deleted)")
@@ -618,7 +629,7 @@ class HostingerMailboxClient:
                         return
                     if isinstance(row, bytes) and row.decode("utf-8", errors="replace").endswith(name):
                         return
-            client.create(name)
+            client.create(_quote_mailbox(name))
 
     def find_uid_by_message_id(self, folder: str, message_id: str) -> int | None:
         """Looks up a message's current UID in `folder` by its Message-ID
@@ -627,7 +638,7 @@ class HostingerMailboxClient:
         message it moved earlier."""
         escaped = message_id.replace('"', "")
         with self.imap() as client:
-            status, _ = client.select(folder, readonly=True)
+            status, _ = client.select(_quote_mailbox(folder), readonly=True)
             if status != "OK":
                 raise MailConnectionError("Mailbox folder is unavailable")
             status, data = client.uid("search", None, f'(HEADER "Message-ID" "{escaped}")')

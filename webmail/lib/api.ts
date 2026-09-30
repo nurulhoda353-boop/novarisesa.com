@@ -133,16 +133,40 @@ async function performRefresh(): Promise<boolean> {
   const address = activeAddress();
   const stored = readAccounts().find((item) => item.address === address);
   if (!stored) return false;
+  return performRefreshWithToken(address!, stored.refresh_token, true);
+}
+
+// Refresh tokens are single-use (rotated on every call), but `accessToken`
+// only lives in memory per browser tab while the rotated refresh token is
+// shared via localStorage. With more than one tab open on the same
+// mailbox, both can read the same still-valid refresh token and race to
+// redeem it: the loser gets a 401 even though the session is fine. Instead
+// of forcing that tab to a dead login screen, re-read localStorage for
+// whatever token the winner just wrote and retry once with that before
+// giving up.
+async function performRefreshWithToken(
+  address: string,
+  refreshToken: string,
+  allowRetryOnRotation: boolean,
+): Promise<boolean> {
   try {
     const response = await timedFetch(`${API_URL}/mail/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: stored.refresh_token }),
+      body: JSON.stringify({ refresh_token: refreshToken }),
     });
-    if (!response.ok) return false;
+    if (!response.ok) {
+      if (allowRetryOnRotation && response.status === 401) {
+        const latest = readAccounts().find((item) => item.address === address);
+        if (latest && latest.refresh_token !== refreshToken) {
+          return performRefreshWithToken(address, latest.refresh_token, false);
+        }
+      }
+      return false;
+    }
     const session = (await response.json()) as MobileSession;
     accessToken = session.access_token;
-    rememberAccount(stored.address, session.refresh_token, session.account);
+    rememberAccount(address, session.refresh_token, session.account);
     onSessionChange?.(session.account);
     return true;
   } catch {
