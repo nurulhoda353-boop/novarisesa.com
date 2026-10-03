@@ -967,3 +967,639 @@ class AuditLog(UUIDMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+# --- NovaFin (accounting / ERP module) ---
+
+
+class NovaFinItemKind(StrEnum):
+    PRODUCT = "product"
+    SERVICE = "service"
+
+
+class NovaFinInvoiceStatus(StrEnum):
+    DRAFT = "draft"
+    POSTED = "posted"
+    CANCELLED = "cancelled"
+
+
+class NovaFinCompanyProfile(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_company_profile"
+
+    name: Mapped[str] = mapped_column(String(200), default="NOVARISE Trading and Contracting Company")
+    vat_number: Mapped[str | None] = mapped_column(String(40))
+    cr_number: Mapped[str | None] = mapped_column(String(40))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    email: Mapped[str | None] = mapped_column(String(320))
+    address: Mapped[str | None] = mapped_column(Text)
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+
+
+class NovaFinItem(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_items"
+
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    kind: Mapped[NovaFinItemKind] = mapped_column(
+        Enum(NovaFinItemKind, name="novafin_item_kind", values_callable=lambda e: [x.value for x in e]),
+        default=NovaFinItemKind.PRODUCT,
+    )
+    unit: Mapped[str] = mapped_column(String(40), default="Piece")
+    cost: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    price: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    opening_qty: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=Decimal("0"))
+    min_level: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=Decimal("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    stock_moves: Mapped[list["NovaFinStockMove"]] = relationship(back_populates="item")
+
+
+class NovaFinCustomer(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_customers"
+
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    phone: Mapped[str | None] = mapped_column(String(40))
+    email: Mapped[str | None] = mapped_column(String(320))
+    city: Mapped[str | None] = mapped_column(String(120))
+    vat_number: Mapped[str | None] = mapped_column(String(40))
+    credit_limit: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    opening_balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class NovaFinVendor(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_vendors"
+
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    phone: Mapped[str | None] = mapped_column(String(40))
+    city: Mapped[str | None] = mapped_column(String(120))
+    vat_number: Mapped[str | None] = mapped_column(String(40))
+    opening_balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class NovaFinInvoice(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_invoices"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_invoices_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_customers.id", ondelete="RESTRICT"), index=True
+    )
+    invoice_date: Mapped[date] = mapped_column(Date)
+    mode: Mapped[str] = mapped_column(String(10), default="cash")
+    status: Mapped[NovaFinInvoiceStatus] = mapped_column(
+        Enum(
+            NovaFinInvoiceStatus,
+            name="novafin_invoice_status",
+            values_callable=lambda e: [x.value for x in e],
+        ),
+        default=NovaFinInvoiceStatus.POSTED,
+    )
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    customer: Mapped[NovaFinCustomer] = relationship()
+    lines: Mapped[list["NovaFinInvoiceLine"]] = relationship(
+        back_populates="invoice", cascade="all, delete-orphan"
+    )
+
+
+class NovaFinInvoiceLine(UUIDMixin, Base):
+    __tablename__ = "novafin_invoice_lines"
+
+    invoice_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_invoices.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    invoice: Mapped[NovaFinInvoice] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinPurchase(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_purchases"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_purchases_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    vendor_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_vendors.id", ondelete="RESTRICT"), index=True
+    )
+    purchase_date: Mapped[date] = mapped_column(Date)
+    mode: Mapped[str] = mapped_column(String(10), default="cash")
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    vendor: Mapped[NovaFinVendor] = relationship()
+    lines: Mapped[list["NovaFinPurchaseLine"]] = relationship(
+        back_populates="purchase", cascade="all, delete-orphan"
+    )
+
+
+class NovaFinPurchaseLine(UUIDMixin, Base):
+    __tablename__ = "novafin_purchase_lines"
+
+    purchase_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_purchases.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    purchase: Mapped[NovaFinPurchase] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinStockMove(UUIDMixin, Base):
+    __tablename__ = "novafin_stock_moves"
+
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="CASCADE"), index=True)
+    delta: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    move_date: Mapped[date] = mapped_column(Date)
+    reference: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    item: Mapped[NovaFinItem] = relationship(back_populates="stock_moves")
+
+
+# --- NovaFin: sales flow (quotes / orders / deliveries / returns / credit notes) ---
+
+
+class NovaFinQuote(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_quotes"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_quotes_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_customers.id", ondelete="RESTRICT"))
+    quote_date: Mapped[date] = mapped_column(Date)
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    status: Mapped[str] = mapped_column(String(16), default="open")
+
+    customer: Mapped[NovaFinCustomer] = relationship()
+    lines: Mapped[list["NovaFinQuoteLine"]] = relationship(back_populates="quote", cascade="all, delete-orphan")
+
+
+class NovaFinQuoteLine(UUIDMixin, Base):
+    __tablename__ = "novafin_quote_lines"
+
+    quote_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_quotes.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    quote: Mapped[NovaFinQuote] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinOrder(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_orders"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_orders_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_customers.id", ondelete="RESTRICT"))
+    quote_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_quotes.id", ondelete="SET NULL"))
+    order_date: Mapped[date] = mapped_column(Date)
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    status: Mapped[str] = mapped_column(String(16), default="open")
+
+    customer: Mapped[NovaFinCustomer] = relationship()
+    lines: Mapped[list["NovaFinOrderLine"]] = relationship(back_populates="order", cascade="all, delete-orphan")
+
+
+class NovaFinOrderLine(UUIDMixin, Base):
+    __tablename__ = "novafin_order_lines"
+
+    order_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_orders.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    order: Mapped[NovaFinOrder] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinDelivery(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_deliveries"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_deliveries_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_customers.id", ondelete="RESTRICT"))
+    order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_orders.id", ondelete="SET NULL"))
+    delivery_date: Mapped[date] = mapped_column(Date)
+
+    customer: Mapped[NovaFinCustomer] = relationship()
+    lines: Mapped[list["NovaFinDeliveryLine"]] = relationship(back_populates="delivery", cascade="all, delete-orphan")
+
+
+class NovaFinDeliveryLine(UUIDMixin, Base):
+    __tablename__ = "novafin_delivery_lines"
+
+    delivery_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_deliveries.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+
+    delivery: Mapped[NovaFinDelivery] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinSalesReturn(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_sales_returns"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_sales_returns_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    invoice_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_invoices.id", ondelete="SET NULL"))
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_customers.id", ondelete="RESTRICT"))
+    return_date: Mapped[date] = mapped_column(Date)
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+
+    customer: Mapped[NovaFinCustomer] = relationship()
+    lines: Mapped[list["NovaFinSalesReturnLine"]] = relationship(back_populates="sales_return", cascade="all, delete-orphan")
+
+
+class NovaFinSalesReturnLine(UUIDMixin, Base):
+    __tablename__ = "novafin_sales_return_lines"
+
+    sales_return_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_sales_returns.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    sales_return: Mapped[NovaFinSalesReturn] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinCreditNote(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_credit_notes"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_credit_notes_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    customer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_customers.id", ondelete="RESTRICT"))
+    note_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    reason: Mapped[str | None] = mapped_column(Text)
+
+    customer: Mapped[NovaFinCustomer] = relationship()
+
+
+# --- NovaFin: purchasing flow (RFQ / purchase orders / purchase returns) ---
+
+
+class NovaFinRfq(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_rfqs"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_rfqs_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    rfq_date: Mapped[date] = mapped_column(Date)
+    deadline: Mapped[date | None] = mapped_column(Date)
+    vendor_names: Mapped[list[str]] = mapped_column(JSONB, default=list)
+
+    lines: Mapped[list["NovaFinRfqLine"]] = relationship(back_populates="rfq", cascade="all, delete-orphan")
+
+
+class NovaFinRfqLine(UUIDMixin, Base):
+    __tablename__ = "novafin_rfq_lines"
+
+    rfq_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_rfqs.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    max_price: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    rfq: Mapped[NovaFinRfq] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinPurchaseOrder(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_purchase_orders"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_purchase_orders_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    vendor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_vendors.id", ondelete="RESTRICT"))
+    order_date: Mapped[date] = mapped_column(Date)
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    status: Mapped[str] = mapped_column(String(16), default="open")
+
+    vendor: Mapped[NovaFinVendor] = relationship()
+    lines: Mapped[list["NovaFinPurchaseOrderLine"]] = relationship(back_populates="purchase_order", cascade="all, delete-orphan")
+
+
+class NovaFinPurchaseOrderLine(UUIDMixin, Base):
+    __tablename__ = "novafin_purchase_order_lines"
+
+    purchase_order_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_purchase_orders.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    purchase_order: Mapped[NovaFinPurchaseOrder] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+class NovaFinPurchaseReturn(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_purchase_returns"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_purchase_returns_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    purchase_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_purchases.id", ondelete="SET NULL"))
+    vendor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_vendors.id", ondelete="RESTRICT"))
+    return_date: Mapped[date] = mapped_column(Date)
+    vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+
+    vendor: Mapped[NovaFinVendor] = relationship()
+    lines: Mapped[list["NovaFinPurchaseReturnLine"]] = relationship(back_populates="purchase_return", cascade="all, delete-orphan")
+
+
+class NovaFinPurchaseReturnLine(UUIDMixin, Base):
+    __tablename__ = "novafin_purchase_return_lines"
+
+    purchase_return_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_purchase_returns.id", ondelete="CASCADE"), index=True
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_items.id", ondelete="RESTRICT"))
+    name_snapshot: Mapped[str] = mapped_column(String(200))
+    unit: Mapped[str] = mapped_column(String(40))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(14, 3))
+    rate: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+
+    purchase_return: Mapped[NovaFinPurchaseReturn] = relationship(back_populates="lines")
+    item: Mapped[NovaFinItem] = relationship()
+
+
+# --- NovaFin: banking & cash ---
+
+
+class NovaFinBank(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_banks"
+
+    name: Mapped[str] = mapped_column(String(150))
+    branch: Mapped[str | None] = mapped_column(String(150))
+    account_no: Mapped[str | None] = mapped_column(String(60))
+    opening_balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class NovaFinBranch(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_branches"
+
+    name: Mapped[str] = mapped_column(String(150))
+    city: Mapped[str | None] = mapped_column(String(120))
+
+
+class NovaFinCashMove(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_cash_moves"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_cash_moves_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    kind: Mapped[str] = mapped_column(String(10))  # receipt | payment
+    party_name: Mapped[str | None] = mapped_column(String(200))
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_customers.id", ondelete="SET NULL"))
+    vendor_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_vendors.id", ondelete="SET NULL"))
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    move_date: Mapped[date] = mapped_column(Date)
+    method: Mapped[str] = mapped_column(String(60), default="cash")  # "cash" or "bank:<uuid>"
+    is_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    customer: Mapped[NovaFinCustomer | None] = relationship()
+    vendor: Mapped[NovaFinVendor | None] = relationship()
+
+
+class NovaFinCheque(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_cheques"
+
+    cheque_no: Mapped[str] = mapped_column(String(60))
+    bank_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_banks.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(10))  # inward | outward
+    party_name: Mapped[str | None] = mapped_column(String(200))
+    due_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | cleared | bounced
+    cheque_date: Mapped[date] = mapped_column(Date)
+    is_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    bank: Mapped[NovaFinBank | None] = relationship()
+
+
+class NovaFinIncomeCategory(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_income_categories"
+    name: Mapped[str] = mapped_column(String(150))
+
+
+class NovaFinExpenseCategory(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_expense_categories"
+    name: Mapped[str] = mapped_column(String(150))
+
+
+class NovaFinIncomeVoucher(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_income_vouchers"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_income_vouchers_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_income_categories.id", ondelete="RESTRICT"))
+    voucher_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    method: Mapped[str] = mapped_column(String(60), default="cash")
+    note: Mapped[str | None] = mapped_column(Text)
+
+    category: Mapped[NovaFinIncomeCategory] = relationship()
+
+
+class NovaFinExpenseVoucher(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_expense_vouchers"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_expense_vouchers_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_expense_categories.id", ondelete="RESTRICT"))
+    voucher_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    method: Mapped[str] = mapped_column(String(60), default="cash")
+    note: Mapped[str | None] = mapped_column(Text)
+
+    category: Mapped[NovaFinExpenseCategory] = relationship()
+
+
+class NovaFinCapitalMove(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_capital_moves"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_capital_moves_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    kind: Mapped[str] = mapped_column(String(10))  # capital | drawings
+    move_date: Mapped[date] = mapped_column(Date)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    method: Mapped[str] = mapped_column(String(60), default="cash")
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class NovaFinContra(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_contras"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_contras_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    contra_date: Mapped[date] = mapped_column(Date)
+    from_method: Mapped[str] = mapped_column(String(60))
+    to_method: Mapped[str] = mapped_column(String(60))
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+# --- NovaFin: accounting core ---
+
+
+class NovaFinAccount(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_accounts"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_accounts_code"),)
+
+    code: Mapped[str] = mapped_column(String(80))
+    name: Mapped[str] = mapped_column(String(150))
+    account_type: Mapped[str] = mapped_column(String(20))  # asset | liability | equity | income | expense
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class NovaFinJournalVoucher(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_journal_vouchers"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_journal_vouchers_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    voucher_date: Mapped[date] = mapped_column(Date)
+    narration: Mapped[str | None] = mapped_column(Text)
+
+    lines: Mapped[list["NovaFinJournalVoucherLine"]] = relationship(back_populates="voucher", cascade="all, delete-orphan")
+
+
+class NovaFinJournalVoucherLine(UUIDMixin, Base):
+    __tablename__ = "novafin_journal_voucher_lines"
+
+    voucher_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_journal_vouchers.id", ondelete="CASCADE"), index=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_accounts.id", ondelete="RESTRICT"))
+    debit: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    credit: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+
+    voucher: Mapped[NovaFinJournalVoucher] = relationship(back_populates="lines")
+    account: Mapped[NovaFinAccount] = relationship()
+
+
+class NovaFinAsset(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_assets"
+
+    name: Mapped[str] = mapped_column(String(200))
+    cost: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    purchase_date: Mapped[date] = mapped_column(Date)
+    depreciation_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("0"))
+    funding_method: Mapped[str] = mapped_column(String(60), default="cash")  # "cash" or "bank:<uuid>"
+    last_depreciation_period: Mapped[str | None] = mapped_column(String(7))  # "YYYY-MM"
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+# --- NovaFin: HR & payroll ---
+
+
+class NovaFinDepartment(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_departments"
+    name: Mapped[str] = mapped_column(String(150))
+
+
+class NovaFinDesignation(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_designations"
+    name: Mapped[str] = mapped_column(String(150))
+
+
+class NovaFinEmployee(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_employees"
+
+    name: Mapped[str] = mapped_column(String(150))
+    phone: Mapped[str | None] = mapped_column(String(40))
+    department_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_departments.id", ondelete="SET NULL"))
+    designation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("novafin_designations.id", ondelete="SET NULL"))
+    basic_salary: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    department: Mapped[NovaFinDepartment | None] = relationship()
+    designation: Mapped[NovaFinDesignation | None] = relationship()
+
+
+class NovaFinSalarySlip(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_salary_slips"
+    __table_args__ = (UniqueConstraint("code", name="uq_novafin_salary_slips_code"),)
+
+    code: Mapped[str] = mapped_column(String(40), index=True)
+    employee_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_employees.id", ondelete="RESTRICT"))
+    month: Mapped[str] = mapped_column(String(20))
+    basic: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    allowance: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    deduction: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
+    net: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    is_paid: Mapped[bool] = mapped_column(Boolean, default=False)
+    paid_date: Mapped[date | None] = mapped_column(Date)
+
+    employee: Mapped[NovaFinEmployee] = relationship()
+
+
+# --- NovaFin: administration ---
+
+
+class NovaFinFiscalYear(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "novafin_fiscal_years"
+
+    label: Mapped[str] = mapped_column(String(40))
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(10), default="open")  # open | closed
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    net_profit_snapshot: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+
+
+class NovaFinBankClear(UUIDMixin, Base):
+    __tablename__ = "novafin_bank_clears"
+    __table_args__ = (UniqueConstraint("journal_voucher_line_id", name="uq_novafin_bank_clears_line"),)
+
+    bank_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("novafin_banks.id", ondelete="CASCADE"), index=True)
+    journal_voucher_line_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("novafin_journal_voucher_lines.id", ondelete="CASCADE")
+    )
+    cleared_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

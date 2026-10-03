@@ -24,6 +24,8 @@ CMS_PERMISSIONS = {
     "cms.manage_users": "Manage dashboard users and roles",
     "cms.manage_security": "Reset passwords and revoke dashboard sessions",
     "cms.view_audit": "View security and account activity logs",
+    "novafin.view": "View the NovaFin accounting dashboard",
+    "novafin.manage": "Create and edit NovaFin items, customers, vendors, invoices, and purchases",
 }
 
 ROLE_PERMISSIONS = {
@@ -36,6 +38,8 @@ ROLE_PERMISSIONS = {
         "cms.manage_inbox",
         "cms.manage_settings",
         "cms.manage_users",
+        "novafin.view",
+        "novafin.manage",
     },
     "editor": {
         "cms.view",
