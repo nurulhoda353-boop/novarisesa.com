@@ -207,6 +207,7 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
     final passwordCtrl = TextEditingController();
     String role = roles.isNotEmpty ? roles.last['name'] as String : 'editor';
     bool isActive = true;
+    bool obscurePassword = true;
     String? error;
 
     if (!context.mounted) return;
@@ -238,9 +239,15 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: passwordCtrl,
-                      decoration: const InputDecoration(labelText: 'Temporary Password (min 12 characters)'),
-                      obscureText: true,
-                      validator: (v) => (v == null || v.length < 12) ? 'At least 12 characters' : null,
+                      decoration: InputDecoration(
+                        labelText: 'Temporary Password (min 8 characters)',
+                        suffixIcon: IconButton(
+                          icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility, size: 19),
+                          onPressed: () => setDialogState(() => obscurePassword = !obscurePassword),
+                        ),
+                      ),
+                      obscureText: obscurePassword,
+                      validator: (v) => (v == null || v.length < 8) ? 'At least 8 characters' : null,
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -364,6 +371,8 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
     final currentPasswordCtrl = TextEditingController();
     final newPasswordCtrl = TextEditingController();
     bool requireChange = true;
+    bool obscureNew = true;
+    bool obscureCurrent = true;
     String? error;
 
     if (!context.mounted) return;
@@ -379,8 +388,14 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
               children: [
                 TextFormField(
                   controller: newPasswordCtrl,
-                  decoration: const InputDecoration(labelText: 'New Password (min 12 characters)'),
-                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'New Password (min 8 characters)',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility, size: 19),
+                      onPressed: () => setDialogState(() => obscureNew = !obscureNew),
+                    ),
+                  ),
+                  obscureText: obscureNew,
                 ),
                 const SizedBox(height: 12),
                 CheckboxListTile(
@@ -392,8 +407,14 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
                 const Divider(height: 24),
                 TextFormField(
                   controller: currentPasswordCtrl,
-                  decoration: const InputDecoration(labelText: 'Your Password (to confirm this action)'),
-                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Your Password (to confirm this action)',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility, size: 19),
+                      onPressed: () => setDialogState(() => obscureCurrent = !obscureCurrent),
+                    ),
+                  ),
+                  obscureText: obscureCurrent,
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 8),
@@ -406,8 +427,8 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
-                if (newPasswordCtrl.text.length < 12 || currentPasswordCtrl.text.isEmpty) {
-                  setDialogState(() => error = 'Fill in both fields (new password needs 12+ characters).');
+                if (newPasswordCtrl.text.length < 8 || currentPasswordCtrl.text.isEmpty) {
+                  setDialogState(() => error = 'Fill in both fields (new password needs 8+ characters).');
                   return;
                 }
                 try {
@@ -433,6 +454,7 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
   Future<void> _openRevokeSessionsDialog(BuildContext context, Map<String, dynamic> u) async {
     final repo = context.read<CmsUsersRepository>();
     final currentPasswordCtrl = TextEditingController();
+    bool obscureCurrent = true;
     String? error;
 
     if (!context.mounted) return;
@@ -448,8 +470,14 @@ class _UserRolesScreenState extends State<UserRolesScreen> {
               children: [
                 TextFormField(
                   controller: currentPasswordCtrl,
-                  decoration: const InputDecoration(labelText: 'Your Password (to confirm this action)'),
-                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: 'Your Password (to confirm this action)',
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureCurrent ? Icons.visibility_off : Icons.visibility, size: 19),
+                      onPressed: () => setDialogState(() => obscureCurrent = !obscureCurrent),
+                    ),
+                  ),
+                  obscureText: obscureCurrent,
                 ),
                 if (error != null) ...[
                   const SizedBox(height: 8),

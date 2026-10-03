@@ -346,7 +346,7 @@ class TaxonomyUpsert(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=160)
-    password: str = Field(min_length=12, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     role: str = Field(default="editor", min_length=2, max_length=80)
     is_active: bool = True
 
@@ -359,7 +359,7 @@ class UserUpdate(BaseModel):
 
 class UserPasswordReset(BaseModel):
     current_password: str = Field(min_length=8, max_length=128)
-    new_password: str = Field(min_length=12, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
     require_password_change: bool = True
 
 
