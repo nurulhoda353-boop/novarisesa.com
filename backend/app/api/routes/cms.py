@@ -17,7 +17,7 @@ from fastapi import (
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.auth import require_permission
+from app.core.auth import require_permission, user_permission_codes
 from app.core.content_images import default_content_image
 from app.core.database import get_db
 from app.core.request import client_ip
@@ -43,6 +43,7 @@ from app.models import (
     MediaAsset,
     NavigationItem,
     NewsletterSubscriber,
+    NovaFinCustomer,
     Page,
     PageTranslation,
     Post,
@@ -179,6 +180,8 @@ def serialize_inbox_item(inbox: str, row: Any) -> dict[str, Any]:
         "summary": inbox_summary(inbox, row),
         "created_at": row.created_at.isoformat(),
         "internal_notes": getattr(row, "internal_notes", None),
+        "novafin_customer_id": str(row.novafin_customer_id) if getattr(row, "novafin_customer_id", None) else None,
+        "novafin_customer_name": getattr(row, "novafin_customer", None).name if getattr(row, "novafin_customer", None) else None,
     }
     if inbox == "contact":
         assigned = getattr(row, "assigned_to", None)
@@ -1546,9 +1549,13 @@ def list_inbox(
         statement = statement.options(
             selectinload(ContactSubmission.assigned_to),
             selectinload(ContactSubmission.converted_rfq),
+            selectinload(ContactSubmission.novafin_customer),
         )
     elif inbox == "rfq":
-        statement = statement.options(selectinload(RFQSubmission.assigned_to))
+        statement = statement.options(
+            selectinload(RFQSubmission.assigned_to),
+            selectinload(RFQSubmission.novafin_customer),
+        )
     rows = list(db.scalars(statement))
     items = [serialize_inbox_item(inbox, row) for row in rows]
     return {"items": items, "total": len(items)}
@@ -1578,13 +1585,17 @@ def get_inbox_item(
             .options(
                 selectinload(ContactSubmission.assigned_to),
                 selectinload(ContactSubmission.converted_rfq),
+                selectinload(ContactSubmission.novafin_customer),
             )
             .where(ContactSubmission.id == item_id)
         )
     else:
         row = db.scalar(
             select(RFQSubmission)
-            .options(selectinload(RFQSubmission.assigned_to))
+            .options(
+                selectinload(RFQSubmission.assigned_to),
+                selectinload(RFQSubmission.novafin_customer),
+            )
             .where(RFQSubmission.id == item_id)
         )
     if row is None:
@@ -1768,6 +1779,59 @@ def convert_contact_to_rfq(
     audit(db, request, user, "cms.contact_converted_to_rfq", "contact", contact.id, after={"rfq_id": str(rfq.id), "reference": reference})
     db.commit()
     return {"id": str(rfq.id), "reference": reference, "status": "created"}
+
+
+@router.post("/{inbox}/{item_id}/link-novafin-customer", status_code=status.HTTP_201_CREATED)
+def link_novafin_customer(
+    inbox: Literal["contact", "rfq"],
+    item_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_permission("cms.manage_inbox"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    """Turns a website enquiry's contact details into a real NovaFin
+    customer record (or reuses an existing one matched by email) so a
+    salesperson never has to re-type name/phone/email by hand when
+    building the actual priced quote in NovaFin. Deliberately does NOT
+    create the quote itself - a Quote requires priced line items NovaFin
+    has no way to infer from a free-text "scope" field, so that part
+    stays a human decision."""
+    if "novafin.manage" not in user_permission_codes(user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to manage NovaFin")
+    model = ContactSubmission if inbox == "contact" else RFQSubmission
+    item = db.get(model, item_id)
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Enquiry not found")
+    if item.novafin_customer_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already linked to a NovaFin customer")
+
+    customer = None
+    if item.email:
+        customer = db.scalar(
+            select(NovaFinCustomer).where(func.lower(NovaFinCustomer.email) == item.email.lower())
+        )
+    if customer is None:
+        customer = NovaFinCustomer(
+            name=item.company or item.name,
+            phone=item.phone,
+            email=item.email,
+            is_active=True,
+        )
+        db.add(customer)
+        db.flush()
+
+    item.novafin_customer_id = customer.id
+    add_inbox_activity(
+        db, inbox, item.id, user.id, "linked_novafin_customer",
+        note=f"Linked to NovaFin customer “{customer.name}”.",
+        details={"novafin_customer_id": str(customer.id)},
+    )
+    audit(
+        db, request, user, f"cms.{inbox}_linked_novafin_customer", inbox, item.id,
+        after={"novafin_customer_id": str(customer.id), "novafin_customer_name": customer.name},
+    )
+    db.commit()
+    return {"novafin_customer_id": str(customer.id), "novafin_customer_name": customer.name, "status": "linked"}
 
 
 @router.get("/rfqs/overview")

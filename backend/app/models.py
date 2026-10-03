@@ -818,8 +818,16 @@ class ContactSubmission(UUIDMixin, TimestampMixin, Base):
     )
     internal_notes: Mapped[str | None] = mapped_column(Text)
     ip_address: Mapped[str | None] = mapped_column(INET)
+    # Set once a sales/CMS user links this enquiry to a NovaFin customer
+    # record (see cms.py's link_novafin_customer) - lets the inbox show
+    # "already in NovaFin" instead of a lead silently needing to be
+    # re-typed by hand into the accounting system.
+    novafin_customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("novafin_customers.id", ondelete="SET NULL"), index=True
+    )
     assigned_to: Mapped[User | None] = relationship(foreign_keys=[assigned_to_id])
     converted_rfq: Mapped["RFQSubmission | None"] = relationship(foreign_keys=[converted_rfq_id])
+    novafin_customer: Mapped["NovaFinCustomer | None"] = relationship(foreign_keys=[novafin_customer_id])
 
 
 class RFQSubmission(UUIDMixin, TimestampMixin, Base):
@@ -856,7 +864,11 @@ class RFQSubmission(UUIDMixin, TimestampMixin, Base):
     qualification: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     proposal: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     internal_notes: Mapped[str | None] = mapped_column(Text)
+    novafin_customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("novafin_customers.id", ondelete="SET NULL"), index=True
+    )
     assigned_to: Mapped[User | None] = relationship(foreign_keys=[assigned_to_id])
+    novafin_customer: Mapped["NovaFinCustomer | None"] = relationship(foreign_keys=[novafin_customer_id])
 
 
 class InboxActivity(UUIDMixin, Base):
