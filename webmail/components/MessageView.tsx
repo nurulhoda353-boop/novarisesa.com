@@ -207,14 +207,19 @@ function MessageCard({
     if (doc?.body) setIframeHeight(Math.min(Math.max(doc.body.scrollHeight + 24, 60), 4000));
   }
 
-  function reply() {
-    if (detail) onCompose(buildReplyInitial(detail, "reply", account.address));
+  async function reply() {
+    if (detail) onCompose(await buildReplyInitial(detail, "reply", account.address));
   }
-  function replyAll() {
-    if (detail) onCompose(buildReplyInitial(detail, "replyAll", account.address));
+  async function replyAll() {
+    if (detail) onCompose(await buildReplyInitial(detail, "replyAll", account.address));
   }
-  function forward() {
-    if (detail) onCompose(buildReplyInitial(detail, "forward", account.address));
+  async function forward() {
+    if (!detail) return;
+    try {
+      onCompose(await buildReplyInitial(detail, "forward", account.address));
+    } catch {
+      toast.show("Could not prepare the forward");
+    }
   }
 
   async function handleDownload(attachment: MailAttachmentInfo) {

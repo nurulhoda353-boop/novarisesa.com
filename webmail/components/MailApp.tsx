@@ -458,7 +458,7 @@ function MailAppInner() {
     const latestMessage = openThread.messages[openThread.messages.length - 1];
     try {
       const detail = await api.getMessage(imapFolderFor(activeFolder), latestMessage.uid);
-      openCompose(buildReplyInitial(detail, mode, account.address));
+      openCompose(await buildReplyInitial(detail, mode, account.address));
     } catch {
       toast.show("Could not open a reply for this message");
     }
