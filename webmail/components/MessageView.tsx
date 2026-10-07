@@ -174,7 +174,6 @@ function MessageCard({
       return;
     }
     let cancelled = false;
-    const isDark = document.documentElement.classList.contains("dark");
     const { html, hadRemoteImages } = sanitizeEmailHtml(detail.html_body, allowRemoteImages);
     const cidAttachments = detail.attachments.filter((item) => item.content_id);
 
@@ -193,7 +192,7 @@ function MessageCard({
       );
       if (cancelled) return;
       const withCid = replaceCidSources(html, resolved);
-      setIframeSrc(wrapForIframe(withCid, isDark));
+      setIframeSrc(wrapForIframe(withCid));
       setHadRemoteImages(hadRemoteImages);
     }
     resolveCidAndRender();

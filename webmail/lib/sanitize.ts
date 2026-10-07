@@ -58,15 +58,24 @@ export function replaceCidSources(html: string, resolved: Map<string, string>): 
   return container.innerHTML;
 }
 
-export function wrapForIframe(html: string, isDark: boolean): string {
-  const bg = isDark ? "#141B2C" : "#ffffff";
-  const fg = isDark ? "#E7ECF7" : "#0B1739";
+/**
+ * Email HTML is third-party content authored assuming a light background -
+ * most real messages set backgrounds/borders on their own elements without
+ * setting an explicit text color on every one, relying on the browser's
+ * default dark-on-light. Forcing a dark body color here (as this used to do
+ * for the app's dark theme) gets inherited by exactly those elements,
+ * washing their text out against their own light backgrounds. Gmail,
+ * Outlook, and Apple Mail all keep the message body itself light even in
+ * dark mode for this reason - match that instead of trying to safely
+ * color-invert arbitrary third-party CSS.
+ */
+export function wrapForIframe(html: string): string {
   return `<!doctype html><html><head><meta charset="utf-8" /><base target="_blank" /><style>
-    html,body{margin:0;padding:0;background:${bg};color:${fg};font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;word-wrap:break-word;overflow-wrap:anywhere;}
+    html,body{margin:0;padding:0;background:#ffffff;color:#0B1739;font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;word-wrap:break-word;overflow-wrap:anywhere;}
     body{padding:4px 2px;}
     img{max-width:100%;height:auto;}
     a{color:#3563E9;}
     table{max-width:100%;}
-    blockquote{border-left:2px solid ${isDark ? "#303C58" : "#D8E0F5"};margin:8px 0;padding:2px 0 2px 12px;color:${isDark ? "#A6B0C3" : "#5B6B84"};}
+    blockquote{border-left:2px solid #D8E0F5;margin:8px 0;padding:2px 0 2px 12px;color:#5B6B84;}
   </style></head><body>${html}</body></html>`;
 }
