@@ -319,6 +319,12 @@ class MailScheduledSend(UUIDMixin, TimestampMixin, Base):
     send_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Bumped on every failed send attempt; once it reaches
+    # mail_scheduled_send.MAX_SEND_ATTEMPTS the poll loop sets cancelled_at
+    # itself (distinguishable from a user cancel by last_error being set)
+    # instead of retrying a permanently-broken credential every 5s forever.
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
 
 
 class MailRule(UUIDMixin, TimestampMixin, Base):

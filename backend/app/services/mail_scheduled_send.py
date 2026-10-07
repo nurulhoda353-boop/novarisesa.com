@@ -22,6 +22,13 @@ from app.services.mail_client import HostingerMailboxClient, MailConnectionError
 logger = logging.getLogger("novarise.mail_scheduled_send")
 
 POLL_INTERVAL_SECONDS = 5
+# A broken credential (e.g. the real mailbox password was rotated without
+# updating credential_ciphertext) will never succeed on its own - retrying
+# every 5s forever just hammers Hostinger's SMTP server and ties up a
+# connection attempt each poll. Give up after this many failed attempts
+# (~2.5 minutes) instead; the account owner logging into Novamail again
+# with the new password self-heals credential_ciphertext for next time.
+MAX_SEND_ATTEMPTS = 30
 
 
 def _send_one(db, scheduled: MailScheduledSend, account: MailAccount) -> None:
@@ -33,13 +40,22 @@ def _send_one(db, scheduled: MailScheduledSend, account: MailAccount) -> None:
             account.display_name,
             from_address=scheduled.payload.get("from_address"),
         )
-    except (MailConnectionError, ValueError):
+    except (MailConnectionError, ValueError) as exc:
+        scheduled.failed_attempts += 1
+        scheduled.last_error = str(exc)[:500]
+        give_up = scheduled.failed_attempts >= MAX_SEND_ATTEMPTS
+        if give_up:
+            scheduled.cancelled_at = datetime.now(UTC)
         logger.warning(
-            "Could not send scheduled message %s for account %s; will retry next poll",
+            "Could not send scheduled message %s for account %s (attempt %d/%d)%s",
             scheduled.id,
             account.id,
-            exc_info=True,
+            scheduled.failed_attempts,
+            MAX_SEND_ATTEMPTS,
+            " - giving up" if give_up else "; will retry next poll",
+            exc_info=not give_up,
         )
+        db.commit()
         return
     scheduled.sent_at = datetime.now(UTC)
     db.commit()
