@@ -189,7 +189,19 @@ class WatcherRegistry:
         with self._lock:
             subscribers = self._subscribers.setdefault(account_id, set())
             subscribers.add(websocket)
-            if account_id not in self._watchers:
+            existing = self._watchers.get(account_id)
+            # A watcher holds its IMAP password in memory for its whole life
+            # and never re-reads the DB on its own retry loop - if the real
+            # mailbox password was changed (e.g. admin_set_hostinger_password)
+            # while this watcher was still running, it would otherwise keep
+            # retrying with the stale one forever. mail_events always decrypts
+            # the current credential_ciphertext fresh before calling here, so
+            # a mismatch means it rotated - restart the watcher with the new
+            # password instead of reusing the stale instance.
+            if existing is not None and existing.password != password:
+                existing.stop()
+                existing = None
+            if existing is None:
                 watcher = MailboxWatcher(
                     account_id, address, password, loop, self._broadcaster(account_id), provider=provider
                 )

@@ -909,6 +909,7 @@ def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() 
     class _FakeWatcher:
         def __init__(self, account_id, address, password, loop, on_event, provider="hostinger"):  # noqa: ANN001
             self.account_id = account_id
+            self.password = password
 
         def start(self) -> None:
             started.append(self.account_id)
@@ -932,6 +933,57 @@ def test_watcher_registry_starts_one_watcher_per_account_and_stops_when_empty() 
             assert stopped == []
             await registry.unsubscribe("acct-1", ws_b)
             assert stopped == ["acct-1"]
+
+        asyncio.run(scenario())
+    finally:
+        mail_watcher_module.MailboxWatcher = original
+
+
+def test_watcher_registry_restarts_a_watcher_whose_password_changed() -> None:
+    """A watcher caches its IMAP password for its whole life and never
+    re-reads the DB - if the real mailbox password was rotated (e.g. via
+    admin_set_hostinger_password) while a watcher was still running on the
+    old one, subscribe() must notice the mismatch (mail_events always
+    passes the freshly-decrypted current credential) and restart it,
+    instead of leaving it to retry the stale password forever."""
+    registry = WatcherRegistry()
+    started: list[tuple[str, str]] = []
+    stopped: list[str] = []
+
+    class _FakeWatcher:
+        def __init__(self, account_id, address, password, loop, on_event, provider="hostinger"):  # noqa: ANN001
+            self.account_id = account_id
+            self.password = password
+
+        def start(self) -> None:
+            started.append((self.account_id, self.password))
+
+        def stop(self) -> None:
+            stopped.append(self.account_id)
+
+    import app.services.mail_watcher as mail_watcher_module
+
+    original = mail_watcher_module.MailboxWatcher
+    mail_watcher_module.MailboxWatcher = _FakeWatcher
+    try:
+
+        async def scenario() -> None:
+            ws_a = object()
+            ws_b = object()
+            await registry.subscribe("acct-1", "a@novarisesa.com", "old-password", ws_a)
+            assert started == [("acct-1", "old-password")]
+
+            # A second subscriber connecting with the SAME still-current
+            # password must not restart a perfectly healthy watcher.
+            await registry.subscribe("acct-1", "a@novarisesa.com", "old-password", ws_b)
+            assert started == [("acct-1", "old-password")]
+            assert stopped == []
+
+            # ws_b reconnects (e.g. page refresh) after an admin rotated the
+            # real Hostinger password - the fresh credential now differs.
+            await registry.subscribe("acct-1", "a@novarisesa.com", "new-password", ws_b)
+            assert stopped == ["acct-1"]
+            assert started == [("acct-1", "old-password"), ("acct-1", "new-password")]
 
         asyncio.run(scenario())
     finally:
