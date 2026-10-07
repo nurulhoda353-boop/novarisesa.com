@@ -552,6 +552,8 @@ def test_mail_snooze_model_has_the_expected_columns() -> None:
         "snoozed_folder",
         "wake_at",
         "woken_at",
+        "failed_attempts",
+        "last_error",
         "created_at",
         "updated_at",
     }

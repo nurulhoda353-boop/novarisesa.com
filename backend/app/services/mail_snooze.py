@@ -24,6 +24,13 @@ logger = logging.getLogger("novarise.mail_snooze")
 
 SNOOZE_FOLDER = "INBOX.Snoozed"
 POLL_INTERVAL_SECONDS = 30
+# A broken credential (e.g. the real mailbox password was rotated without
+# updating credential_ciphertext) will never succeed on its own - retrying
+# every 30s forever just hammers Hostinger's IMAP server with a fresh
+# connection each time. Give up after this many failed attempts (~30 min)
+# instead; the message stays in the Snoozed IMAP folder (nothing is lost)
+# but the system stops silently retrying forever.
+MAX_WAKE_ATTEMPTS = 60
 
 
 def _wake_one(db, snooze: MailSnooze, account: MailAccount) -> None:
@@ -33,13 +40,22 @@ def _wake_one(db, snooze: MailSnooze, account: MailAccount) -> None:
         uid = client.find_uid_by_message_id(snooze.snoozed_folder, snooze.message_id)
         if uid is not None:
             client.move(snooze.snoozed_folder, uid, snooze.original_folder)
-    except (MailConnectionError, ValueError):
+    except (MailConnectionError, ValueError) as exc:
+        snooze.failed_attempts += 1
+        snooze.last_error = str(exc)[:500]
+        give_up = snooze.failed_attempts >= MAX_WAKE_ATTEMPTS
+        if give_up:
+            snooze.woken_at = datetime.now(UTC)
         logger.warning(
-            "Could not wake snoozed message %s for account %s; will retry next poll",
+            "Could not wake snoozed message %s for account %s (attempt %d/%d)%s",
             snooze.id,
             account.id,
-            exc_info=True,
+            snooze.failed_attempts,
+            MAX_WAKE_ATTEMPTS,
+            " - giving up (message stays in the Snoozed folder)" if give_up else "; will retry next poll",
+            exc_info=not give_up,
         )
+        db.commit()
         return
     snooze.woken_at = datetime.now(UTC)
     db.commit()

@@ -294,7 +294,12 @@ class MailSnooze(UUIDMixin, TimestampMixin, Base):
     original_folder: Mapped[str] = mapped_column(String(500))
     snoozed_folder: Mapped[str] = mapped_column(String(500))
     wake_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    # Set both on a real wake (last_error NULL) and once the poll loop gives
+    # up retrying (last_error set) - either way it stops being retried; see
+    # mail_snooze.MAX_WAKE_ATTEMPTS.
     woken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
 
 
 class MailScheduledSend(UUIDMixin, TimestampMixin, Base):
