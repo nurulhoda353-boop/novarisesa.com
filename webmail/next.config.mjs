@@ -4,7 +4,14 @@ const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${API_ORIGIN}`,
+  // https: (any origin) is required, not just our own - received email
+  // HTML embeds images from whichever third-party server the sender
+  // happens to use (logos, tracking pixels, QR codes, ...), which can't be
+  // known in advance. The app's own remote-image privacy toggle (see
+  // sanitizeEmailHtml/"Show images") already gates this per message;
+  // restricting img-src on top of that just silently breaks every
+  // external sender's images once a user opts in, with no way to know why.
+  `img-src 'self' data: blob: https: ${API_ORIGIN}`,
   "font-src 'self' data:",
   `connect-src 'self' ${API_ORIGIN} ${API_WS_ORIGIN}`,
   "child-src 'self' blob:",
