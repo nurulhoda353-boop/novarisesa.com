@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { MailOpen } from "lucide-react";
 import * as api from "@/lib/api";
 import type { StoredAccount } from "@/lib/api";
@@ -60,6 +61,28 @@ function imapFolderFor(key: string): string {
   return key;
 }
 
+// Keeps the folder in the URL - refreshing (or sharing/bookmarking a link)
+// lands back on the same folder instead of always resetting to Inbox, and
+// browser back/forward moves between folders the way it does in Gmail.
+const FOLDER_TO_SLUG: Record<string, string> = {
+  [SYSTEM_FOLDERS.inbox]: "inbox",
+  [SYSTEM_FOLDERS.starred]: "starred",
+  [SYSTEM_FOLDERS.snoozed]: "snoozed",
+  [SYSTEM_FOLDERS.sent]: "sent",
+  [SYSTEM_FOLDERS.drafts]: "drafts",
+  [SYSTEM_FOLDERS.archive]: "archive",
+  [SYSTEM_FOLDERS.spam]: "spam",
+  [SYSTEM_FOLDERS.trash]: "trash",
+};
+const SLUG_TO_FOLDER: Record<string, string> = Object.fromEntries(
+  Object.entries(FOLDER_TO_SLUG).map(([folder, slug]) => [slug, folder]),
+);
+
+function folderFromPath(pathname: string): string {
+  const slug = pathname.replace(/^\//, "").split("/")[0];
+  return SLUG_TO_FOLDER[slug] ?? SYSTEM_FOLDERS.inbox;
+}
+
 export function MailApp() {
   return (
     <ToastProvider>
@@ -76,7 +99,26 @@ function MailAppInner() {
   const [theme, toggleTheme] = useTheme();
   const toast = useToast();
 
-  const [activeFolder, setActiveFolder] = useState<string>(SYSTEM_FOLDERS.inbox);
+  const pathname = usePathname();
+  const router = useRouter();
+  const [activeFolder, setActiveFolder] = useState<string>(() => folderFromPath(pathname));
+
+  // Browser back/forward (or any direct navigation to a folder URL) -
+  // adopt whatever folder the URL now points to.
+  useEffect(() => {
+    const folder = folderFromPath(pathname);
+    setActiveFolder((current) => (current === folder ? current : folder));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  // The reverse direction: clicking a folder in the sidebar (or any other
+  // setActiveFolder call) pushes a matching URL, unless it already matches
+  // (e.g. right after the effect above adopted it from a URL change).
+  useEffect(() => {
+    const target = `/${FOLDER_TO_SLUG[activeFolder] ?? "inbox"}`;
+    if (pathname !== target) router.push(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFolder]);
   // The websocket's onmessage closure below is only ever created once per
   // connection (the effect deliberately doesn't depend on activeFolder -
   // switching folders shouldn't reconnect the socket), so it needs a ref

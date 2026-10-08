@@ -145,6 +145,7 @@ export function MessageList({
               readOnly={readOnly}
               restrictedTitle={restrictedTitle}
               deleteTitle={deleteTitle}
+              folder={folder}
             />
           ))
         )}
@@ -173,6 +174,7 @@ function MessageRow({
   readOnly,
   restrictedTitle,
   deleteTitle,
+  folder,
 }: {
   message: MailMessageSummary;
   selected: boolean;
@@ -185,10 +187,18 @@ function MessageRow({
   readOnly?: boolean;
   restrictedTitle?: string;
   deleteTitle: string;
+  folder: string;
 }) {
   const unread = !message.flags.includes("\\Seen");
   const starred = message.flags.includes("\\Flagged");
-  const from = message.sender;
+  // Sent/Drafts are mail you wrote - showing yourself as every row's
+  // identity tells you nothing. Every mainstream client (Gmail included)
+  // shows who it went TO there instead, same as this project's own
+  // MessageView header already does for an open message.
+  const isOutgoing = ([SYSTEM_FOLDERS.sent, SYSTEM_FOLDERS.drafts] as string[]).includes(folder);
+  const recipients = message.recipients ?? [];
+  const from = isOutgoing && recipients.length > 0 ? recipients[0] : message.sender;
+  const extraRecipients = isOutgoing && recipients.length > 1 ? `, +${recipients.length - 1}` : "";
 
   return (
     <div
@@ -209,7 +219,11 @@ function MessageRow({
       >
         {initials(from.name, from.email)}
       </span>
-      <span className="sender">{displayName(from.name, from.email)}</span>
+      <span className="sender">
+        {isOutgoing && "To: "}
+        {displayName(from.name, from.email)}
+        {extraRecipients}
+      </span>
       <div className="subject-line">
         <span className="subject">{message.subject || "(no subject)"}</span>
         <span className="preview">— {message.preview}</span>
