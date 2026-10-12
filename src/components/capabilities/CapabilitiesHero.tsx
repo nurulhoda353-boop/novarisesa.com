@@ -21,7 +21,7 @@ export function CapabilitiesHero() {
       titleField="capabilitiesPage.hero.title"
       description={t("capabilitiesPage.hero.description")}
       descriptionField="capabilitiesPage.hero.description"
-      crumbs={[{ label: t("capabilitiesPage.hero.crumb") }]}
+      crumbs={[{ label: t("capabilitiesPage.hero.crumb"), field: "capabilitiesPage.hero.crumb" }]}
       ctas={[
         { label: t("capabilitiesPage.hero.ctaPrimary"), to: "/rfq", variant: "primary", icon: ArrowUpRight },
         { label: t("capabilitiesPage.hero.ctaSecondary"), to: "/contact", variant: "ghost", icon: Phone },

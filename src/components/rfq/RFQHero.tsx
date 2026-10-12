@@ -21,7 +21,7 @@ export function RFQHero() {
       titleField="rfqPage.hero.title"
       description={t("rfqPage.hero.description")}
       descriptionField="rfqPage.hero.description"
-      crumbs={[{ label: t("rfqPage.hero.crumb") }]}
+      crumbs={[{ label: t("rfqPage.hero.crumb"), field: "rfqPage.hero.crumb" }]}
       ctas={[
         { label: t("rfqPage.hero.ctaPrimary"), href: "#rfq-form", variant: "primary", icon: ArrowUpRight },
         { label: t("rfqPage.hero.ctaSecondary"), to: "/contact", variant: "ghost", icon: Phone },

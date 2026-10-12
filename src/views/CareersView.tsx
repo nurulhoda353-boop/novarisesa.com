@@ -63,7 +63,7 @@ export function CareersView() {
           icon={Briefcase}
           heroImage={managedHeroImage}
           assetKey="careers.hero"
-          crumbs={[{ label: t("careersPage.hero.crumb") }]}
+          crumbs={[{ label: t("careersPage.hero.crumb"), field: "careersPage.hero.crumb" }]}
           ctas={[
             {
               label: t("careersPage.hero.ctaApply"),

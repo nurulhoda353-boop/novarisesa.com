@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { Reveal } from "@/components/site/Reveal";
 import { AnimatedHeading } from "@/components/site/AnimatedHeading";
 
-type Crumb = { label: string; to?: string };
+type Crumb = { label: string; to?: string; field?: string };
 type CTA = { label: string; to?: string; href?: string; variant?: "primary" | "ghost"; icon?: LucideIcon };
 
 type Props = {
@@ -64,11 +64,11 @@ export function PageHero({
         <div className="max-w-3xl">
           <Reveal>
             <nav className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-white/60 mb-7">
-              <Link to="/" className="hover:text-gold transition-colors">{t("nav.home", "Home")}</Link>
+              <Link to="/" className="hover:text-gold transition-colors" data-cms-field="nav.home" suppressContentEditableWarning>{t("nav.home", "Home")}</Link>
               {crumbs.map((c, i) => (
                 <span key={i} className="flex items-center gap-2">
                   <span className="text-white/30">/</span>
-                  <span className={i === crumbs.length - 1 ? "text-gold" : ""}>{c.label}</span>
+                  <span className={i === crumbs.length - 1 ? "text-gold" : ""} data-cms-field={c.field} suppressContentEditableWarning>{c.label}</span>
                 </span>
               ))}
             </nav>

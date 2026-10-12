@@ -21,7 +21,7 @@ export function ContactHero() {
       titleField="contactPage.hero.title"
       description={t("contactPage.hero.description")}
       descriptionField="contactPage.hero.description"
-      crumbs={[{ label: t("contactPage.hero.crumb") }]}
+      crumbs={[{ label: t("contactPage.hero.crumb"), field: "contactPage.hero.crumb" }]}
       ctas={[
         { label: "+966 55 442 9574", href: "tel:+966554429574", variant: "primary", icon: Phone },
         { label: "official@novarisesa.com", href: "mailto:official@novarisesa.com", variant: "ghost", icon: Mail },

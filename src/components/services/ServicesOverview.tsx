@@ -88,7 +88,7 @@ export function ServicesOverview() {
                     </div>
 
                     <div className="absolute bottom-0 left-0 right-0 p-5">
-                      <h3 className="text-xl lg:text-2xl font-display font-bold text-white leading-tight drop-shadow-md">
+                      <h3 className="text-xl lg:text-2xl font-display font-bold text-white leading-tight drop-shadow-md" data-cms-field={`serviceDetails.${s.id}.title`} suppressContentEditableWarning>
                         {title}
                       </h3>
                       <div className="mt-2 h-px w-10 bg-gold transition-all duration-500 group-hover:w-24" />
@@ -96,7 +96,7 @@ export function ServicesOverview() {
                   </div>
 
                   <div className="relative p-5 lg:p-6 flex flex-col flex-1">
-                    <p className="text-[13.5px] text-muted-foreground leading-relaxed">{short}</p>
+                    <p className="text-[13.5px] text-muted-foreground leading-relaxed" data-cms-field={`serviceDetails.${s.id}.lead`} suppressContentEditableWarning>{short}</p>
 
                     <a
                       href={`/services/${s.id}`}

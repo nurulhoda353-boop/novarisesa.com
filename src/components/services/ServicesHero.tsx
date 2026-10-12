@@ -21,7 +21,7 @@ export function ServicesHero() {
       titleField="servicesPage.hero.title"
       description={t("servicesPage.hero.description")}
       descriptionField="servicesPage.hero.description"
-      crumbs={[{ label: t("servicesPage.hero.crumb") }]}
+      crumbs={[{ label: t("servicesPage.hero.crumb"), field: "servicesPage.hero.crumb" }]}
       ctas={[
         { label: t("servicesPage.hero.ctaQuote"), to: "/rfq", variant: "primary", icon: ArrowUpRight },
         { label: t("servicesPage.hero.ctaSales"), to: "/contact", variant: "ghost", icon: Phone },

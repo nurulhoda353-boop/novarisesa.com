@@ -74,9 +74,9 @@ function Hero({ service }: Props) {
           <div className="lg:col-span-8">
             <Reveal>
               <nav className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-white/60 mb-7">
-                <Link to="/" className="hover:text-gold transition-colors">{t("servicesPage.detail.home")}</Link>
+                <Link to="/" className="hover:text-gold transition-colors" data-cms-field="servicesPage.detail.home" suppressContentEditableWarning>{t("servicesPage.detail.home")}</Link>
                 <span className="text-white/30">/</span>
-                <Link to="/services" className="hover:text-gold transition-colors">{t("servicesPage.detail.services")}</Link>
+                <Link to="/services" className="hover:text-gold transition-colors" data-cms-field="servicesPage.detail.services" suppressContentEditableWarning>{t("servicesPage.detail.services")}</Link>
                 <span className="text-white/30">/</span>
                 <span className="text-gold">{service.title}</span>
               </nav>
@@ -104,7 +104,7 @@ function Hero({ service }: Props) {
                   to="/rfq"
                   className="group inline-flex items-center gap-2 rounded-full bg-gold px-7 py-3.5 text-sm font-semibold text-gold-foreground shadow-gold transition-all hover:scale-[1.03]"
                 >
-                  {t("servicesPage.detail.requestQuote")}
+                  <span data-cms-field="servicesPage.detail.requestQuote" suppressContentEditableWarning>{t("servicesPage.detail.requestQuote")}</span>
                   <ArrowUpRight className="h-4 w-4 transition-transform group-hover:rotate-45" />
                 </Link>
                 <Link
@@ -112,7 +112,7 @@ function Hero({ service }: Props) {
                   className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/5 backdrop-blur-md px-7 py-3.5 text-sm font-semibold text-white hover:bg-white hover:text-navy transition-colors"
                 >
                   <Phone className="h-4 w-4" />
-                  {t("servicesPage.detail.speakSales")}
+                  <span data-cms-field="servicesPage.detail.speakSales" suppressContentEditableWarning>{t("servicesPage.detail.speakSales")}</span>
                 </Link>
               </div>
             </Reveal>
@@ -122,7 +122,7 @@ function Hero({ service }: Props) {
             <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl p-6 shadow-elegant">
               <div className="absolute -top-3 left-6 inline-flex items-center gap-2 rounded-full bg-gold px-3 py-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-navy anim-breathe" />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-navy">{t("servicesPage.detail.liveCapability")}</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-navy" data-cms-field="servicesPage.detail.liveCapability" suppressContentEditableWarning>{t("servicesPage.detail.liveCapability")}</span>
               </div>
               <div className="grid grid-cols-2 gap-5 mt-3">
                 {service.stats.map((s) => (
@@ -174,7 +174,7 @@ function Overview({ service }: Props) {
                 <div className="absolute top-5 left-5 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-3 py-1.5">
                   <span className="text-[10px] font-mono text-gold tracking-[0.25em]">{service.num}</span>
                   <span className="h-1 w-1 rounded-full bg-gold" />
-                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/85">{t("servicesPage.detail.overviewBadge")}</span>
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-white/85" data-cms-field="servicesPage.detail.overviewBadge" suppressContentEditableWarning>{t("servicesPage.detail.overviewBadge")}</span>
                 </div>
 
                 <div className="absolute top-5 right-5 h-12 w-12 rounded-xl bg-gold flex items-center justify-center shadow-gold">
@@ -182,7 +182,7 @@ function Overview({ service }: Props) {
                 </div>
 
                 <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-2">{t("servicesPage.detail.onsiteCap")}</div>
+                  <div className="text-[10px] uppercase tracking-[0.3em] text-gold mb-2" data-cms-field="servicesPage.detail.onsiteCap" suppressContentEditableWarning>{t("servicesPage.detail.onsiteCap")}</div>
                   <div className="text-white font-display font-bold text-lg lg:text-xl leading-snug drop-shadow-md">
                     {service.title}
                   </div>
@@ -211,7 +211,7 @@ function Overview({ service }: Props) {
           <Reveal className="lg:col-span-7" delay={0.15}>
             <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gold mb-5">
               <span className="h-px w-8 bg-gold" />
-              {t("servicesPage.detail.overviewBadge")}
+              <span data-cms-field="servicesPage.detail.overviewBadge" suppressContentEditableWarning>{t("servicesPage.detail.overviewBadge")}</span>
             </div>
 
             <h2 className="text-2xl md:text-[26px] lg:text-[30px] font-semibold tracking-tight text-navy leading-[1.2]" data-cms-field={`serviceDetails.${service.slug}.lead`}>
@@ -253,10 +253,10 @@ function SubServices({ service }: Props) {
         <Reveal className="max-w-2xl mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.detail.whatWeDo")}
+            <span data-cms-field="servicesPage.detail.whatWeDo" suppressContentEditableWarning>{t("servicesPage.detail.whatWeDo")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.detail.insideScopePre")} {service.title.toLowerCase()} <span className="text-muted-foreground">{t("servicesPage.detail.insideScopePost")}</span>
+            <span data-cms-field="servicesPage.detail.insideScopePre" suppressContentEditableWarning>{t("servicesPage.detail.insideScopePre")}</span> {service.title.toLowerCase()} <span className="text-muted-foreground" data-cms-field="servicesPage.detail.insideScopePost" suppressContentEditableWarning>{t("servicesPage.detail.insideScopePost")}</span>
           </h2>
         </Reveal>
 
@@ -292,20 +292,20 @@ function Capabilities({ service }: Props) {
           <Reveal className="lg:col-span-5">
             <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
               <span className="h-px w-8 bg-gold" />
-              {t("servicesPage.detail.capSnapshot")}
+              <span data-cms-field="servicesPage.detail.capSnapshot" suppressContentEditableWarning>{t("servicesPage.detail.capSnapshot")}</span>
             </div>
             <h2 className="text-3xl md:text-4xl lg:text-[42px] font-bold tracking-tight leading-[1.05] text-white" data-cms-field={`serviceDetails.${service.slug}.capabilities.heading`}>
               {service.capabilities.heading}
             </h2>
             <p className="mt-5 text-white/65 leading-relaxed">
-              {t("servicesPage.detail.capIntroPre")} {service.title.toLowerCase()} {t("servicesPage.detail.capIntroPost")}
+              <span data-cms-field="servicesPage.detail.capIntroPre" suppressContentEditableWarning>{t("servicesPage.detail.capIntroPre")}</span> {service.title.toLowerCase()} <span data-cms-field="servicesPage.detail.capIntroPost" suppressContentEditableWarning>{t("servicesPage.detail.capIntroPost")}</span>
             </p>
 
             <Link
               to="/rfq"
               className="group mt-8 inline-flex items-center gap-2 text-sm font-semibold text-gold hover:text-white transition-colors"
             >
-              {t("servicesPage.detail.capCta")}
+              <span data-cms-field="servicesPage.detail.capCta" suppressContentEditableWarning>{t("servicesPage.detail.capCta")}</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </Reveal>
@@ -338,10 +338,10 @@ function Projects({ service }: Props) {
         <Reveal className="max-w-2xl mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.detail.refProjects")}
+            <span data-cms-field="servicesPage.detail.refProjects" suppressContentEditableWarning>{t("servicesPage.detail.refProjects")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.detail.recentPre")} {service.title.toLowerCase()} <span className="text-muted-foreground">{t("servicesPage.detail.recentPost")}</span>
+            <span data-cms-field="servicesPage.detail.recentPre" suppressContentEditableWarning>{t("servicesPage.detail.recentPre")}</span> {service.title.toLowerCase()} <span className="text-muted-foreground" data-cms-field="servicesPage.detail.recentPost" suppressContentEditableWarning>{t("servicesPage.detail.recentPost")}</span>
           </h2>
         </Reveal>
 
@@ -361,7 +361,7 @@ function Projects({ service }: Props) {
                   <div className="absolute top-4 left-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-md px-3 py-1.5">
                     <span className="text-[10px] font-mono text-gold tracking-[0.2em]">{p.year}</span>
                     <span className="h-1 w-1 rounded-full bg-gold" />
-                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/80">{t("servicesPage.detail.delivered")}</span>
+                    <span className="text-[10px] uppercase tracking-[0.25em] text-white/80" data-cms-field="servicesPage.detail.delivered" suppressContentEditableWarning>{t("servicesPage.detail.delivered")}</span>
                   </div>
                 </div>
                 <div className="p-6">
@@ -387,10 +387,10 @@ function Process({ service }: Props) {
         <Reveal className="max-w-2xl mb-14">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.detail.howEngage")}
+            <span data-cms-field="servicesPage.detail.howEngage" suppressContentEditableWarning>{t("servicesPage.detail.howEngage")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.detail.fromInquiry")} <span className="text-muted-foreground">{t("servicesPage.detail.noHandoffs")}</span>
+            <span data-cms-field="servicesPage.detail.fromInquiry" suppressContentEditableWarning>{t("servicesPage.detail.fromInquiry")}</span> <span className="text-muted-foreground" data-cms-field="servicesPage.detail.noHandoffs" suppressContentEditableWarning>{t("servicesPage.detail.noHandoffs")}</span>
           </h2>
         </Reveal>
 
@@ -425,9 +425,9 @@ function Certifications({ service }: Props) {
           <Reveal className="lg:col-span-4">
             <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
               <span className="h-px w-8 bg-gold" />
-              {t("servicesPage.detail.standards")}
+              <span data-cms-field="servicesPage.detail.standards" suppressContentEditableWarning>{t("servicesPage.detail.standards")}</span>
             </div>
-            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-navy leading-[1.1]">
+            <h3 className="text-2xl md:text-3xl font-bold tracking-tight text-navy leading-[1.1]" data-cms-field="servicesPage.detail.precleared" suppressContentEditableWarning>
               {t("servicesPage.detail.precleared")}
             </h3>
           </Reveal>
@@ -462,19 +462,19 @@ function Faqs({ service }: Props) {
           <Reveal className="lg:col-span-4">
             <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
               <span className="h-px w-8 bg-gold" />
-              {t("servicesPage.detail.faqEyebrow")}
+              <span data-cms-field="servicesPage.detail.faqEyebrow" suppressContentEditableWarning>{t("servicesPage.detail.faqEyebrow")}</span>
             </div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-navy leading-[1.1]">
-              {t("servicesPage.detail.faqTitleA")} <span className="text-muted-foreground">{t("servicesPage.detail.faqTitleB")}</span>
+              <span data-cms-field="servicesPage.detail.faqTitleA" suppressContentEditableWarning>{t("servicesPage.detail.faqTitleA")}</span> <span className="text-muted-foreground" data-cms-field="servicesPage.detail.faqTitleB" suppressContentEditableWarning>{t("servicesPage.detail.faqTitleB")}</span>
             </h2>
-            <p className="mt-5 text-muted-foreground leading-relaxed">
+            <p className="mt-5 text-muted-foreground leading-relaxed" data-cms-field="servicesPage.detail.faqDesc" suppressContentEditableWarning>
               {t("servicesPage.detail.faqDesc")}
             </p>
             <Link
               to="/contact"
               className="group mt-6 inline-flex items-center gap-2 text-sm font-semibold text-navy hover:text-gold transition-colors"
             >
-              {t("servicesPage.detail.askQuestion")}
+              <span data-cms-field="servicesPage.detail.askQuestion" suppressContentEditableWarning>{t("servicesPage.detail.askQuestion")}</span>
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </Reveal>
@@ -531,10 +531,10 @@ function Related({ related }: { related: ServicePage[] }) {
         <Reveal className="max-w-2xl mb-12">
           <div className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-gold mb-4">
             <span className="h-px w-8 bg-gold" />
-            {t("servicesPage.detail.relatedEyebrow")}
+            <span data-cms-field="servicesPage.detail.relatedEyebrow" suppressContentEditableWarning>{t("servicesPage.detail.relatedEyebrow")}</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.1]">
-            {t("servicesPage.detail.relatedTitleA")} <span className="text-muted-foreground">{t("servicesPage.detail.relatedTitleB")}</span>
+            <span data-cms-field="servicesPage.detail.relatedTitleA" suppressContentEditableWarning>{t("servicesPage.detail.relatedTitleA")}</span> <span className="text-muted-foreground" data-cms-field="servicesPage.detail.relatedTitleB" suppressContentEditableWarning>{t("servicesPage.detail.relatedTitleB")}</span>
           </h2>
         </Reveal>
 

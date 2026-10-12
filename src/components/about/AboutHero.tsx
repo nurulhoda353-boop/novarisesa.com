@@ -21,7 +21,7 @@ export function AboutHero() {
       titleField="aboutPage.hero.title"
       description={t("aboutPage.hero.description")}
       descriptionField="aboutPage.hero.description"
-      crumbs={[{ label: t("aboutPage.hero.crumb") }]}
+      crumbs={[{ label: t("aboutPage.hero.crumb"), field: "aboutPage.hero.crumb" }]}
       ctas={[
         { label: t("aboutPage.hero.ctaProfile"), href: "/company-profile.pdf", variant: "primary", icon: ArrowUpRight },
         { label: t("aboutPage.hero.ctaSales"), to: "/contact", variant: "ghost", icon: Phone },
