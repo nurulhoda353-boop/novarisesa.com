@@ -2197,9 +2197,9 @@
   "blogPage": {
     "hero": {
       "eyebrow": "Blog & Events · Insights",
-      "title": "Blog & Events",
-      "description": "Field-tested perspectives on megaproject delivery, safety culture and the strategic shifts shaping Saudi Arabia's industrial landscape — plus the events where our team will be on the ground.",
-      "crumb": "Blog & Events",
+      "title": "Insights & Events",
+      "description": "Field-tested perspectives on megaproject delivery and the industry engagements where our team shares what works.",
+      "crumb": "Insights & Events",
       "ctaPrimary": "Read Latest",
       "ctaSecondary": "Upcoming Events"
     },
@@ -2499,5 +2499,52 @@
         }
       }
     }
+  },
+  "homeEvents": {
+    "eyebrow": "Events & engagements",
+    "title": "Meet the NOVARISE team.",
+    "allEvents": "All events",
+    "nextEvent": "Next event",
+    "recentEvent": "Recent event"
+  },
+  "homeInsights": {
+    "eyebrow": "Latest insights",
+    "title": "Ideas from the field.",
+    "allArticles": "All articles",
+    "featuredPrefix": "Featured",
+    "min": "min",
+    "minRead": "min read"
+  },
+  "appsDownload": {
+    "eyebrow": "NOVARISE",
+    "title": "App Downloads",
+    "description": "Official app builds for our team and partners.",
+    "versionPrefix": "Version",
+    "platformAndroid": "Android",
+    "platformIos": "iOS",
+    "whatsNew": "What's new",
+    "downloadPrefix": "Download",
+    "downloadSuffix": "app",
+    "updatedPrefix": "Updated",
+    "sideloadWarning": "Android may warn that this app is from outside the Play Store. Tap “Install anyway” — this build comes directly from NOVARISE.",
+    "emptyState": "No app has been released yet. Check back soon.",
+    "footerNote": "All future NOVARISE app releases will be published on this page."
+  },
+  "appsGate": {
+    "notConfigured": "This page isn't set up yet.",
+    "wrongPassword": "That password isn't right.",
+    "genericError": "Something went wrong. Please try again.",
+    "eyebrow": "NOVARISE",
+    "title": "App Downloads",
+    "subtitle": "Enter the access password to continue",
+    "passwordPlaceholder": "Password",
+    "checking": "Checking…",
+    "unlock": "Unlock"
+  },
+  "notFound": {
+    "code": "404",
+    "title": "Page not found",
+    "description": "The page you are looking for doesn't exist or has been moved.",
+    "backHome": "Back to home"
   }
 }

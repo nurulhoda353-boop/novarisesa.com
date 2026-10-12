@@ -4,8 +4,10 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Lock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function AppsPasswordGate() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,14 +28,14 @@ export function AppsPasswordGate() {
         const data = (await response.json().catch(() => ({}))) as { error?: string };
         setError(
           data.error === "not_configured"
-            ? "This page isn't set up yet."
-            : "That password isn't right.",
+            ? t("appsGate.notConfigured")
+            : t("appsGate.wrongPassword"),
         );
         return;
       }
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("appsGate.genericError"));
     } finally {
       setLoading(false);
     }
@@ -64,15 +66,15 @@ export function AppsPasswordGate() {
                 priority
               />
             </div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gold">
-              NOVARISE
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-gold" data-cms-field="appsGate.eyebrow" suppressContentEditableWarning>
+              {t("appsGate.eyebrow")}
             </p>
-            <h1 className="mt-1 font-display text-xl font-semibold text-foreground">
-              App Downloads
+            <h1 className="mt-1 font-display text-xl font-semibold text-foreground" data-cms-field="appsGate.title" suppressContentEditableWarning>
+              {t("appsGate.title")}
             </h1>
-            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground" data-cms-field="appsGate.subtitle" suppressContentEditableWarning>
               <Lock className="h-3.5 w-3.5" />
-              Enter the access password to continue
+              {t("appsGate.subtitle")}
             </p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -80,7 +82,7 @@ export function AppsPasswordGate() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Password"
+              placeholder={t("appsGate.passwordPlaceholder")}
               autoFocus
               autoComplete="off"
               className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-gold"
@@ -92,7 +94,9 @@ export function AppsPasswordGate() {
               className="w-full rounded-xl px-4 py-3.5 text-sm font-semibold text-navy-foreground shadow-md transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
               style={{ background: "var(--navy)" }}
             >
-              {loading ? "Checking…" : "Unlock"}
+              <span data-cms-field={loading ? "appsGate.checking" : "appsGate.unlock"} suppressContentEditableWarning>
+                {loading ? t("appsGate.checking") : t("appsGate.unlock")}
+              </span>
             </button>
           </form>
         </div>

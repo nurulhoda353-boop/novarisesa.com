@@ -1,5 +1,8 @@
+"use client";
+
 import { Calendar, Download, ShieldCheck, Sparkles } from "lucide-react";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 
 export interface AppReleaseInfo {
   slug: string;
@@ -17,9 +20,9 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function platformLabel(platform: string): string {
-  if (platform === "android") return "Android";
-  if (platform === "ios") return "iOS";
+function platformLabel(platform: string, t: (key: string) => string): string {
+  if (platform === "android") return t("appsDownload.platformAndroid");
+  if (platform === "ios") return t("appsDownload.platformIos");
   return platform;
 }
 
@@ -36,6 +39,7 @@ function Badge({ children }: { children: React.ReactNode }) {
 }
 
 export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }) {
+  const { t } = useTranslation();
   return (
     <main className="relative min-h-screen overflow-hidden bg-sand">
       {/* Soft brand-gradient backdrop, purely decorative */}
@@ -52,12 +56,12 @@ export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }
 
       <div className="relative mx-auto max-w-2xl px-4 py-14 sm:px-6 sm:py-20">
         <div className="mb-8 text-center sm:mb-12">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold">NOVARISE</p>
-          <h1 className="mt-2 font-display text-2xl font-bold text-navy-foreground sm:text-4xl">
-            App Downloads
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold" data-cms-field="appsDownload.eyebrow" suppressContentEditableWarning>{t("appsDownload.eyebrow")}</p>
+          <h1 className="mt-2 font-display text-2xl font-bold text-navy-foreground sm:text-4xl" data-cms-field="appsDownload.title" suppressContentEditableWarning>
+            {t("appsDownload.title")}
           </h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-navy-foreground/80 sm:text-base">
-            Official app builds for our team and partners.
+          <p className="mx-auto mt-2 max-w-md text-sm text-navy-foreground/80 sm:text-base" data-cms-field="appsDownload.description" suppressContentEditableWarning>
+            {t("appsDownload.description")}
           </p>
         </div>
 
@@ -80,8 +84,8 @@ export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }
                 <div className="min-w-0 flex-1">
                   <h2 className="text-xl font-bold text-foreground sm:text-2xl">{release.name}</h2>
                   <div className="mt-2 flex flex-wrap justify-center gap-1.5 sm:justify-start">
-                    <Badge>Version {release.version}</Badge>
-                    <Badge>{platformLabel(release.platform)}</Badge>
+                    <Badge><span data-cms-field="appsDownload.versionPrefix" suppressContentEditableWarning>{t("appsDownload.versionPrefix")}</span> {release.version}</Badge>
+                    <Badge>{platformLabel(release.platform, t)}</Badge>
                     <Badge>{formatBytes(release.file_size)}</Badge>
                   </div>
                 </div>
@@ -91,7 +95,7 @@ export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }
                 <div className="mt-6 rounded-2xl bg-muted p-4">
                   <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-navy">
                     <Sparkles className="h-3.5 w-3.5 text-gold" />
-                    What&rsquo;s new
+                    <span data-cms-field="appsDownload.whatsNew" suppressContentEditableWarning>{t("appsDownload.whatsNew")}</span>
                   </div>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {release.release_notes}
@@ -106,12 +110,12 @@ export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }
                 style={{ background: "var(--gradient-gold)" }}
               >
                 <Download className="h-4 w-4" />
-                Download {platformLabel(release.platform)} app
+                <span data-cms-field="appsDownload.downloadPrefix" suppressContentEditableWarning>{t("appsDownload.downloadPrefix")}</span> {platformLabel(release.platform, t)} <span data-cms-field="appsDownload.downloadSuffix" suppressContentEditableWarning>{t("appsDownload.downloadSuffix")}</span>
               </a>
 
               <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted-foreground sm:justify-start">
                 <Calendar className="h-3.5 w-3.5" />
-                Updated{" "}
+                <span data-cms-field="appsDownload.updatedPrefix" suppressContentEditableWarning>{t("appsDownload.updatedPrefix")}</span>{" "}
                 {new Date(release.updated_at).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
@@ -122,23 +126,21 @@ export function AppsDownloadView({ release }: { release: AppReleaseInfo | null }
               {release.platform === "android" && (
                 <div className="mt-5 flex gap-3 rounded-2xl bg-muted px-4 py-3.5 text-left text-xs text-muted-foreground">
                   <ShieldCheck className="h-4 w-4 shrink-0 text-gold" />
-                  <p>
-                    Android may warn that this app is from outside the Play Store. Tap{" "}
-                    <span className="font-semibold text-foreground">&ldquo;Install anyway&rdquo;</span> —
-                    this build comes directly from NOVARISE.
+                  <p data-cms-field="appsDownload.sideloadWarning" suppressContentEditableWarning>
+                    {t("appsDownload.sideloadWarning")}
                   </p>
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground shadow-xl">
-            No app has been released yet. Check back soon.
+          <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center text-muted-foreground shadow-xl" data-cms-field="appsDownload.emptyState" suppressContentEditableWarning>
+            {t("appsDownload.emptyState")}
           </div>
         )}
 
-        <p className="mt-10 text-center text-xs text-muted-foreground">
-          All future NOVARISE app releases will be published on this page.
+        <p className="mt-10 text-center text-xs text-muted-foreground" data-cms-field="appsDownload.footerNote" suppressContentEditableWarning>
+          {t("appsDownload.footerNote")}
         </p>
       </div>
     </main>

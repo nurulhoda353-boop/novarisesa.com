@@ -17,11 +17,11 @@ export function BlogHero() {
       icon={BookOpen}
       heroImage={managedHeroImg}
       assetKey="blog.hero"
-      title="Insights & Events"
+      title={t("blogPage.hero.title")}
       titleField="blogPage.hero.title"
-      description="Field-tested perspectives on megaproject delivery and the industry engagements where our team shares what works."
+      description={t("blogPage.hero.description")}
       descriptionField="blogPage.hero.description"
-      crumbs={[{ label: "Insights & Events" }]}
+      crumbs={[{ label: t("blogPage.hero.crumb"), field: "blogPage.hero.crumb" }]}
       ctas={[
         { label: "Read latest", href: "#latest", variant: "primary", icon: BookOpen },
         { label: "Explore events", href: "#events", variant: "ghost", icon: Calendar },
