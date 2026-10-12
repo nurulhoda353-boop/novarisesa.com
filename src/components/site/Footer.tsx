@@ -91,7 +91,7 @@ export function Footer() {
               </ul>
             </div>
             <div className="col-span-2 mt-1 border-t border-white/10 pt-4">
-              <Link to="/rfq" className="group inline-flex items-center gap-2 text-xs font-semibold text-gold transition-colors hover:text-white"><span>{t("footer.links.rfq")}</span><ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></Link>
+              <Link to="/rfq" className="group inline-flex items-center gap-2 text-xs font-semibold text-gold transition-colors hover:text-white"><span data-cms-field="footer.links.rfq" suppressContentEditableWarning>{t("footer.links.rfq")}</span><ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></Link>
             </div>
           </section>
 
@@ -112,8 +112,8 @@ export function Footer() {
               </div>
               <div className="grid gap-5 border-t border-white/10 pt-4 sm:grid-cols-[0.95fr_1.05fr] sm:gap-7">
                 <div className="grid content-start gap-3">
-                  <a href="tel:+966554429574" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Phone className="h-3.5 w-3.5 shrink-0 text-gold" />+966 55 442 9574</a>
-                  <a href="mailto:official@novarisesa.com" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Mail className="h-3.5 w-3.5 shrink-0 text-gold" />official@novarisesa.com</a>
+                  <a href="tel:+966554429574" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Phone className="h-3.5 w-3.5 shrink-0 text-gold" /><span data-cms-field="footer.phone" suppressContentEditableWarning>{t("footer.phone")}</span></a>
+                  <a href="mailto:official@novarisesa.com" className="inline-flex items-center gap-2.5 text-sm text-white/70 transition-colors hover:text-gold" dir="ltr"><Mail className="h-3.5 w-3.5 shrink-0 text-gold" /><span data-cms-field="footer.email" suppressContentEditableWarning>{t("footer.email")}</span></a>
                 </div>
                 <div className="sm:border-l sm:border-white/10 sm:pl-7">
                   <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gold" data-cms-field="footer.officeHours">{t("footer.officeHours")}</div>
@@ -125,11 +125,11 @@ export function Footer() {
         </div>
 
         <div className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-5 text-[11px] text-white/55 md:flex-row md:items-center md:justify-between">
-          <p>{t("footer.copyright", { year: 2026 })}</p>
+          <p data-cms-field="footer.copyright" suppressContentEditableWarning>{t("footer.copyright", { year: 2026 })}</p>
           <div className="flex flex-wrap gap-x-5 gap-y-2">
-            <span><span data-cms-field="footer.crLabel">{t("footer.crLabel")}</span> <span className="text-white/75" dir="ltr">4701103544</span></span>
-            <span><span data-cms-field="footer.vatLabel">{t("footer.vatLabel")}</span> <span className="text-white/75" dir="ltr">300930779500003</span></span>
-            <span><span data-cms-field="footer.estLabel">{t("footer.estLabel")}</span> <span className="text-white/75" dir="ltr">2019</span></span>
+            <span><span data-cms-field="footer.crLabel">{t("footer.crLabel")}</span> <span className="text-white/75" dir="ltr" data-cms-field="footer.crValue" suppressContentEditableWarning>{t("footer.crValue")}</span></span>
+            <span><span data-cms-field="footer.vatLabel">{t("footer.vatLabel")}</span> <span className="text-white/75" dir="ltr" data-cms-field="footer.vatValue" suppressContentEditableWarning>{t("footer.vatValue")}</span></span>
+            <span><span data-cms-field="footer.estLabel">{t("footer.estLabel")}</span> <span className="text-white/75" dir="ltr" data-cms-field="footer.estValue" suppressContentEditableWarning>{t("footer.estValue")}</span></span>
           </div>
         </div>
       </div>
