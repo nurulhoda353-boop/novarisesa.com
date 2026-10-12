@@ -1242,7 +1242,8 @@
       "askQuestion": "Ask a question",
       "relatedEyebrow": "Related Services",
       "relatedTitleA": "Explore our other",
-      "relatedTitleB": "verticals."
+      "relatedTitleB": "verticals.",
+      "notFound": "Service not found."
     }
   },
   "serviceDetails": {
@@ -2546,5 +2547,118 @@
     "title": "Page not found",
     "description": "The page you are looking for doesn't exist or has been moved.",
     "backHome": "Back to home"
+  },
+  "blogArchivePage": {
+    "hero": {
+      "eyebrow": "NOVARISE Journal",
+      "title": "Insights from the industrial frontline.",
+      "description": "Long-form thinking, field-tested playbooks and project stories for the people delivering Saudi Arabia's next chapter.",
+      "crumbInsights": "Insights",
+      "crumbBlog": "Blog",
+      "ctaLatest": "Latest article",
+      "ctaEvents": "Explore events"
+    },
+    "faq": {
+      "eyebrow": "Article help",
+      "title": "Before you dive in.",
+      "description": "A few useful answers for readers following NOVARISE field insights.",
+      "items": [
+        { "question": "How often are new articles published?", "answer": "New field notes, case studies and leadership perspectives are published as soon as they are cleared for public release." },
+        { "question": "Can I share an article with my project team?", "answer": "Yes. Each article has a public URL and is designed to be shared with colleagues, clients and delivery partners." },
+        { "question": "How can I receive new insights?", "answer": "Subscribe to the NOVARISE Brief below for selected updates delivered to your work email." }
+      ]
+    }
+  },
+  "eventsArchivePage": {
+    "hero": {
+      "eyebrow": "NOVARISE Events",
+      "title": "Meet us where industry moves forward.",
+      "description": "Explore upcoming conferences, exhibitions and leadership sessions—plus recaps from the engagements where ideas became action.",
+      "crumbInsights": "Insights",
+      "crumbEvents": "Events",
+      "ctaUpcoming": "Upcoming events",
+      "ctaPast": "Past events"
+    },
+    "nextEngagement": "Next engagement",
+    "latestEngagement": "Latest engagement",
+    "library": {
+      "eyebrow": "Event library",
+      "title": "Upcoming and previous events.",
+      "filterAll": "All",
+      "filterUpcoming": "Upcoming",
+      "filterPast": "Past"
+    },
+    "empty": {
+      "all": "No events right now.",
+      "upcoming": "No upcoming events right now.",
+      "past": "No past events right now.",
+      "sub": "New engagements will be announced here."
+    },
+    "faq": {
+      "eyebrow": "Event help",
+      "title": "Plan your visit.",
+      "description": "Everything you need before requesting a meeting or following an event recap.",
+      "items": [
+        { "question": "How do I request a meeting at an upcoming event?", "answer": "Open the event page and use the meeting request button. Our team will confirm availability and the best time to connect." },
+        { "question": "What happens to an event after its date passes?", "answer": "It moves automatically to Past events while staying available as a full event story and recap." },
+        { "question": "Can I receive upcoming event announcements?", "answer": "Subscribe to the NOVARISE Brief below to receive selected event and industry updates." }
+      ]
+    }
+  },
+  "insightsHub": {
+    "eyebrow": "From the journal",
+    "title": "Latest articles",
+    "exploreAll": "Explore all articles"
+  },
+  "blogPostDetail": {
+    "notFound": "Article not found.",
+    "backToAll": "Back to all articles",
+    "minRead": " min read",
+    "summary": "Article summary",
+    "published": "Published",
+    "readingTime": "Reading time",
+    "minutesSuffix": " minutes",
+    "author": "Author",
+    "keyTakeaways": "Key takeaways",
+    "moreInsights": "More insights",
+    "continueReading": "Continue reading",
+    "moreFromInsights": "More from Insights",
+    "allArticles": "All articles",
+    "faq": {
+      "eyebrow": "Article help",
+      "title": "Reading & sharing.",
+      "description": "Useful answers for readers who want to follow or discuss this insight.",
+      "items": [
+        { "question": "Can I share this article with my team?", "answer": "Yes. Every article has a public URL and can be shared directly with project and procurement teams." },
+        { "question": "Where can I find more related stories?", "answer": "Use the related articles above or visit the complete NOVARISE Insights archive." }
+      ]
+    }
+  },
+  "eventDetail": {
+    "notFound": "Event not found.",
+    "backToEvents": "Back to events",
+    "backToAllEvents": "Back to all events",
+    "overview": "Event overview",
+    "programme": "Programme",
+    "agendaTitle": "Event agenda.",
+    "information": "Event information",
+    "date": "Date",
+    "venue": "Venue",
+    "location": "Location",
+    "discussEvent": "Discuss this event",
+    "requestMeeting": "Request a meeting",
+    "whatToExpect": "What to expect",
+    "continueExploring": "Continue exploring",
+    "moreEvents": "More events",
+    "allEvents": "All events",
+    "faq": {
+      "eyebrow": "Event help",
+      "title": "Before you attend.",
+      "description": "Answers for arranging a meeting, following an event and keeping up with future NOVARISE engagements.",
+      "items": [
+        { "question": "How do I arrange a meeting with NOVARISE?", "answer": "Use the meeting request button above and our team will respond with the best available time and contact point." },
+        { "question": "Where can I find previous event recaps?", "answer": "All previous engagements remain available in the NOVARISE Events archive after their event date." }
+      ]
+    }
   }
 }
