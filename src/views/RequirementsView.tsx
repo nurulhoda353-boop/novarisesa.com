@@ -102,9 +102,9 @@ export function RequirementsView() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4 text-center md:text-left">
               {[
                 { icon: AlertCircle, value: urgentCount as string | number, valueField: undefined as string | undefined, label: t("requirementsPage.trust.urgent"), field: "requirementsPage.trust.urgent" },
-                { icon: ShieldCheck, value: "100%", valueField: undefined as string | undefined, label: t("requirementsPage.trust.verified"), field: "requirementsPage.trust.verified" },
+                { icon: ShieldCheck, value: t("requirementsPage.trust.verifiedValue"), valueField: "requirementsPage.trust.verifiedValue" as string | undefined, label: t("requirementsPage.trust.verified"), field: "requirementsPage.trust.verified" },
                 { icon: Wallet, value: t("requirementsPage.trust.monthlyValue"), valueField: "requirementsPage.trust.monthlyValue" as string | undefined, label: t("requirementsPage.trust.salary"), field: "requirementsPage.trust.salary" },
-                { icon: MessageCircle, value: "< 4 hrs", valueField: undefined as string | undefined, label: t("requirementsPage.trust.response"), field: "requirementsPage.trust.response" },
+                { icon: MessageCircle, value: t("requirementsPage.trust.responseValue"), valueField: "requirementsPage.trust.responseValue" as string | undefined, label: t("requirementsPage.trust.response"), field: "requirementsPage.trust.response" },
               ].map((s, i) => (
                 <div key={i} className="flex items-center justify-center md:justify-start gap-3">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold/10 text-gold shrink-0">

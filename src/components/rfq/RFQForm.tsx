@@ -64,7 +64,7 @@ export function RFQForm() {
       });
       reset();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Submission failed");
+      toast.error(error instanceof Error ? error.message : t("rfqPage.form.submissionFailed"));
     }
   };
 

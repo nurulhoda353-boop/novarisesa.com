@@ -57,10 +57,10 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
   const prevProject = allProjects[(currentIdx - 1 + allProjects.length) % allProjects.length];
 
   const stats = [
-    { icon: Briefcase, label: t("projects.details.client"), value: project.client, field: `projects.items.${k}.client` },
-    { icon: MapPin, label: t("projects.details.location"), value: project.location, field: `projects.items.${k}.location` },
-    { icon: Coins, label: t("projects.details.value"), value: project.value, field: `projects.items.${k}.value` },
-    { icon: Calendar, label: t("projects.details.duration"), value: project.duration, field: `projects.items.${k}.duration` },
+    { icon: Briefcase, label: t("projects.details.client"), labelField: "projects.details.client", value: project.client, field: `projects.items.${k}.client` },
+    { icon: MapPin, label: t("projects.details.location"), labelField: "projects.details.location", value: project.location, field: `projects.items.${k}.location` },
+    { icon: Coins, label: t("projects.details.value"), labelField: "projects.details.value", value: project.value, field: `projects.items.${k}.value` },
+    { icon: Calendar, label: t("projects.details.duration"), labelField: "projects.details.duration", value: project.duration, field: `projects.items.${k}.duration` },
   ];
 
   return (
@@ -79,7 +79,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
               className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-gold transition-colors mb-8"
             >
               <ArrowLeft className="h-4 w-4" />
-              {t("projects.back")}
+              <span data-cms-field="projects.back" suppressContentEditableWarning>{t("projects.back")}</span>
             </Link>
 
             <div className="max-w-4xl">
@@ -89,11 +89,11 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
                 </span>
                 {project.featured && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-white/10 border border-white/20 backdrop-blur-md px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white">
-                    <Sparkles className="h-3 w-3 text-gold" /> {t("projects.featured")}
+                    <Sparkles className="h-3 w-3 text-gold" /> <span data-cms-field="projects.featured" suppressContentEditableWarning>{t("projects.featured")}</span>
                   </span>
                 )}
                 <span className="text-[11px] uppercase tracking-[0.3em] text-white/50 font-mono" dir="ltr">
-                  #{String(project.rank).padStart(2, "0")} · {t("projects.rankLabel")}
+                  #{String(project.rank).padStart(2, "0")} · <span data-cms-field="projects.rankLabel" suppressContentEditableWarning>{t("projects.rankLabel")}</span>
                 </span>
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.05] mb-8" data-cms-field={`projects.items.${k}.title`}>
@@ -126,7 +126,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
                   className="group relative overflow-hidden rounded-2xl border border-border bg-card p-6 h-full hover:border-gold/40 hover:shadow-card transition-all"
                 >
                   <s.icon className="h-6 w-6 text-gold mb-4" />
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">{s.label}</div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2" data-cms-field={s.labelField} suppressContentEditableWarning>{s.label}</div>
                   <div className="text-lg font-bold text-navy leading-tight" data-cms-field={s.field}>{s.value}</div>
                 </div>
               ))}
@@ -141,7 +141,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
               <Reveal className="lg:col-span-7">
                 <div className="inline-flex items-center gap-3 mb-5">
                   <span className="h-px w-8 bg-gold" />
-                  <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold">
+                  <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold" data-cms-field="projects.overview">
                     {t("projects.overview")}
                   </span>
                 </div>
@@ -163,11 +163,11 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
                   <div className="relative">
                     <div className="inline-flex items-center gap-3 mb-4">
                       <span className="h-px w-8 bg-gold" />
-                      <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold">
+                      <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold" data-cms-field="projects.highlightsEyebrow">
                         {t("projects.highlightsEyebrow")}
                       </span>
                     </div>
-                    <h3 className="text-2xl font-bold mb-6">{t("projects.highlightsTitle")}</h3>
+                    <h3 className="text-2xl font-bold mb-6" data-cms-field="projects.highlightsTitle">{t("projects.highlightsTitle")}</h3>
                     <ul className="space-y-3.5">
                       {highlights.map((h, i) => (
                         <li key={i} className="flex items-start gap-3">
@@ -193,12 +193,12 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
               <div className="text-center mb-12">
                 <div className="inline-flex items-center gap-3 mb-3">
                   <span className="h-px w-8 bg-gold" />
-                  <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold">
+                  <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold" data-cms-field="projects.faqEyebrow">
                     {t("projects.faqEyebrow")}
                   </span>
                   <span className="h-px w-8 bg-gold" />
                 </div>
-                <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+                <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight" data-cms-field="projects.faqTitle">
                   {t("projects.faqTitle")}
                 </h2>
               </div>
@@ -215,12 +215,12 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
               <div className="text-center max-w-2xl mx-auto mb-10">
                 <div className="inline-flex items-center gap-3 mb-3">
                   <span className="h-px w-8 bg-gold" />
-                  <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold">
+                  <span className="text-[11px] uppercase tracking-[0.3em] text-gold font-semibold" data-cms-field="projects.contactEyebrow">
                     {t("projects.contactEyebrow")}
                   </span>
                   <span className="h-px w-8 bg-gold" />
                 </div>
-                <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight">
+                <h2 className="text-3xl md:text-4xl font-bold text-navy leading-tight" data-cms-field="projects.contactTitle">
                   {t("projects.contactTitle")}
                 </h2>
               </div>
@@ -244,7 +244,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
                   <ArrowLeft className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                  <span className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground" data-cms-field="common.previous">
                     {t("common.previous", "Previous")}
                   </span>
                   <span className="block truncate text-base font-display font-bold text-navy group-hover:text-gold transition-colors">
@@ -259,7 +259,7 @@ export function ProjectDetailView({ project: initialProject }: { project: Projec
                 className="group flex items-center justify-end gap-4 rounded-2xl border border-border bg-card p-5 text-right hover:border-gold/50 hover:shadow-card transition-all"
               >
                 <span className="min-w-0">
-                  <span className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                  <span className="block text-[10px] uppercase tracking-[0.25em] text-muted-foreground" data-cms-field="common.next">
                     {t("common.next", "Next")}
                   </span>
                   <span className="block truncate text-base font-display font-bold text-navy group-hover:text-gold transition-colors">

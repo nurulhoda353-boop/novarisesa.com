@@ -98,7 +98,17 @@
     }
   },
   "trustBar": {
-    "label": "موثوق من قِبَل عمالقة الصناعة في المملكة"
+    "label": "موثوق من قِبَل عمالقة الصناعة في المملكة",
+    "clients": [
+      "SAUDI ARAMCO",
+      "SABIC",
+      "SAMSUNG ENGINEERING",
+      "HYUNDAI E&C",
+      "DOOSAN",
+      "MA'ADEN",
+      "ROYAL COMMISSION",
+      "SEC"
+    ]
   },
   "about": {
     "eyebrow": "عن نوفارايز",
@@ -670,7 +680,17 @@
       "gosi": "تسجيل ساري",
       "zatca": "مسجل ضريبياً",
       "moc": "سجل تجاري سعودي ساري"
-    }
+    },
+    "codes": [
+      "ISO 9001",
+      "ISO 14001",
+      "ISO 45001",
+      "OSHA",
+      "Aramco",
+      "GOSI",
+      "ZATCA",
+      "MOC"
+    ]
   },
   "testimonials": {
     "eyebrow": "ماذا يقول عملاؤنا",
@@ -696,6 +716,7 @@
     }
   },
   "leadership": {
+    "email": "official@novarisesa.com",
     "eyebrow": "كلمة الرئيس التنفيذي",
     "quotePre": "\"في نوفارايز، لا نبني البنية التحتية فحسب — بل",
     "quoteAccent": " نهندس المستقبل",
@@ -779,7 +800,21 @@
     "titleA": "الأسماء التي تبني",
     "titleAccent": "المملكة",
     "titleB": "تبني معنا.",
-    "disclaimer": "علامات موردين مصممة · حقوق العلامات تعود لأصحابها"
+    "disclaimer": "علامات موردين مصممة · حقوق العلامات تعود لأصحابها",
+    "list": [
+      { "name": "Saudi Aramco", "tag": "الطاقة" },
+      { "name": "SABIC", "tag": "البتروكيماويات" },
+      { "name": "Ma'aden", "tag": "التعدين" },
+      { "name": "Samsung Eng.", "tag": "EPC" },
+      { "name": "Hyundai E&C", "tag": "EPC" },
+      { "name": "Saudi Electricity", "tag": "الطاقة الكهربائية" },
+      { "name": "NEOM", "tag": "مشاريع عملاقة" },
+      { "name": "Red Sea Global", "tag": "السياحة" },
+      { "name": "Royal Commission", "tag": "الجبيل" },
+      { "name": "Petro Rabigh", "tag": "التكرير" },
+      { "name": "Sipchem", "tag": "الكيماويات" },
+      { "name": "Fluor Arabia", "tag": "EPC" }
+    ]
   },
   "news": {
     "eyebrow": "رؤى وأخبار",
@@ -811,6 +846,9 @@
     "saudiCr": "السجل التجاري",
     "crStatus": "ساري · مسجل لدى زاتكا",
     "available": "متاح لطلبات عروض جديدة",
+    "crValue": "4701103544",
+    "phone": "+966 55 442 9574",
+    "email": "official@novarisesa.com",
     "eyebrow": "لنبنِ معاً",
     "titleA": "لديك مشروع",
     "titleB": "يستحق",
@@ -1983,6 +2021,8 @@
       "headline": "تحدّث مباشرة\nمع فريقنا التجاري.",
       "sub": "لطلبات العروض وحزم التأهيل المسبق واحتياجات التعبئة العاجلة.",
       "responseTime": "متوسط الردّ: أقل من يوم عمل واحد",
+      "phone": "+966 55 442 9574",
+      "email": "official@novarisesa.com",
       "channels": {
         "call": {
           "label": "اتصل بنا",
@@ -2033,6 +2073,7 @@
       "submitting": "جاري الإرسال...",
       "toastTitle": "تم استلام الرسالة",
       "toastDesc": "سيردّ فريقنا التجاري خلال يوم عمل واحد.",
+      "submissionFailed": "فشل الإرسال",
       "errors": {
         "nameShort": "الاسم قصير جداً",
         "emailInvalid": "أدخل بريداً إلكترونياً صحيحاً",
@@ -2113,6 +2154,7 @@
       "submitting": "جاري الإرسال...",
       "toastTitle": "تم استلام الطلب",
       "toastDesc": "سيردّ فريقنا التجاري خلال يوم عمل واحد بعرض منظَّم.",
+      "submissionFailed": "فشل الإرسال",
       "errors": {
         "nameShort": "الاسم قصير جداً",
         "emailInvalid": "أدخل بريداً إلكترونياً صحيحاً",
@@ -2128,6 +2170,8 @@
     "sidebar": {
       "badge": "ما الذي يحدث بعد ذلك",
       "title": "من طلب العرض إلى التعبئة\n— مسار واضح.",
+      "phone": "+966 55 442 9574",
+      "email": "official@novarisesa.com",
       "steps": [
         "نؤكد استلام طلبك خلال ساعات.",
         "يراجع الفريق التجاري النطاق والوثائق.",
@@ -2329,9 +2373,11 @@
     "trust": {
       "urgent": "وظائف عاجلة",
       "verified": "مشاريع موثّقة",
+      "verifiedValue": "100%",
       "salary": "دورة الراتب",
       "monthlyValue": "شهري",
-      "response": "متوسط الرد"
+      "response": "متوسط الرد",
+      "responseValue": "< 4 hrs"
     },
     "list": {
       "eyebrow": "الوظائف الشاغرة",

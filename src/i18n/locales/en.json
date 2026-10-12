@@ -98,7 +98,17 @@
     }
   },
   "trustBar": {
-    "label": "Endorsed by the Kingdom's industry titans"
+    "label": "Endorsed by the Kingdom's industry titans",
+    "clients": [
+      "SAUDI ARAMCO",
+      "SABIC",
+      "SAMSUNG ENGINEERING",
+      "HYUNDAI E&C",
+      "DOOSAN",
+      "MA'ADEN",
+      "ROYAL COMMISSION",
+      "SEC"
+    ]
   },
   "about": {
     "eyebrow": "About NOVARISE",
@@ -670,7 +680,17 @@
       "gosi": "Active Registration",
       "zatca": "VAT Registered",
       "moc": "Saudi CR Active"
-    }
+    },
+    "codes": [
+      "ISO 9001",
+      "ISO 14001",
+      "ISO 45001",
+      "OSHA",
+      "Aramco",
+      "GOSI",
+      "ZATCA",
+      "MOC"
+    ]
   },
   "testimonials": {
     "eyebrow": "What Our Clients Say",
@@ -696,6 +716,7 @@
     }
   },
   "leadership": {
+    "email": "official@novarisesa.com",
     "eyebrow": "Message from the CEO",
     "quotePre": "\"At NOVARISE, we don't just build infrastructure — we",
     "quoteAccent": " engineer the future",
@@ -779,7 +800,21 @@
     "titleA": "The names that build",
     "titleAccent": "the Kingdom",
     "titleB": "build with us.",
-    "disclaimer": "Stylized vendor marks · Brand assets property of respective owners"
+    "disclaimer": "Stylized vendor marks · Brand assets property of respective owners",
+    "list": [
+      { "name": "Saudi Aramco", "tag": "Energy" },
+      { "name": "SABIC", "tag": "Petrochem" },
+      { "name": "Ma'aden", "tag": "Mining" },
+      { "name": "Samsung Eng.", "tag": "EPC" },
+      { "name": "Hyundai E&C", "tag": "EPC" },
+      { "name": "Saudi Electricity", "tag": "Power" },
+      { "name": "NEOM", "tag": "Giga" },
+      { "name": "Red Sea Global", "tag": "Tourism" },
+      { "name": "Royal Commission", "tag": "Jubail" },
+      { "name": "Petro Rabigh", "tag": "Refining" },
+      { "name": "Sipchem", "tag": "Chemicals" },
+      { "name": "Fluor Arabia", "tag": "EPC" }
+    ]
   },
   "news": {
     "eyebrow": "Insights & News",
@@ -811,6 +846,9 @@
     "saudiCr": "Saudi CR",
     "crStatus": "Active · ZATCA Registered",
     "available": "Available for new RFQs",
+    "crValue": "4701103544",
+    "phone": "+966 55 442 9574",
+    "email": "official@novarisesa.com",
     "eyebrow": "Let's Build Together",
     "titleA": "Have a project",
     "titleB": "that demands",
@@ -1983,6 +2021,8 @@
       "headline": "Speak directly with\nour commercial desk.",
       "sub": "For RFQs, pre-qualification packs and urgent mobilization needs.",
       "responseTime": "Avg. response: under 1 business day",
+      "phone": "+966 55 442 9574",
+      "email": "official@novarisesa.com",
       "channels": {
         "call": {
           "label": "Call Us",
@@ -2033,6 +2073,7 @@
       "submitting": "Sending...",
       "toastTitle": "Message received",
       "toastDesc": "Our commercial team will respond within one business day.",
+      "submissionFailed": "Submission failed",
       "errors": {
         "nameShort": "Name is too short",
         "emailInvalid": "Enter a valid email",
@@ -2113,6 +2154,7 @@
       "submitting": "Submitting...",
       "toastTitle": "RFQ received",
       "toastDesc": "Our commercial team will respond within one business day with a structured proposal.",
+      "submissionFailed": "Submission failed",
       "errors": {
         "nameShort": "Name is too short",
         "emailInvalid": "Enter a valid email",
@@ -2128,6 +2170,8 @@
     "sidebar": {
       "badge": "What happens next",
       "title": "From RFQ to mobilization\n— a clear path.",
+      "phone": "+966 55 442 9574",
+      "email": "official@novarisesa.com",
       "steps": [
         "We acknowledge your RFQ within hours.",
         "Commercial team reviews scope & docs.",
@@ -2329,9 +2373,11 @@
     "trust": {
       "urgent": "Urgent Roles",
       "verified": "Verified Projects",
+      "verifiedValue": "100%",
       "salary": "Salary Cycle",
       "monthlyValue": "Monthly",
-      "response": "Avg. Response"
+      "response": "Avg. Response",
+      "responseValue": "< 4 hrs"
     },
     "list": {
       "eyebrow": "Open Positions",

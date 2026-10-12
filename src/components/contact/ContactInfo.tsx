@@ -18,8 +18,8 @@ export function ContactInfo() {
       icon: Phone,
       label: t("contactPage.info.channels.call.label"),
       labelField: "contactPage.info.channels.call.label",
-      value: CONTACT_PHONE_DISPLAY,
-      valueField: undefined as string | undefined,
+      value: t("contactPage.info.phone", { defaultValue: CONTACT_PHONE_DISPLAY }),
+      valueField: "contactPage.info.phone" as string | undefined,
       sub: t("contactPage.info.channels.call.sub"),
       subField: "contactPage.info.channels.call.sub",
       href: `tel:${CONTACT_PHONE_TEL}`,
@@ -28,8 +28,8 @@ export function ContactInfo() {
       icon: Mail,
       label: t("contactPage.info.channels.email.label"),
       labelField: "contactPage.info.channels.email.label",
-      value: CONTACT_EMAIL,
-      valueField: undefined as string | undefined,
+      value: t("contactPage.info.email", { defaultValue: CONTACT_EMAIL }),
+      valueField: "contactPage.info.email" as string | undefined,
       sub: t("contactPage.info.channels.email.sub"),
       subField: "contactPage.info.channels.email.sub",
       href: `mailto:${CONTACT_EMAIL}`,
@@ -38,8 +38,8 @@ export function ContactInfo() {
       icon: MessageSquare,
       label: t("contactPage.info.channels.whatsapp.label"),
       labelField: "contactPage.info.channels.whatsapp.label",
-      value: CONTACT_PHONE_DISPLAY,
-      valueField: undefined as string | undefined,
+      value: t("contactPage.info.phone", { defaultValue: CONTACT_PHONE_DISPLAY }),
+      valueField: "contactPage.info.phone" as string | undefined,
       sub: t("contactPage.info.channels.whatsapp.sub"),
       subField: "contactPage.info.channels.whatsapp.sub",
       href: `https://wa.me/${CONTACT_WHATSAPP}`,
@@ -106,7 +106,7 @@ export function ContactInfo() {
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.22em] font-semibold text-muted-foreground" data-cms-field={c.labelField} suppressContentEditableWarning>{c.label}</div>
-                <div className="text-[15px] font-display font-bold text-navy mt-0.5 break-words leading-snug" data-cms-field={c.valueField}>{c.value}</div>
+                <div className="text-[15px] font-display font-bold text-navy mt-0.5 break-words leading-snug" data-cms-field={c.valueField} suppressContentEditableWarning>{c.value}</div>
                 <div className="text-[11px] text-muted-foreground mt-0.5" data-cms-field={c.subField} suppressContentEditableWarning>{c.sub}</div>
               </div>
               <ArrowUpRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-gold group-hover:rotate-45 transition-all duration-500 shrink-0" />

@@ -40,13 +40,13 @@ export function RFQSidebar() {
                 <span className="h-8 w-8 rounded-full border border-white/15 bg-white/5 flex items-center justify-center group-hover:border-gold/40 transition-colors">
                   <Phone className="h-3.5 w-3.5 text-gold" />
                 </span>
-                +966 55 442 9574
+                <span data-cms-field="rfqPage.sidebar.phone" suppressContentEditableWarning>{t("rfqPage.sidebar.phone")}</span>
               </a>
               <a href="mailto:official@novarisesa.com" className="group flex items-center gap-3 text-white/85 hover:text-gold transition-colors">
                 <span className="h-8 w-8 rounded-full border border-white/15 bg-white/5 flex items-center justify-center group-hover:border-gold/40 transition-colors">
                   <Mail className="h-3.5 w-3.5 text-gold" />
                 </span>
-                official@novarisesa.com
+                <span data-cms-field="rfqPage.sidebar.email" suppressContentEditableWarning>{t("rfqPage.sidebar.email")}</span>
               </a>
             </div>
           </div>

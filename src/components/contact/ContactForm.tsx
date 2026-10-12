@@ -90,7 +90,7 @@ export function ContactForm() {
       });
       reset();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Submission failed");
+      toast.error(error instanceof Error ? error.message : t("contactPage.form.submissionFailed"));
     }
   };
 

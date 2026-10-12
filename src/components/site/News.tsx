@@ -51,14 +51,14 @@ export function News() {
           <div className="max-w-2xl">
             <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-gold mb-5">
               <span className="h-px w-8 bg-gold" />
-              {t("news.eyebrow")}
+              <span data-cms-field="news.eyebrow" suppressContentEditableWarning>{t("news.eyebrow")}</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-navy leading-[1.05]" data-cms-field="news.title">
               {t("news.title")}
             </h2>
           </div>
           <Link to="/blog" className="hidden md:inline-flex items-center gap-2 text-sm font-semibold text-navy hover:text-gold transition-colors">
-            {t("news.allArticles")} <ArrowUpRight className="h-4 w-4" />
+            <span data-cms-field="news.allArticles" suppressContentEditableWarning>{t("news.allArticles")}</span> <ArrowUpRight className="h-4 w-4" />
           </Link>
         </div>
 

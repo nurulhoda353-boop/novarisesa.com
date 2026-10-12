@@ -4,23 +4,12 @@ import { useTranslation } from "react-i18next";
 import { Reveal, StaggerGroup, StaggerItem } from "./Reveal";
 
 // Stylized monogram marks — premium client wall.
-const partners = [
-  { mono: "AR", name: "Saudi Aramco", tag: "Energy" },
-  { mono: "SB", name: "SABIC", tag: "Petrochem" },
-  { mono: "MA", name: "Ma'aden", tag: "Mining" },
-  { mono: "SE", name: "Samsung Eng.", tag: "EPC" },
-  { mono: "HY", name: "Hyundai E&C", tag: "EPC" },
-  { mono: "SEC", name: "Saudi Electricity", tag: "Power" },
-  { mono: "N", name: "NEOM", tag: "Giga" },
-  { mono: "RSG", name: "Red Sea Global", tag: "Tourism" },
-  { mono: "RC", name: "Royal Commission", tag: "Jubail" },
-  { mono: "PR", name: "Petro Rabigh", tag: "Refining" },
-  { mono: "SP", name: "Sipchem", tag: "Chemicals" },
-  { mono: "FL", name: "Fluor Arabia", tag: "EPC" },
-];
+const monos = ["AR", "SB", "MA", "SE", "HY", "SEC", "N", "RSG", "RC", "PR", "SP", "FL"];
 
 export function Partners() {
   const { t } = useTranslation();
+  const list = t("partners.list", { returnObjects: true }) as { name: string; tag: string }[];
+  const partners = list.map((p, i) => ({ ...p, mono: monos[i] ?? "" }));
   return (
     <section id="partners" className="relative py-16 lg:py-24 dark-premium text-white overflow-hidden">
       <div className="absolute inset-x-0 top-0 gold-divider" />
@@ -43,7 +32,7 @@ export function Partners() {
           className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-px bg-white/10 rounded-2xl overflow-hidden border border-white/10"
           stagger={0.03}
         >
-          {partners.map((p) => (
+          {partners.map((p, i) => (
             <StaggerItem key={p.name}>
               <div className="group relative h-full bg-navy-deep aspect-[5/4] flex flex-col items-center justify-center text-center transition-all duration-500 hover:bg-navy">
                 <div className="relative h-14 w-14 lg:h-16 lg:w-16 rounded-xl border border-white/15 group-hover:border-gold/60 flex items-center justify-center transition-all duration-500 group-hover:-translate-y-0.5">
@@ -52,10 +41,10 @@ export function Partners() {
                   </span>
                   <span className="absolute -top-1 -right-1 h-1.5 w-1.5 rounded-full bg-gold opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <div className="mt-3 text-[11px] font-medium text-white/70 group-hover:text-white transition-colors px-2 leading-tight">
+                <div className="mt-3 text-[11px] font-medium text-white/70 group-hover:text-white transition-colors px-2 leading-tight" data-cms-field={`partners.list.${i}.name`} suppressContentEditableWarning>
                   {p.name}
                 </div>
-                <div className="mt-1 text-[9px] uppercase tracking-[0.25em] text-white/30">
+                <div className="mt-1 text-[9px] uppercase tracking-[0.25em] text-white/30" data-cms-field={`partners.list.${i}.tag`} suppressContentEditableWarning>
                   {p.tag}
                 </div>
               </div>
@@ -73,7 +62,7 @@ export function Partners() {
                 className="mx-8 inline-flex items-center gap-3 text-white/40 hover:text-gold transition-colors duration-500 cursor-default"
               >
                 <span className="font-display font-black tracking-tight text-sm">{p.mono}</span>
-                <span className="text-[11px] uppercase tracking-[0.28em]">{p.name}</span>
+                <span className="text-[11px] uppercase tracking-[0.28em]" data-cms-field={`partners.list.${idx % partners.length}.name`} suppressContentEditableWarning>{p.name}</span>
                 <span className="text-gold/40">•</span>
               </span>
             ))}

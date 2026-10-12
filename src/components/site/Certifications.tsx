@@ -17,6 +17,7 @@ const certs = [
 
 export function Certifications() {
   const { t } = useTranslation();
+  const codes = t("certifications.codes", { returnObjects: true }) as string[];
   return (
     <section id="certifications" className="relative py-16 lg:py-24 bg-white">
       <div className="container-wide">
@@ -33,7 +34,7 @@ export function Certifications() {
         </Reveal>
 
         <StaggerGroup className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5" stagger={0.05}>
-          {certs.map((c) => (
+          {certs.map((c, i) => (
             <StaggerItem key={c.code}>
               <div className="group relative h-full bg-card border border-border rounded-2xl p-6 lg:p-7 transition-all duration-500 hover:border-gold hover:-translate-y-1.5 hover:shadow-elegant overflow-hidden">
                 <div className="absolute top-0 left-0 h-1 w-0 bg-gold transition-all duration-500 group-hover:w-full" />
@@ -44,7 +45,7 @@ export function Certifications() {
                 <div className="h-12 w-12 mb-5 rounded-xl bg-gold/10 group-hover:bg-gold flex items-center justify-center transition-all duration-500 group-hover:rotate-[-8deg] group-hover:scale-110 group-hover:shadow-gold">
                   <c.icon className="h-5 w-5 text-gold group-hover:text-navy transition-colors" strokeWidth={1.8} />
                 </div>
-                <div className="text-lg font-bold text-navy">{c.code}</div>
+                <div className="text-lg font-bold text-navy" data-cms-field={`certifications.codes.${i}`} suppressContentEditableWarning>{codes[i] ?? c.code}</div>
                 <div className="text-xs text-muted-foreground mt-1 leading-snug" data-cms-field={`certifications.items.${c.key}`}>{t(`certifications.items.${c.key}`)}</div>
 
                 {/* Verified checkmark */}

@@ -41,7 +41,7 @@ export function CTA() {
               </div>
               <div className="absolute -bottom-6 -right-6 hidden md:block bg-card border border-border rounded-2xl shadow-elegant px-6 py-5 max-w-[230px]">
                 <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground" data-cms-field="cta.saudiCr">{t("cta.saudiCr")}</div>
-                <div className="text-xl font-extrabold text-navy mt-1 tabular-nums" dir="ltr">4701103544</div>
+                <div className="text-xl font-extrabold text-navy mt-1 tabular-nums" dir="ltr" data-cms-field="cta.crValue" suppressContentEditableWarning>{t("cta.crValue")}</div>
                 <div className="text-xs text-muted-foreground mt-1" data-cms-field="cta.crStatus">{t("cta.crStatus")}</div>
               </div>
               <div className="absolute -top-5 -left-5 hidden md:flex items-center gap-2 rounded-full bg-navy text-white px-4 py-2 text-[11px] uppercase tracking-[0.25em] shadow-elegant">
@@ -85,8 +85,8 @@ export function CTA() {
             </div>
 
             <div className="mt-10 grid sm:grid-cols-2 xl:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
-              <ContactRow icon={Phone} label={t("cta.contact.call")} labelField="cta.contact.call" value="+966 55 442 9574" href="tel:+966554429574" ltr />
-              <ContactRow icon={Mail} label={t("cta.contact.email")} labelField="cta.contact.email" value="official@novarisesa.com" href="mailto:official@novarisesa.com" ltr />
+              <ContactRow icon={Phone} label={t("cta.contact.call")} labelField="cta.contact.call" value={t("cta.phone")} valueField="cta.phone" href="tel:+966554429574" ltr />
+              <ContactRow icon={Mail} label={t("cta.contact.email")} labelField="cta.contact.email" value={t("cta.email")} valueField="cta.email" href="mailto:official@novarisesa.com" ltr />
               <ContactRow icon={MapPin} label={t("cta.contact.headOffice")} labelField="cta.contact.headOffice" value={t("cta.contact.headOfficeValue")} valueField="cta.contact.headOfficeValue" href="https://www.google.com/maps/search/?api=1&query=6563+King+Faisal+Rd+2124+Al+Bathaa+District+Umluj+48313" />
               <ContactRow icon={MapPin} label={t("cta.contact.branchOffice")} labelField="cta.contact.branchOffice" value={t("cta.contact.branchOfficeValue")} valueField="cta.contact.branchOfficeValue" href="https://www.google.com/maps/search/?api=1&query=4342+8805+Jubail+City+Center+Al+Jubayl+35514" />
             </div>
