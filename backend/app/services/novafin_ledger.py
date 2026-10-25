@@ -15,6 +15,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.services.novafin_sequences import next_code
 from app.models import NovaFinAccount, NovaFinFiscalYear, NovaFinJournalVoucher, NovaFinJournalVoucherLine
 
 # code -> (name, account_type). Looked up / lazily created on first use so no
@@ -75,10 +76,7 @@ def is_period_locked(db: Session, entry_date: date) -> bool:
 
 
 def _next_voucher_code(db: Session, prefix: str) -> str:
-    count = db.scalar(
-        select(func.count()).select_from(NovaFinJournalVoucher).where(NovaFinJournalVoucher.code.like(f"{prefix}-%"))
-    ) or 0
-    return f"{prefix}-{count + 1:04d}"
+    return next_code(db, NovaFinJournalVoucher, prefix)
 
 
 def post_journal(

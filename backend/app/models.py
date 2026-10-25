@@ -1626,3 +1626,33 @@ class NovaFinBankClear(UUIDMixin, Base):
         ForeignKey("novafin_journal_voucher_lines.id", ondelete="CASCADE")
     )
     cleared_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+# --- NovaFin: foundation (gapless numbering, idempotent saves) ---
+
+
+class NovaFinSequence(Base):
+    """One row per document prefix. Row-locked (SELECT ... FOR UPDATE) while a
+    number is handed out so two simultaneous saves can never get the same code,
+    and rolled back with the surrounding transaction so numbers stay gapless."""
+
+    __tablename__ = "novafin_sequences"
+
+    prefix: Mapped[str] = mapped_column(String(20), primary_key=True)
+    last_number: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class NovaFinIdempotencyKey(Base):
+    """Remembers the response of a NovaFin write so a repeated request carrying
+    the same Idempotency-Key (double-click, network retry) replays it instead of
+    creating a second document."""
+
+    __tablename__ = "novafin_idempotency_keys"
+
+    key_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    method: Mapped[str] = mapped_column(String(10))
+    path: Mapped[str] = mapped_column(String(300))
+    status_code: Mapped[int | None] = mapped_column(Integer)
+    content_type: Mapped[str | None] = mapped_column(String(100))
+    response_body: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

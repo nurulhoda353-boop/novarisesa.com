@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -28,8 +29,20 @@ import 'features/reports/reports_screen.dart';
 import 'features/vendors/vendors_screen.dart';
 import 'widgets/app_shell.dart';
 import 'widgets/document_screen.dart';
+import 'widgets/nf_widgets.dart';
+
+final GlobalKey<ScaffoldMessengerState> _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() {
+  // A failed save must never be silent: anything a screen did not catch itself
+  // still ends up as a visible message.
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (error is ApiException) {
+      _messengerKey.currentState?.showSnackBar(SnackBar(content: Text(nfErrorMessage(error))));
+      return true;
+    }
+    return false;
+  };
   runApp(const NovaFinApp());
 }
 
@@ -52,6 +65,7 @@ class _NovaFinAppState extends State<NovaFinApp> {
     super.initState();
     _apiClient = ApiClient();
     _authState = AuthState(_apiClient);
+    _apiClient.onSessionExpired = _authState.expireSession;
     _repository = NovaFinRepository(_apiClient);
     _usersRepository = CmsUsersRepository(_apiClient);
     _router = _buildRouter(_authState);
@@ -235,6 +249,7 @@ class _NovaFinAppState extends State<NovaFinApp> {
       child: MaterialApp.router(
         title: 'NovaFin',
         debugShowCheckedModeBanner: false,
+        scaffoldMessengerKey: _messengerKey,
         theme: NfTheme.light(),
         routerConfig: _router,
       ),

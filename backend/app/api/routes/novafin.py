@@ -36,6 +36,7 @@ from app.schemas.novafin import (
     VendorUpsert,
 )
 from app.services.novafin_ledger import account_balance, post_journal
+from app.services.novafin_sequences import next_code
 
 router = APIRouter(prefix="/novafin")
 
@@ -57,8 +58,7 @@ def _jsonable(value: Any) -> Any:
 
 
 def _next_code(db: Session, model: type, prefix: str) -> str:
-    count = db.scalar(select(func.count()).select_from(model)) or 0
-    return f"{prefix}-{count + 1:04d}"
+    return next_code(db, model, prefix)
 
 
 def serialize_item(item: NovaFinItem) -> dict[str, Any]:

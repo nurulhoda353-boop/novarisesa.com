@@ -55,6 +55,15 @@ class AuthState extends ChangeNotifier {
     }
   }
 
+  /// The server stopped recognising the session cookie: go back to the login screen.
+  void expireSession() {
+    if (status != AuthStatus.signedIn) return;
+    user = null;
+    lastError = 'Your session expired. Please log in again.';
+    status = AuthStatus.signedOut;
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     await _api.logout();
     user = null;

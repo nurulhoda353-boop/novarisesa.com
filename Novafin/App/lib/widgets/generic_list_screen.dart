@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../core/api_client.dart';
 import '../core/auth_state.dart';
 import '../core/novafin_repository.dart';
 import 'nf_widgets.dart';
@@ -153,8 +154,11 @@ class _GenericListScreenState extends State<GenericListScreen> {
     };
 
     if (!context.mounted) return;
+    var saving = false;
+    String? saveError;
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(builder: (dialogContext, setDialogState) {
         return AlertDialog(
           title: Text(widget.addButtonLabel),
@@ -170,25 +174,48 @@ class _GenericListScreenState extends State<GenericListScreen> {
                       _buildField(field, values, controllers, setDialogState, dialogContext),
                       const SizedBox(height: 12),
                     ],
+                    if (saveError != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(saveError!, style: const TextStyle(color: Color(0xFFB3261E), fontSize: 13)),
+                      ),
                   ],
                 ),
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final payload = <String, dynamic>{
-                  for (final entry in values.entries)
-                    entry.key: entry.value is DateTime ? DateFormat('yyyy-MM-dd').format(entry.value as DateTime) : entry.value,
-                };
-                await repo.createRaw(widget.endpoint, payload);
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-                await _refresh();
-              },
-              child: const Text('Save'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final payload = <String, dynamic>{
+                        for (final entry in values.entries)
+                          entry.key: entry.value is DateTime ? DateFormat('yyyy-MM-dd').format(entry.value as DateTime) : entry.value,
+                      };
+                      setDialogState(() {
+                        saving = true;
+                        saveError = null;
+                      });
+                      try {
+                        await repo.createRaw(widget.endpoint, payload);
+                      } on ApiException catch (e) {
+                        saving = false;
+                        if (dialogContext.mounted) setDialogState(() => saveError = nfErrorMessage(e));
+                        return;
+                      } catch (_) {
+                        saving = false;
+                        if (dialogContext.mounted) setDialogState(() => saveError = 'Could not save. Check your connection and try again.');
+                        return;
+                      }
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      await _refresh();
+                    },
+              child: saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save'),
             ),
           ],
         );

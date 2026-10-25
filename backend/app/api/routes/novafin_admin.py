@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit
@@ -182,6 +182,9 @@ def submit_opening_balance(payload: OpeningBalanceSubmit, request: Request, user
 
     existing = db.scalar(select(NovaFinJournalVoucher).where(NovaFinJournalVoucher.code == OPENBAL_REF))
     if existing is not None:
+        # The one sanctioned ledger rewrite: re-saving the opening trial balance replaces
+        # its voucher. Opt in for this transaction only (see migration 20261025_0028).
+        db.execute(text("SET LOCAL novafin.allow_ledger_rewrite = 'on'"))
         db.delete(existing)
         db.flush()
 

@@ -12,6 +12,7 @@ from starlette.requests import Request
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.idempotency import NovaFinIdempotencyMiddleware
 from app.core.storage import media_root
 from app.services.hostinger_directory_sync import hostinger_directory_sync_loop
 from app.services.mail_client import close_all_imap_connections, imap_pool_maintenance_loop
@@ -123,6 +124,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.TRUSTED_HOSTS)
+app.add_middleware(NovaFinIdempotencyMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 app.mount("/media", StaticFiles(directory=str(media_root())), name="media")

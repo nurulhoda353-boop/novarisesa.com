@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../core/api_client.dart';
 import '../core/theme.dart';
 
 final nfMoney = NumberFormat('#,##0.00');
@@ -156,4 +157,46 @@ class NfEmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Asks before an irreversible action. Returns true only on an explicit confirm.
+Future<bool> nfConfirm(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'Delete',
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        ElevatedButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(confirmLabel)),
+      ],
+    ),
+  );
+  return result == true;
+}
+
+/// Runs a write action and reports a failure as a snackbar instead of letting it vanish.
+Future<bool> nfRun(BuildContext context, Future<void> Function() action) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await action();
+    return true;
+  } on ApiException catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text(nfErrorMessage(e))));
+  } catch (_) {
+    messenger.showSnackBar(const SnackBar(content: Text('Something went wrong. Please try again.')));
+  }
+  return false;
+}
+
+String nfErrorMessage(ApiException e) {
+  if (e.statusCode == 401) return 'Your session has expired. Please log in again.';
+  if (e.statusCode == 403) return 'You do not have permission to do this.';
+  return e.message.isEmpty ? 'Could not complete the action. Please try again.' : e.message;
 }

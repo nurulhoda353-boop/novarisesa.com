@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 
 import 'dio_setup_io.dart' if (dart.library.html) 'dio_setup_web.dart' as dio_setup;
@@ -56,15 +59,53 @@ class ApiClient {
   Future<T> patch<T>(String path, {Object? data}) => _request<T>('PATCH', path, data: data);
   Future<void> delete(String path) => _request<void>('DELETE', path);
 
-  Future<T> _request<T>(String method, String path, {Object? data}) async {
+  // Writes carry an Idempotency-Key so the server creates the document once even
+  // if the same save arrives twice (double-click, retry). The key is reused for an
+  // identical request made within a few seconds, which is exactly a double-submit.
+  final Map<String, ({String key, DateTime at})> _recentWrites = {};
+  final Random _random = Random.secure();
+
+  String? _idempotencyKeyFor(String method, String path, Object? data) {
+    if (method == 'GET') return null;
+    final signature = '$method $path ${data == null ? '' : jsonEncode(data)}';
+    final now = DateTime.now();
+    _recentWrites.removeWhere((_, v) => now.difference(v.at) > const Duration(seconds: 20));
+    final existing = _recentWrites[signature];
+    if (existing != null) return existing.key;
+    final key = List.generate(16, (_) => _random.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+    _recentWrites[signature] = (key: key, at: now);
+    return key;
+  }
+
+  final Map<String, Future<dynamic>> _inFlightWrites = {};
+
+  /// Called when any call comes back 401 (the session cookie expired mid-use).
+  void Function()? onSessionExpired;
+
+  Future<T> _request<T>(String method, String path, {Object? data}) {
+    if (method == 'GET') return _send<T>(method, path, data: data);
+    final signature = '$method $path ${data == null ? '' : jsonEncode(data)}';
+    final running = _inFlightWrites[signature];
+    if (running != null) return running.then((value) => value as T);
+    final future = _send<T>(method, path, data: data);
+    _inFlightWrites[signature] = future;
+    return future.whenComplete(() => _inFlightWrites.remove(signature));
+  }
+
+  Future<T> _send<T>(String method, String path, {Object? data}) async {
     try {
+      final idempotencyKey = _idempotencyKeyFor(method, path, data);
       final response = await _dio.request<T>(
         path,
         data: data,
-        options: Options(method: method),
+        options: Options(
+          method: method,
+          headers: idempotencyKey == null ? null : {'Idempotency-Key': idempotencyKey},
+        ),
       );
       return response.data as T;
     } on DioException catch (e) {
+      if (e.response?.statusCode == 401 && !path.startsWith('/auth/')) onSessionExpired?.call();
       throw ApiException(e.response?.statusCode, _messageFrom(e));
     }
   }

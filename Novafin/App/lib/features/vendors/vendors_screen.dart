@@ -84,8 +84,14 @@ class _VendorsScreenState extends State<VendorsScreen> {
                               ? IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 18, color: NfColors.danger),
                                   onPressed: () async {
-                                    await context.read<NovaFinRepository>().deleteVendor(v.id);
-                                    await _refresh();
+                                    final repo = context.read<NovaFinRepository>();
+                                    final ok = await nfConfirm(
+                                      context,
+                                      title: 'Delete vendor',
+                                      message: 'Delete "${v.name}"? This cannot be undone.',
+                                    );
+                                    if (!ok || !context.mounted) return;
+                                    if (await nfRun(context, () => repo.deleteVendor(v.id))) await _refresh();
                                   },
                                 )
                               : const SizedBox.shrink()),

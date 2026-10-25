@@ -86,8 +86,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
                               ? IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 18, color: NfColors.danger),
                                   onPressed: () async {
-                                    await context.read<NovaFinRepository>().deleteCustomer(c.id);
-                                    await _refresh();
+                                    final repo = context.read<NovaFinRepository>();
+                                    final ok = await nfConfirm(
+                                      context,
+                                      title: 'Delete customer',
+                                      message: 'Delete "${c.name}"? This cannot be undone.',
+                                    );
+                                    if (!ok || !context.mounted) return;
+                                    if (await nfRun(context, () => repo.deleteCustomer(c.id))) await _refresh();
                                   },
                                 )
                               : const SizedBox.shrink()),

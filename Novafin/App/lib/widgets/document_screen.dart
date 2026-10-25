@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../core/api_client.dart';
 import '../core/auth_state.dart';
 import '../core/novafin_repository.dart';
 import '../core/theme.dart';
@@ -154,7 +155,9 @@ class _DocumentScreenState extends State<DocumentScreen> {
       return;
     }
 
-    String? partyId = parties.first['id'] as String;
+    String? partyId; // deliberately empty: the user must pick, never silently default to the first record
+    var saving = false;
+    String? saveError;
     String? secondaryId;
     DateTime date = DateTime.now();
     final lines = <_LineDraft>[_LineDraft()];
@@ -162,6 +165,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
     if (!context.mounted) return;
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(builder: (dialogContext, setDialogState) {
         double subtotal = 0;
         for (final line in lines) {
@@ -180,7 +184,7 @@ class _DocumentScreenState extends State<DocumentScreen> {
                   DropdownButtonFormField<String>(
                     initialValue: partyId,
                     isExpanded: true,
-                    decoration: InputDecoration(labelText: widget.partyLabel),
+                    decoration: InputDecoration(labelText: widget.partyLabel, hintText: 'Select...'),
                     items: [for (final p in parties) DropdownMenuItem(value: p['id'] as String, child: Text(p['name'].toString()))],
                     onChanged: (v) => setDialogState(() => partyId = v),
                   ),
@@ -279,16 +283,30 @@ class _DocumentScreenState extends State<DocumentScreen> {
                       Text(nfMoney.format(subtotal + vat), style: const TextStyle(fontWeight: FontWeight.w700)),
                     ]),
                   ],
+                  if (saveError != null) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(saveError!, style: const TextStyle(color: Color(0xFFB3261E), fontSize: 13)),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: saving ? null : () async {
                 final validLines = lines.where((l) => l.itemId != null && l.quantity > 0).toList();
-                if (partyId == null || validLines.isEmpty) return;
+                if (partyId == null) {
+                  setDialogState(() => saveError = 'Select a ${widget.partyLabel.toLowerCase()} first.');
+                  return;
+                }
+                if (validLines.isEmpty) {
+                  setDialogState(() => saveError = 'Add at least one line with an item and a quantity.');
+                  return;
+                }
                 final lineKey = widget.eyebrow == 'RFQ' ? 'max_price' : 'rate';
                 final body = <String, dynamic>{
                   widget.partyKey: partyId,
@@ -304,11 +322,27 @@ class _DocumentScreenState extends State<DocumentScreen> {
                       },
                   ],
                 };
-                await repo.createRaw(widget.createEndpoint, body);
+                setDialogState(() {
+                  saving = true;
+                  saveError = null;
+                });
+                try {
+                  await repo.createRaw(widget.createEndpoint, body);
+                } on ApiException catch (e) {
+                  saving = false;
+                  if (dialogContext.mounted) setDialogState(() => saveError = nfErrorMessage(e));
+                  return;
+                } catch (_) {
+                  saving = false;
+                  if (dialogContext.mounted) setDialogState(() => saveError = 'Could not save. Check your connection and try again.');
+                  return;
+                }
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
                 await _refresh();
               },
-              child: const Text('Save'),
+              child: saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save'),
             ),
           ],
         );

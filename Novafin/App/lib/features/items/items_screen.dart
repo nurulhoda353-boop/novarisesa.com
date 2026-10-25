@@ -92,8 +92,14 @@ class _ItemsScreenState extends State<ItemsScreen> {
                               ? IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 18, color: NfColors.danger),
                                   onPressed: () async {
-                                    await context.read<NovaFinRepository>().deleteItem(item.id);
-                                    await _refresh();
+                                    final repo = context.read<NovaFinRepository>();
+                                    final ok = await nfConfirm(
+                                      context,
+                                      title: 'Delete item',
+                                      message: 'Delete "${item.name}"? This cannot be undone.',
+                                    );
+                                    if (!ok || !context.mounted) return;
+                                    if (await nfRun(context, () => repo.deleteItem(item.id))) await _refresh();
                                   },
                                 )
                               : const SizedBox.shrink()),

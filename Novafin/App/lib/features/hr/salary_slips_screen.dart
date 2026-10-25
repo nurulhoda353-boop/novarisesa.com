@@ -80,8 +80,15 @@ class _SalarySlipsScreenState extends State<SalarySlipsScreen> {
                               ? const SizedBox.shrink()
                               : TextButton(
                                   onPressed: () async {
-                                    await context.read<NovaFinRepository>().patchRaw('salary-slips/${s['id']}/pay');
-                                    await _refresh();
+                                    final repo = context.read<NovaFinRepository>();
+                                    final ok = await nfConfirm(
+                                      context,
+                                      title: 'Mark salary paid',
+                                      message: 'Pay ${s['employee_name'] ?? s['code']} ${nfMoney.format(double.parse(s['net'].toString()))} and post it to the books? This cannot be undone.',
+                                      confirmLabel: 'Mark Paid',
+                                    );
+                                    if (!ok || !context.mounted) return;
+                                    if (await nfRun(context, () => repo.patchRaw('salary-slips/${s['id']}/pay'))) await _refresh();
                                   },
                                   child: const Text('Mark Paid'),
                                 )),

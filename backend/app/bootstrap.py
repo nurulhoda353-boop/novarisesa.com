@@ -26,6 +26,7 @@ CMS_PERMISSIONS = {
     "cms.view_audit": "View security and account activity logs",
     "novafin.view": "View the NovaFin accounting dashboard",
     "novafin.manage": "Create and edit NovaFin items, customers, vendors, invoices, and purchases",
+    "novafin.payroll": "View and run NovaFin payroll (employees, salary slips)",
 }
 
 ROLE_PERMISSIONS = {
@@ -40,6 +41,7 @@ ROLE_PERMISSIONS = {
         "cms.manage_users",
         "novafin.view",
         "novafin.manage",
+        "novafin.payroll",
     },
     "editor": {
         "cms.view",

@@ -60,6 +60,16 @@ def delete_account(account_id: uuid.UUID, request: Request, user: NovaFinManager
     account = db.get(NovaFinAccount, account_id)
     if account is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    if account.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="System accounts cannot be deleted — the ledger posts to them automatically.",
+        )
+    if db.scalar(select(NovaFinJournalVoucherLine.id).where(NovaFinJournalVoucherLine.account_id == account.id).limit(1)):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This account already has transactions and cannot be deleted. Mark it inactive instead.",
+        )
     audit(db, request, user, "novafin.account_deleted", "novafin_accounts", account.id, before=serialize_account(account))
     db.delete(account)
     db.commit()

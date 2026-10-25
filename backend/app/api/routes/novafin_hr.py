@@ -18,8 +18,11 @@ from app.services.novafin_ledger import post_journal
 router = APIRouter(prefix="/novafin")
 
 DBSession = Annotated[Session, Depends(get_db)]
-NovaFinUser = Annotated[User, Depends(require_permission("novafin.view", "novafin.manage"))]
-NovaFinManager = Annotated[User, Depends(require_permission("novafin.manage"))]
+# Payroll is more sensitive than the rest of NovaFin: a plain "view" user (e.g. a
+# bookkeeper or auditor account) must not see salaries, so every endpoint here
+# needs the dedicated payroll permission (or full manage rights).
+NovaFinUser = Annotated[User, Depends(require_permission("novafin.payroll", "novafin.manage"))]
+NovaFinManager = Annotated[User, Depends(require_permission("novafin.payroll", "novafin.manage"))]
 
 
 @router.get("/departments")
@@ -124,9 +127,14 @@ def create_salary_slip(payload: SalarySlipCreate, request: Request, user: NovaFi
 
 @router.patch("/salary-slips/{slip_id}/pay")
 def pay_salary_slip(slip_id: uuid.UUID, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
-    slip = db.get(NovaFinSalarySlip, slip_id)
+    slip = db.scalar(select(NovaFinSalarySlip).where(NovaFinSalarySlip.id == slip_id).with_for_update())
     if slip is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Salary slip not found")
+    if slip.is_paid:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Salary slip {slip.code} is already paid on {slip.paid_date}.",
+        )
     slip.is_paid = True
     slip.paid_date = date_type.today()
     post_journal(
