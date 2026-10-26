@@ -522,7 +522,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           'note_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
           'amount': double.tryParse(values['amount']!) ?? 0,
           if (values['reason']!.isNotEmpty) 'reason': values['reason'],
-        }));
+        }), success: 'Debit note issued. It is under Sales > Debit Notes and added to the customer balance.');
     if (ok) await _refresh();
   }
 
@@ -544,7 +544,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
           'amount': double.tryParse(values['amount']!) ?? 0,
           'reason': values['reason'],
           'write_off_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        }));
+        }), success: 'Written off as bad debt.');
     if (ok) await _refresh();
   }
 }

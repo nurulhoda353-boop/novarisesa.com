@@ -37,7 +37,7 @@ class _PeriodsScreenState extends State<PeriodsScreen> {
       confirmLabel: 'Lock month',
     );
     if (!ok || !mounted) return;
-    if (await nfRun(context, () => repo.createRaw('periods/$_year/$month/lock', {}))) setState(_load);
+    if (await nfRun(context, () => repo.createRaw('periods/$_year/$month/lock', {}), success: 'Month locked.')) setState(_load);
   }
 
   Future<void> _unlock(int month) async {
@@ -50,7 +50,7 @@ class _PeriodsScreenState extends State<PeriodsScreen> {
       confirmLabel: 'Unlock',
     );
     if (values == null || !mounted) return;
-    if (await nfRun(context, () => repo.createRaw('periods/$_year/$month/unlock', {'note': values['note']}))) setState(_load);
+    if (await nfRun(context, () => repo.createRaw('periods/$_year/$month/unlock', {'note': values['note']}), success: 'Month unlocked.')) setState(_load);
   }
 
   @override

@@ -88,7 +88,7 @@ class _SalarySlipsScreenState extends State<SalarySlipsScreen> {
                                       confirmLabel: 'Mark Paid',
                                     );
                                     if (!ok || !context.mounted) return;
-                                    if (await nfRun(context, () => repo.patchRaw('salary-slips/${s['id']}/pay'))) await _refresh();
+                                    if (await nfRun(context, () => repo.patchRaw('salary-slips/${s['id']}/pay'), success: 'Salary marked as paid.')) await _refresh();
                                   },
                                   child: const Text('Mark Paid'),
                                 )),

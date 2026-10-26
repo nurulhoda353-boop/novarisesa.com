@@ -182,10 +182,11 @@ Future<bool> nfConfirm(
 }
 
 /// Runs a write action and reports a failure as a snackbar instead of letting it vanish.
-Future<bool> nfRun(BuildContext context, Future<void> Function() action) async {
+Future<bool> nfRun(BuildContext context, Future<void> Function() action, {String? success}) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
     await action();
+    if (success != null) messenger.showSnackBar(SnackBar(content: Text(success), backgroundColor: NfColors.success));
     return true;
   } on ApiException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(nfErrorMessage(e))));

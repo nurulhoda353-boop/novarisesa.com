@@ -122,7 +122,7 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
       confirmLabel: 'Reverse',
     );
     if (values == null || !mounted) return;
-    if (await nfRun(context, () => repo.createRaw('journal-vouchers/${jv['id']}/reverse', {'reason': values['reason']}))) await _refresh();
+    if (await nfRun(context, () => repo.createRaw('journal-vouchers/${jv['id']}/reverse', {'reason': values['reason']}), success: 'Reversal entry posted.')) await _refresh();
   }
 
   Future<void> _openCreateDialog(BuildContext context) async {

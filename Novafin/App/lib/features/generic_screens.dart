@@ -136,7 +136,7 @@ Widget buildFiscalYearsScreen() => GenericListScreen(
                 ),
               );
               if (confirmed == true && context.mounted) {
-                if (await nfRun(context, () => repo.createRaw('fiscal-years/${row['id']}/close', {}))) refresh();
+                if (await nfRun(context, () => repo.createRaw('fiscal-years/${row['id']}/close', {}), success: 'Year closed. Profit moved to Retained Earnings.')) refresh();
               }
             },
             child: const Text('Close Year'),
@@ -153,7 +153,7 @@ Widget buildFiscalYearsScreen() => GenericListScreen(
                 confirmLabel: 'Reopen year',
               );
               if (values == null || !context.mounted) return;
-              if (await nfRun(context, () => repo.createRaw('fiscal-years/${row['id']}/reopen', {'reason': values['reason']}))) refresh();
+              if (await nfRun(context, () => repo.createRaw('fiscal-years/${row['id']}/reopen', {'reason': values['reason']}), success: 'Year reopened.')) refresh();
             },
             child: const Text('Reopen'),
           ),
