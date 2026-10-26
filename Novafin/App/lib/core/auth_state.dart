@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
@@ -25,10 +27,34 @@ class AuthState extends ChangeNotifier {
 
   final ApiClient _api;
 
-  AuthStatus status = AuthStatus.signedOut;
+  AuthStatus status = AuthStatus.unknown;
+  Timer? _keepAlive;
   NfUser? user;
   String? lastError;
   bool isBusy = false;
+
+  /// On page load: if the browser still holds a valid session, go straight back in instead of asking for a password.
+  Future<void> restore() async {
+    var data = await _api.currentUser();
+    if (data == null && await _api.refreshSession()) data = await _api.currentUser();
+    if (data != null) {
+      final restored = NfUser.fromJson(data);
+      if (restored.permissions.contains('novafin.view') || restored.canManage) {
+        user = restored;
+        status = AuthStatus.signedIn;
+        _startKeepAlive();
+        notifyListeners();
+        return;
+      }
+    }
+    status = AuthStatus.signedOut;
+    notifyListeners();
+  }
+
+  void _startKeepAlive() {
+    _keepAlive?.cancel();
+    _keepAlive = Timer.periodic(const Duration(minutes: 10), (_) => _api.refreshSession());
+  }
 
   Future<bool> login(String email, String password) async {
     isBusy = true;
@@ -44,6 +70,7 @@ class AuthState extends ChangeNotifier {
         return false;
       }
       status = AuthStatus.signedIn;
+      _startKeepAlive();
       return true;
     } on ApiException catch (e) {
       lastError = e.message;
@@ -58,6 +85,7 @@ class AuthState extends ChangeNotifier {
   /// The server stopped recognising the session cookie: go back to the login screen.
   void expireSession() {
     if (status != AuthStatus.signedIn) return;
+    _keepAlive?.cancel();
     user = null;
     lastError = 'Your session expired. Please log in again.';
     status = AuthStatus.signedOut;
@@ -65,6 +93,7 @@ class AuthState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _keepAlive?.cancel();
     await _api.logout();
     user = null;
     status = AuthStatus.signedOut;

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     TRUSTED_HOSTS: list[str] = Field(default=["localhost", "127.0.0.1", "testserver", "api.novarisesa.com"])
     COOKIE_DOMAIN: str | None = None
     ACCESS_TOKEN_MINUTES: int = 15
-    REFRESH_TOKEN_DAYS: int = 7
+    REFRESH_TOKEN_DAYS: int = 30
     LOGIN_MAX_ATTEMPTS: int = 8
     LOGIN_WINDOW_MINUTES: int = 15
     INITIAL_ADMIN_EMAIL: str | None = None

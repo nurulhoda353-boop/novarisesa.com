@@ -45,6 +45,31 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>?> currentUser() async {
+    try {
+      final response = await _dio.get('/auth/me');
+      return response.data as Map<String, dynamic>;
+    } on DioException {
+      return null;
+    }
+  }
+
+  Future<bool>? _refreshing;
+
+  /// Trades the long-lived refresh cookie for a fresh access cookie. Concurrent callers share one request.
+  Future<bool> refreshSession() {
+    return _refreshing ??= () async {
+      try {
+        await _dio.post('/auth/refresh');
+        return true;
+      } on DioException {
+        return false;
+      } finally {
+        _refreshing = null;
+      }
+    }();
+  }
+
   Future<void> logout() async {
     try {
       await _dio.post('/auth/logout');
@@ -92,7 +117,7 @@ class ApiClient {
     return future.whenComplete(() => _inFlightWrites.remove(signature));
   }
 
-  Future<T> _send<T>(String method, String path, {Object? data}) async {
+  Future<T> _send<T>(String method, String path, {Object? data, bool retried = false}) async {
     try {
       final idempotencyKey = _idempotencyKeyFor(method, path, data);
       final response = await _dio.request<T>(
@@ -105,7 +130,11 @@ class ApiClient {
       );
       return response.data as T;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401 && !path.startsWith('/auth/')) onSessionExpired?.call();
+      if (e.response?.statusCode == 401 && !path.startsWith('/auth/')) {
+        // The 15-minute access cookie lapsed: renew it quietly and repeat the call once.
+        if (!retried && await refreshSession()) return _send<T>(method, path, data: data, retried: true);
+        onSessionExpired?.call();
+      }
       throw ApiException(e.response?.statusCode, _messageFrom(e));
     }
   }

@@ -71,6 +71,7 @@ class _NovaFinAppState extends State<NovaFinApp> {
     _repository = NovaFinRepository(_apiClient);
     _usersRepository = CmsUsersRepository(_apiClient);
     _router = _buildRouter(_authState);
+    _authState.restore();
   }
 
   GoRouter _buildRouter(AuthState auth) {
@@ -78,13 +79,16 @@ class _NovaFinAppState extends State<NovaFinApp> {
       refreshListenable: auth,
       initialLocation: '/dashboard',
       redirect: (context, state) {
+        if (auth.status == AuthStatus.unknown) return state.matchedLocation == '/splash' ? null : '/splash';
         final signedIn = auth.status == AuthStatus.signedIn;
         final onLogin = state.matchedLocation == '/login';
         if (!signedIn && !onLogin) return '/login';
-        if (signedIn && onLogin) return '/dashboard';
+        if (signedIn && (onLogin || state.matchedLocation == '/splash')) return '/dashboard';
+        if (!signedIn && state.matchedLocation == '/splash') return '/login';
         return null;
       },
       routes: [
+        GoRoute(path: '/splash', builder: (context, state) => const Scaffold(body: Center(child: CircularProgressIndicator()))),
         GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
         ShellRoute(
           builder: (context, state, child) => AppShell(currentPath: state.matchedLocation, child: child),
