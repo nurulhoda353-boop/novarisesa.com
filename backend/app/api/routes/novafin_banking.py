@@ -4,11 +4,11 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit
-from app.api.routes.novafin import _jsonable, _next_code
+from app.api.routes.novafin import _jsonable, _next_code, dims_for
 from app.core.auth import require_permission
 from app.core.database import get_db
 from app.models import (
@@ -36,6 +36,7 @@ from app.schemas.novafin_banking import (
     ContraCreate,
     VoucherCreate,
 )
+from app.services.novafin_ar import apply_allocations
 from app.services.novafin_ledger import post_journal
 
 router = APIRouter(prefix="/novafin")
@@ -145,7 +146,11 @@ def list_cash_moves(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 @router.post("/cash-moves", status_code=status.HTTP_201_CREATED)
 def create_cash_move(payload: CashMoveCreate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
     prefix = "REC" if payload.kind == "receipt" else "PAY"
-    data = payload.model_dump()
+    if payload.kind == "receipt" and payload.customer_id is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose the customer this receipt is from.")
+    if payload.kind == "payment" and payload.vendor_id is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose the vendor this payment is to.")
+    data = payload.model_dump(exclude={"project_id", "cost_center_id", "branch_id", "allocations"})
     if data.get("customer_id") and not data.get("party_name"):
         customer = db.get(NovaFinCustomer, data["customer_id"])
         if customer:
@@ -157,16 +162,28 @@ def create_cash_move(payload: CashMoveCreate, request: Request, user: NovaFinMan
     move = NovaFinCashMove(code=_next_code(db, NovaFinCashMove, prefix), **data)
     db.add(move)
     db.flush()
+    dims = dims_for(
+        db, payload.project_id, payload.cost_center_id, payload.branch_id, customer_id=payload.customer_id, vendor_id=payload.vendor_id
+    )
     if move.kind == "receipt":
         post_journal(
             db, entry_date=move.move_date, narration=f"Receipt — {move.party_name or move.code}",
-            lines=[(move.method, move.amount, Decimal("0")), ("ar", Decimal("0"), move.amount)], code_prefix="GL",
+            lines=[(move.method, move.amount, Decimal("0")), ("ar", Decimal("0"), move.amount)], code_prefix="GL", dims=dims,
         )
     else:
         post_journal(
             db, entry_date=move.move_date, narration=f"Payment — {move.party_name or move.code}",
-            lines=[("ap", move.amount, Decimal("0")), (move.method, Decimal("0"), move.amount)], code_prefix="GL",
+            lines=[("ap", move.amount, Decimal("0")), (move.method, Decimal("0"), move.amount)], code_prefix="GL", dims=dims,
         )
+    apply_allocations(
+        db,
+        kind=move.kind,
+        source_id=move.id,
+        party_id=payload.customer_id if move.kind == "receipt" else payload.vendor_id,
+        available=move.amount,
+        items=[(a.document_id, a.amount) for a in payload.allocations],
+        on=move.move_date,
+    )
     audit(db, request, user, "novafin.cash_move_created", "novafin_cash_moves", move.id, after=_jsonable(serialize_cash_move(move)))
     db.commit()
     db.refresh(move)
@@ -237,25 +254,38 @@ def update_cheque_status(cheque_id: uuid.UUID, new_status: str, request: Request
         method = f"bank:{cheque.bank_id}" if cheque.bank_id else "cash"
         kind = "receipt" if cheque.kind == "inward" else "payment"
         prefix = "REC" if kind == "receipt" else "PAY"
+        customer_id, vendor_id = cheque.customer_id, cheque.vendor_id
+        if kind == "receipt" and customer_id is None and cheque.party_name:
+            customer_id = db.scalar(select(NovaFinCustomer.id).where(func.lower(NovaFinCustomer.name) == cheque.party_name.strip().lower()))
+        if kind == "payment" and vendor_id is None and cheque.party_name:
+            vendor_id = db.scalar(select(NovaFinVendor.id).where(func.lower(NovaFinVendor.name) == cheque.party_name.strip().lower()))
+        if (kind == "receipt" and customer_id is None) or (kind == "payment" and vendor_id is None):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Cheque {cheque.cheque_no} is not linked to a {'customer' if kind == 'receipt' else 'vendor'}, so it can't be cleared yet.",
+            )
         move = NovaFinCashMove(
             code=_next_code(db, NovaFinCashMove, prefix),
             kind=kind,
             party_name=cheque.party_name,
+            customer_id=customer_id if kind == "receipt" else None,
+            vendor_id=vendor_id if kind == "payment" else None,
             amount=cheque.amount,
             move_date=date_type.today(),
             method=method,
         )
         db.add(move)
         db.flush()
+        dims = dims_for(db, customer_id=move.customer_id, vendor_id=move.vendor_id)
         if kind == "receipt":
             post_journal(
                 db, entry_date=move.move_date, narration=f"Cheque cleared — {cheque.cheque_no}",
-                lines=[(method, move.amount, Decimal("0")), ("ar", Decimal("0"), move.amount)], code_prefix="GL",
+                lines=[(method, move.amount, Decimal("0")), ("ar", Decimal("0"), move.amount)], code_prefix="GL", dims=dims,
             )
         else:
             post_journal(
                 db, entry_date=move.move_date, narration=f"Cheque cleared — {cheque.cheque_no}",
-                lines=[("ap", move.amount, Decimal("0")), (method, Decimal("0"), move.amount)], code_prefix="GL",
+                lines=[("ap", move.amount, Decimal("0")), (method, Decimal("0"), move.amount)], code_prefix="GL", dims=dims,
             )
     cheque.status = new_status
     audit(db, request, user, "novafin.cheque_status_updated", "novafin_cheques", cheque.id, after={"status": new_status})
@@ -317,13 +347,18 @@ def list_income_vouchers(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 def create_income_voucher(payload: VoucherCreate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
     if db.get(NovaFinIncomeCategory, payload.category_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-    voucher = NovaFinIncomeVoucher(code=_next_code(db, NovaFinIncomeVoucher, "INC"), **payload.model_dump())
+    voucher = NovaFinIncomeVoucher(
+        code=_next_code(db, NovaFinIncomeVoucher, "INC"),
+        **payload.model_dump(exclude={"project_id", "cost_center_id", "branch_id"}),
+    )
+    dims = dims_for(db, payload.project_id, payload.cost_center_id, payload.branch_id)
     db.add(voucher)
     db.flush()
     post_journal(
         db, entry_date=voucher.voucher_date, narration=f"Income — {voucher.category.name if voucher.category else voucher.code}",
         lines=[(voucher.method, voucher.amount, Decimal("0")), (f"inc:{voucher.category_id}", Decimal("0"), voucher.amount)],
         code_prefix="GL",
+        dims=dims,
     )
     audit(db, request, user, "novafin.income_voucher_created", "novafin_income_vouchers", voucher.id, after=_jsonable({"code": voucher.code, "amount": voucher.amount}))
     db.commit()
@@ -351,13 +386,18 @@ def list_expense_vouchers(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 def create_expense_voucher(payload: VoucherCreate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
     if db.get(NovaFinExpenseCategory, payload.category_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-    voucher = NovaFinExpenseVoucher(code=_next_code(db, NovaFinExpenseVoucher, "EXP"), **payload.model_dump())
+    voucher = NovaFinExpenseVoucher(
+        code=_next_code(db, NovaFinExpenseVoucher, "EXP"),
+        **payload.model_dump(exclude={"project_id", "cost_center_id", "branch_id"}),
+    )
+    dims = dims_for(db, payload.project_id, payload.cost_center_id, payload.branch_id)
     db.add(voucher)
     db.flush()
     post_journal(
         db, entry_date=voucher.voucher_date, narration=f"Expense — {voucher.category.name if voucher.category else voucher.code}",
         lines=[(f"exp:{voucher.category_id}", voucher.amount, Decimal("0")), (voucher.method, Decimal("0"), voucher.amount)],
         code_prefix="GL",
+        dims=dims,
     )
     audit(db, request, user, "novafin.expense_voucher_created", "novafin_expense_vouchers", voucher.id, after=_jsonable({"code": voucher.code, "amount": voucher.amount}))
     db.commit()

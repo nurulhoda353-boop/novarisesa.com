@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit
-from app.api.routes.novafin import _next_code
+from app.api.routes.novafin import _next_code, dims_for
 from app.api.routes.novafin_sales import _line, _load_items
 from app.core.auth import require_permission
 from app.core.database import get_db
@@ -24,6 +24,7 @@ from app.models import (
     User,
 )
 from app.schemas.novafin_purchasing import PurchaseOrderCreate, PurchaseReturnCreate, RfqCreate
+from app.services.novafin_ar import purchase_open_balance, record_allocation
 from app.services.novafin_ledger import post_journal
 
 router = APIRouter(prefix="/novafin")
@@ -209,7 +210,24 @@ def create_purchase_return(payload: PurchaseReturnCreate, request: Request, user
             ("vin", Decimal("0"), pr.vat_amount),
         ],
         code_prefix="GL",
+        dims=dims_for(
+            db,
+            original_purchase.project_id if original_purchase else None,
+            original_purchase.cost_center_id if original_purchase else None,
+            original_purchase.branch_id if original_purchase else None,
+            vendor_id=payload.vendor_id,
+        ),
     )
+    if original_purchase is not None and original_purchase.mode == "credit":
+        record_allocation(
+            db,
+            source_type="purchase_return",
+            source_id=pr.id,
+            target_type="purchase",
+            target_id=original_purchase.id,
+            amount=min(purchase_open_balance(db, original_purchase), pr.grand_total),
+            on=payload.return_date,
+        )
 
     audit(db, request, user, "novafin.purchase_return_created", "novafin_purchase_returns", pr.id, after={"code": pr.code})
     db.commit()

@@ -27,6 +27,8 @@ CMS_PERMISSIONS = {
     "novafin.view": "View the NovaFin accounting dashboard",
     "novafin.manage": "Create and edit NovaFin items, customers, vendors, invoices, and purchases",
     "novafin.payroll": "View and run NovaFin payroll (employees, salary slips)",
+    "novafin.close_period": "Lock accounting months, close fiscal years and write off bad debts",
+    "novafin.reopen_period": "Unlock a locked month or reopen a closed fiscal year",
 }
 
 ROLE_PERMISSIONS = {
@@ -42,6 +44,17 @@ ROLE_PERMISSIONS = {
         "novafin.view",
         "novafin.manage",
         "novafin.payroll",
+        "novafin.close_period",
+        "novafin.reopen_period",
+    },
+    "accountant": {
+        "novafin.view",
+        "novafin.manage",
+    },
+    "finance_manager": {
+        "novafin.view",
+        "novafin.manage",
+        "novafin.close_period",
     },
     "editor": {
         "cms.view",
@@ -54,6 +67,8 @@ ROLE_DESCRIPTIONS = {
     "super_admin": "Full developer-level access, security and team administration",
     "admin": "Publish content, manage enquiries, settings, and Admin or Editor accounts",
     "editor": "Create and edit website content and media without publishing",
+    "accountant": "NovaFin: enter invoices, bills, receipts and vouchers (no payroll, no period closing)",
+    "finance_manager": "NovaFin: everything an Accountant does, plus lock months, close years and write off bad debts",
 }
 
 INITIAL_REQUIREMENTS = [

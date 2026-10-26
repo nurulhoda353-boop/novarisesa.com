@@ -31,13 +31,24 @@ from app.models import (
     User,
 )
 from app.schemas.novafin_admin import FiscalYearUpsert, OpeningBalanceSubmit
-from app.services.novafin_ledger import account_balance, display_balance, get_or_create_account, post_journal
+from app.schemas.novafin_phase1 import FiscalYearReopen
+from app.services.novafin_ledger import (
+    CLOSING_PREFIX,
+    account_balance,
+    account_balance_as_of,
+    display_balance,
+    get_or_create_account,
+    post_journal,
+    reverse_voucher,
+)
 
 router = APIRouter(prefix="/novafin")
 
 DBSession = Annotated[Session, Depends(get_db)]
 NovaFinUser = Annotated[User, Depends(require_permission("novafin.view", "novafin.manage"))]
 NovaFinManager = Annotated[User, Depends(require_permission("novafin.manage"))]
+NovaFinCloser = Annotated[User, Depends(require_permission("novafin.close_period"))]
+NovaFinReopener = Annotated[User, Depends(require_permission("novafin.reopen_period"))]
 
 
 # --- Fiscal years ---
@@ -50,6 +61,7 @@ def serialize_fiscal_year(fy: NovaFinFiscalYear) -> dict[str, Any]:
         "is_active": fy.is_active, "status": fy.status,
         "closed_at": fy.closed_at.isoformat() if fy.closed_at else None,
         "net_profit_snapshot": fy.net_profit_snapshot,
+        "closing_voucher_id": str(fy.closing_voucher_id) if fy.closing_voucher_id else None,
     }
 
 
@@ -82,7 +94,7 @@ def create_fiscal_year(payload: FiscalYearUpsert, request: Request, user: NovaFi
 
 
 @router.post("/fiscal-years/{fiscal_year_id}/close")
-def close_fiscal_year(fiscal_year_id: uuid.UUID, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
+def close_fiscal_year(fiscal_year_id: uuid.UUID, request: Request, user: NovaFinCloser, db: DBSession) -> dict[str, Any]:
     fy = db.get(NovaFinFiscalYear, fiscal_year_id)
     if fy is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fiscal year not found")
@@ -90,23 +102,61 @@ def close_fiscal_year(fiscal_year_id: uuid.UUID, request: Request, user: NovaFin
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This fiscal year is already closed")
 
     net_profit = _net_profit_for_range(db, fy.start_date, fy.end_date)
+    closing = _post_closing_entry(db, fy, net_profit)
     fy.status = "closed"
     fy.closed_at = datetime.now()
     fy.net_profit_snapshot = net_profit
-    audit(db, request, user, "novafin.fiscal_year_closed", "novafin_fiscal_years", fy.id, after={"net_profit_snapshot": str(net_profit)})
+    fy.closing_voucher_id = closing.id if closing is not None else None
+    audit(
+        db, request, user, "novafin.fiscal_year_closed", "novafin_fiscal_years", fy.id,
+        after={"net_profit_snapshot": str(net_profit), "closing_entry": closing.code if closing else None},
+    )
     db.commit()
     db.refresh(fy)
     return serialize_fiscal_year(fy)
 
 
-def _net_profit_for_range(db: Session, start: date_type, end: date_type) -> Decimal:
-    """Sum of income-type minus expense-type ledger activity within [start, end],
-    used both for the Profit & Loss report and the fiscal-year close snapshot."""
+@router.post("/fiscal-years/{fiscal_year_id}/reopen")
+def reopen_fiscal_year(
+    fiscal_year_id: uuid.UUID, payload: FiscalYearReopen, request: Request, user: NovaFinReopener, db: DBSession
+) -> dict[str, Any]:
+    """Director-only. The closing entry is reversed (never deleted) so the year's profit is open to correction again."""
+    fy = db.get(NovaFinFiscalYear, fiscal_year_id)
+    if fy is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fiscal year not found")
+    if fy.status != "closed":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="This fiscal year is not closed")
+    fy.status = "open"  # must be open before the reversal can be dated inside it
+    if fy.closing_voucher_id is not None:
+        original = db.get(NovaFinJournalVoucher, fy.closing_voucher_id)
+        reverse_voucher(
+            db,
+            original,
+            entry_date=fy.end_date,
+            narration=f"Reopening {fy.label}: {payload.reason}",
+            code_prefix=CLOSING_PREFIX,
+            ignore_period_lock=True,
+        )
+    fy.closing_voucher_id = None
+    fy.closed_at = None
+    fy.net_profit_snapshot = None
+    audit(db, request, user, "novafin.fiscal_year_reopened", "novafin_fiscal_years", fy.id, after={"reason": payload.reason})
+    db.commit()
+    db.refresh(fy)
+    return serialize_fiscal_year(fy)
+
+
+def _net_profit_for_range(db: Session, start: date_type, end: date_type, *, exclude_closing: bool = True) -> Decimal:
+    """Sum of income-type minus expense-type ledger activity within [start, end]. Year-end closing
+    entries are left out so a closed year still reports the profit it earned."""
+    conditions = [NovaFinJournalVoucher.voucher_date >= start, NovaFinJournalVoucher.voucher_date <= end]
+    if exclude_closing:
+        conditions.append(~NovaFinJournalVoucher.code.like(f"{CLOSING_PREFIX}-%"))
     rows = db.execute(
         select(NovaFinAccount.account_type, func.coalesce(func.sum(NovaFinJournalVoucherLine.debit), 0), func.coalesce(func.sum(NovaFinJournalVoucherLine.credit), 0))
         .join(NovaFinJournalVoucherLine, NovaFinJournalVoucherLine.account_id == NovaFinAccount.id)
         .join(NovaFinJournalVoucher, NovaFinJournalVoucher.id == NovaFinJournalVoucherLine.voucher_id)
-        .where(NovaFinJournalVoucher.voucher_date >= start, NovaFinJournalVoucher.voucher_date <= end)
+        .where(*conditions)
         .group_by(NovaFinAccount.account_type)
     ).all()
     net = Decimal("0")
@@ -116,6 +166,40 @@ def _net_profit_for_range(db: Session, start: date_type, end: date_type) -> Deci
         elif account_type == "expense":
             net -= Decimal(debit) - Decimal(credit)
     return net
+
+
+def _post_closing_entry(db: Session, fy: NovaFinFiscalYear, net_profit: Decimal):
+    """Zero every income and expense account for the year and move the profit to Retained Earnings."""
+    rows = db.execute(
+        select(NovaFinAccount.code, NovaFinAccount.account_type, func.sum(NovaFinJournalVoucherLine.debit), func.sum(NovaFinJournalVoucherLine.credit))
+        .join(NovaFinJournalVoucherLine, NovaFinJournalVoucherLine.account_id == NovaFinAccount.id)
+        .join(NovaFinJournalVoucher, NovaFinJournalVoucher.id == NovaFinJournalVoucherLine.voucher_id)
+        .where(
+            NovaFinAccount.account_type.in_(["income", "expense"]),
+            NovaFinJournalVoucher.voucher_date >= fy.start_date,
+            NovaFinJournalVoucher.voucher_date <= fy.end_date,
+        )
+        .group_by(NovaFinAccount.code, NovaFinAccount.account_type)
+    ).all()
+    lines: list[tuple] = []
+    for code, _type, debit, credit in rows:
+        balance = Decimal(debit or 0) - Decimal(credit or 0)  # debit-positive
+        if balance > 0:
+            lines.append((code, Decimal("0"), balance))
+        elif balance < 0:
+            lines.append((code, -balance, Decimal("0")))
+    if not lines:
+        return None
+    net = sum((line[1] - line[2] for line in lines), Decimal("0"))  # debits closed out minus credits = profit
+    lines.append(("retained_earnings", Decimal("0") if net >= 0 else -net, net if net >= 0 else Decimal("0")))
+    return post_journal(
+        db,
+        entry_date=fy.end_date,
+        narration=f"Year-end closing {fy.label}: net profit {net_profit:,.2f} moved to Retained Earnings",
+        lines=lines,
+        code_prefix=CLOSING_PREFIX,
+        ignore_period_lock=True,
+    )
 
 
 # --- Opening balance (chart-of-accounts trial balance, excludes AR/AP —
@@ -147,7 +231,9 @@ def get_opening_balance(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
                 posted_lines[account.code] = {"debit": line.debit, "credit": line.credit}
 
     accounts = db.scalars(
-        select(NovaFinAccount).where(NovaFinAccount.code.notin_(["ar", "ap"])).order_by(NovaFinAccount.code)
+        select(NovaFinAccount)
+        .where(NovaFinAccount.code.notin_(["ar", "ap"]), NovaFinAccount.is_group.is_(False))
+        .order_by(NovaFinAccount.number.asc().nulls_last(), NovaFinAccount.code)
     ).all()
     return {
         "already_posted": existing is not None,
@@ -155,7 +241,9 @@ def get_opening_balance(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
             {
                 "id": str(a.id),
                 "code": a.code,
+                "number": a.number,
                 "name": a.name,
+                "name_ar": a.name_ar,
                 "account_type": a.account_type,
                 "debit": posted_lines.get(a.code, {}).get("debit", Decimal("0")),
                 "credit": posted_lines.get(a.code, {}).get("credit", Decimal("0")),
@@ -289,14 +377,15 @@ def stock_report(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 
 
 @router.get("/reports/balance-sheet")
-def balance_sheet(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
-    accounts = db.scalars(select(NovaFinAccount)).all()
+def balance_sheet(user: NovaFinUser, db: DBSession, as_of: date_type | None = None) -> dict[str, Any]:
+    as_of = as_of or date_type.today()
+    accounts = db.scalars(select(NovaFinAccount).where(NovaFinAccount.is_group.is_(False)).order_by(NovaFinAccount.number.asc().nulls_last())).all()
     assets, liabilities, equity_rows = [], [], []
     for account in accounts:
-        balance = display_balance(account_balance(db, account.code), account.account_type)
+        balance = display_balance(account_balance_as_of(db, account.code, as_of), account.account_type)
         if abs(balance) <= Decimal("0.005"):
             continue
-        row = {"code": account.code, "name": account.name, "balance": balance}
+        row = {"code": account.code, "number": account.number, "name": account.name, "name_ar": account.name_ar, "balance": balance}
         if account.account_type == "asset":
             assets.append(row)
         elif account.account_type == "liability":
@@ -307,17 +396,22 @@ def balance_sheet(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
     total_assets = sum((r["balance"] for r in assets), Decimal("0"))
     total_liabilities = sum((r["balance"] for r in liabilities), Decimal("0"))
     capital_total = sum((r["balance"] for r in equity_rows), Decimal("0"))
-    net_profit_to_date = _net_profit_for_range(db, date_type(2000, 1, 1), date_type.today())
+    # Closed years' profit already sits in Retained Earnings; their closing entries zero the P&L accounts,
+    # so including them here keeps the open year's profit the only thing added to equity.
+    net_profit_to_date = _net_profit_for_range(db, date_type(2000, 1, 1), as_of, exclude_closing=False)
     total_equity = capital_total + net_profit_to_date
 
     stock_value = Decimal("0")
     for item in db.scalars(select(NovaFinItem).where(NovaFinItem.kind == NovaFinItemKind.PRODUCT)):
         on_hand = db.scalar(
-            select(func.coalesce(func.sum(NovaFinStockMove.delta), 0)).where(NovaFinStockMove.item_id == item.id)
+            select(func.coalesce(func.sum(NovaFinStockMove.delta), 0)).where(
+                NovaFinStockMove.item_id == item.id, NovaFinStockMove.move_date <= as_of
+            )
         ) or Decimal("0")
         stock_value += on_hand * item.cost
 
     return {
+        "as_of": as_of.isoformat(),
         "assets": assets,
         "total_assets": total_assets,
         "liabilities": liabilities,
@@ -341,66 +435,6 @@ def vat_summary(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
         "net_payable": max(net, Decimal("0")),
         "net_refundable": max(-net, Decimal("0")),
     }
-
-
-@router.get("/reports/aging")
-def aging_report(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
-    today = date_type.today()
-
-    def bucket_for(days: int) -> str:
-        if days <= 30:
-            return "b0_30"
-        if days <= 60:
-            return "b31_60"
-        if days <= 90:
-            return "b61_90"
-        return "b90_plus"
-
-    invoices_by_customer: dict[uuid.UUID, list[tuple[date_type, Decimal]]] = {}
-    for inv in db.scalars(select(NovaFinInvoice).where(NovaFinInvoice.mode == "credit").order_by(NovaFinInvoice.invoice_date)):
-        invoices_by_customer.setdefault(inv.customer_id, []).append((inv.invoice_date, inv.grand_total))
-
-    received_by_customer: dict[uuid.UUID, Decimal] = {}
-    for row in db.execute(
-        select(NovaFinCashMove.customer_id, func.coalesce(func.sum(NovaFinCashMove.amount), 0))
-        .where(NovaFinCashMove.kind == "receipt", NovaFinCashMove.customer_id.is_not(None))
-        .group_by(NovaFinCashMove.customer_id)
-    ):
-        received_by_customer[row[0]] = Decimal(row[1])
-    for row in db.execute(
-        select(NovaFinSalesReturn.customer_id, func.coalesce(func.sum(NovaFinSalesReturn.grand_total), 0)).group_by(NovaFinSalesReturn.customer_id)
-    ):
-        received_by_customer[row[0]] = received_by_customer.get(row[0], Decimal("0")) + Decimal(row[1])
-    for row in db.execute(
-        select(NovaFinCreditNote.customer_id, func.coalesce(func.sum(NovaFinCreditNote.amount), 0)).group_by(NovaFinCreditNote.customer_id)
-    ):
-        received_by_customer[row[0]] = received_by_customer.get(row[0], Decimal("0")) + Decimal(row[1])
-
-    results = []
-    for customer in db.scalars(select(NovaFinCustomer)):
-        docs: list[tuple[date_type, Decimal]] = []
-        if customer.opening_balance:
-            docs.append((customer.created_at.date(), customer.opening_balance))
-        docs.extend(invoices_by_customer.get(customer.id, []))
-        if not docs:
-            continue
-        pool = received_by_customer.get(customer.id, Decimal("0"))
-        buckets = {"b0_30": Decimal("0"), "b31_60": Decimal("0"), "b61_90": Decimal("0"), "b90_plus": Decimal("0")}
-        for doc_date, amount in docs:
-            remaining = amount
-            if pool > 0:
-                offset = min(pool, remaining)
-                remaining -= offset
-                pool -= offset
-            if remaining > Decimal("0.005"):
-                days = (today - doc_date).days
-                buckets[bucket_for(days)] += remaining
-        total = sum(buckets.values(), Decimal("0"))
-        if total > Decimal("0.005"):
-            results.append({"customer_name": customer.name, **buckets, "total": total})
-
-    results.sort(key=lambda r: r["total"], reverse=True)
-    return {"items": results}
 
 
 @router.get("/reports/top-products")

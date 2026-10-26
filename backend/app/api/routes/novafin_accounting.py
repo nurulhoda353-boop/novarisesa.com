@@ -8,12 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit
-from app.api.routes.novafin import _jsonable, _next_code
+from app.api.routes.novafin import _jsonable, _next_code, dims_for
 from app.core.auth import require_permission
 from app.core.database import get_db
 from app.models import NovaFinAccount, NovaFinAsset, NovaFinJournalVoucher, NovaFinJournalVoucherLine, User
-from app.schemas.novafin_accounting import AccountUpsert, AssetUpsert, JournalVoucherCreate
-from app.services.novafin_ledger import account_balance, is_period_locked, post_journal
+from app.schemas.novafin_accounting import AccountUpdate, AccountUpsert, AssetUpsert, JournalVoucherCreate, ReverseRequest
+from app.services.novafin_ledger import account_balance, post_journal, reverse_voucher
 
 router = APIRouter(prefix="/novafin")
 
@@ -26,12 +26,23 @@ NovaFinManager = Annotated[User, Depends(require_permission("novafin.manage"))]
 
 
 def serialize_account(a: NovaFinAccount) -> dict[str, Any]:
-    return {"id": str(a.id), "code": a.code, "name": a.name, "account_type": a.account_type}
+    return {
+        "id": str(a.id),
+        "code": a.code,
+        "number": a.number,
+        "name": a.name,
+        "name_ar": a.name_ar,
+        "account_type": a.account_type,
+        "parent_id": str(a.parent_id) if a.parent_id else None,
+        "is_group": a.is_group,
+        "is_system": a.is_system,
+        "is_active": a.is_active,
+    }
 
 
 @router.get("/accounts")
 def list_accounts(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
-    rows = db.scalars(select(NovaFinAccount).order_by(NovaFinAccount.code)).all()
+    rows = db.scalars(select(NovaFinAccount).order_by(NovaFinAccount.number.asc().nulls_last(), NovaFinAccount.code)).all()
     return {"items": [serialize_account(a) for a in rows]}
 
 
@@ -40,6 +51,14 @@ def create_account(payload: AccountUpsert, request: Request, user: NovaFinManage
     data = payload.model_dump()
     opening_amount = data.pop("opening_amount")
     opening_side = data.pop("opening_side")
+    if db.scalar(select(NovaFinAccount.id).where(NovaFinAccount.code == data["code"])) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"An account with code {data['code']} already exists.")
+    if data.get("number") and db.scalar(select(NovaFinAccount.id).where(NovaFinAccount.number == data["number"])) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Account number {data['number']} is already used.")
+    if data.get("parent_id") is not None:
+        parent = db.get(NovaFinAccount, data["parent_id"])
+        if parent is None or not parent.is_group:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose a heading account as the parent.")
     account = NovaFinAccount(**data)
     db.add(account)
     db.flush()
@@ -50,6 +69,23 @@ def create_account(payload: AccountUpsert, request: Request, user: NovaFinManage
             lines=[(account.code, debit, credit), ("opening_equity", credit, debit)], code_prefix="OB",
         )
     audit(db, request, user, "novafin.account_created", "novafin_accounts", account.id, after=serialize_account(account))
+    db.commit()
+    db.refresh(account)
+    return serialize_account(account)
+
+
+@router.patch("/accounts/{account_id}")
+def update_account(account_id: uuid.UUID, payload: AccountUpdate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
+    account = db.get(NovaFinAccount, account_id)
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+    before = serialize_account(account)
+    changes = payload.model_dump(exclude_unset=True)
+    if changes.get("is_active") is False and account.is_system:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="System accounts are used automatically and can't be switched off.")
+    for field, value in changes.items():
+        setattr(account, field, value)
+    audit(db, request, user, "novafin.account_updated", "novafin_accounts", account.id, before=before, after=serialize_account(account))
     db.commit()
     db.refresh(account)
     return serialize_account(account)
@@ -84,8 +120,20 @@ def serialize_journal_voucher(jv: NovaFinJournalVoucher) -> dict[str, Any]:
         "code": jv.code,
         "voucher_date": jv.voucher_date.isoformat(),
         "narration": jv.narration,
+        "reversal_of_id": str(jv.reversal_of_id) if jv.reversal_of_id else None,
         "lines": [
-            {"account_id": str(l.account_id), "account_name": l.account.name if l.account else None, "debit": l.debit, "credit": l.credit}
+            {
+                "account_id": str(l.account_id),
+                "account_number": l.account.number if l.account else None,
+                "account_name": l.account.name if l.account else None,
+                "debit": l.debit,
+                "credit": l.credit,
+                "customer_id": str(l.customer_id) if l.customer_id else None,
+                "vendor_id": str(l.vendor_id) if l.vendor_id else None,
+                "project_id": str(l.project_id) if l.project_id else None,
+                "cost_center_id": str(l.cost_center_id) if l.cost_center_id else None,
+                "branch_id": str(l.branch_id) if l.branch_id else None,
+            }
             for l in jv.lines
         ],
     }
@@ -103,31 +151,62 @@ def list_journal_vouchers(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 
 @router.post("/journal-vouchers", status_code=status.HTTP_201_CREATED)
 def create_journal_voucher(payload: JournalVoucherCreate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
-    total_debit = sum((l.debit for l in payload.lines), start=payload.lines[0].debit * 0)
-    total_credit = sum((l.credit for l in payload.lines), start=payload.lines[0].credit * 0)
-    if total_debit != total_credit:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Debit and credit totals must match")
-    if is_period_locked(db, payload.voucher_date):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="This date falls within a closed fiscal year — no new entry can be posted.",
-        )
-
     account_ids = [l.account_id for l in payload.lines]
     accounts = {a.id: a for a in db.scalars(select(NovaFinAccount).where(NovaFinAccount.id.in_(account_ids)))}
     missing = set(account_ids) - set(accounts)
     if missing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Account(s) not found: {missing}")
 
-    jv = NovaFinJournalVoucher(code=_next_code(db, NovaFinJournalVoucher, "JV"), voucher_date=payload.voucher_date, narration=payload.narration)
-    db.add(jv)
-    db.flush()
+    lines = []
     for line in payload.lines:
-        db.add(NovaFinJournalVoucherLine(voucher_id=jv.id, account_id=line.account_id, debit=line.debit, credit=line.credit))
-
-    audit(db, request, user, "novafin.journal_voucher_created", "novafin_journal_vouchers", jv.id, after={"code": jv.code})
+        line_dims = dims_for(
+            db, line.project_id, line.cost_center_id, line.branch_id, customer_id=line.customer_id, vendor_id=line.vendor_id
+        )
+        lines.append((accounts[line.account_id].code, line.debit, line.credit, line_dims))
+    voucher = post_journal(
+        db,
+        entry_date=payload.voucher_date,
+        narration=payload.narration or "Journal voucher",
+        lines=lines,
+        code_prefix="JV",
+        require_project_for_direct_costs=True,
+    )
+    audit(db, request, user, "novafin.journal_voucher_created", "novafin_journal_vouchers", voucher.id, after={"code": voucher.code})
     db.commit()
-    db.refresh(jv)
+    jv = db.scalar(
+        select(NovaFinJournalVoucher)
+        .options(selectinload(NovaFinJournalVoucher.lines).selectinload(NovaFinJournalVoucherLine.account))
+        .where(NovaFinJournalVoucher.id == voucher.id)
+    )
+    return serialize_journal_voucher(jv)
+
+
+@router.post("/journal-vouchers/{voucher_id}/reverse", status_code=status.HTTP_201_CREATED)
+def reverse_journal_voucher(
+    voucher_id: uuid.UUID, payload: ReverseRequest, request: Request, user: NovaFinManager, db: DBSession
+) -> dict[str, Any]:
+    """Undo a manual entry the safe way: post its exact mirror image, linked to it. Nothing is erased."""
+    original = db.get(NovaFinJournalVoucher, voucher_id)
+    if original is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal voucher not found")
+    if not original.code.startswith("JV-"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Only manual journal vouchers can be reversed here. Correct an invoice or bill with a credit note instead.",
+        )
+    mirror = reverse_voucher(
+        db,
+        original,
+        entry_date=payload.reversal_date or date_type.today(),
+        narration=f"Reversal of {original.code}: {payload.reason}",
+    )
+    audit(db, request, user, "novafin.journal_voucher_reversed", "novafin_journal_vouchers", original.id, after={"reversal": mirror.code, "reason": payload.reason})
+    db.commit()
+    jv = db.scalar(
+        select(NovaFinJournalVoucher)
+        .options(selectinload(NovaFinJournalVoucher.lines).selectinload(NovaFinJournalVoucherLine.account))
+        .where(NovaFinJournalVoucher.id == mirror.id)
+    )
     return serialize_journal_voucher(jv)
 
 

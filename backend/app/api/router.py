@@ -10,8 +10,11 @@ from app.api.routes import (
     novafin_accounting,
     novafin_admin,
     novafin_banking,
+    novafin_corrections,
     novafin_hr,
+    novafin_projects,
     novafin_purchasing,
+    novafin_reports,
     novafin_sales,
     public,
 )
@@ -28,5 +31,8 @@ api_router.include_router(novafin_purchasing.router, tags=["novafin"])
 api_router.include_router(novafin_banking.router, tags=["novafin"])
 api_router.include_router(novafin_accounting.router, tags=["novafin"])
 api_router.include_router(novafin_hr.router, tags=["novafin"])
+api_router.include_router(novafin_corrections.router, tags=["novafin"])
+api_router.include_router(novafin_projects.router, tags=["novafin"])
+api_router.include_router(novafin_reports.router, tags=["novafin"])
 api_router.include_router(novafin_admin.router, tags=["novafin"])
 api_router.include_router(app_releases.router, tags=["app-releases"])

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_client.dart';
 import '../../core/auth_state.dart';
 import '../../core/models.dart';
 import '../../core/novafin_repository.dart';
 import '../../core/theme.dart';
+import '../../widgets/dims_picker.dart';
 import '../../widgets/nf_widgets.dart';
 
 class PurchasesScreen extends StatefulWidget {
@@ -111,7 +113,11 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       return;
     }
 
-    String? vendorId = vendors.first.id;
+    String? vendorId; // the user must choose; never silently the first vendor
+    final dimOptions = await DimOptions.load(repo);
+    final dims = DimSelection();
+    var saving = false;
+    String? saveError;
     String mode = 'cash';
     DateTime date = DateTime.now();
     final lines = <_LineDraft>[_LineDraft()];
@@ -119,6 +125,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     if (!context.mounted) return;
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(builder: (dialogContext, setDialogState) {
         double subtotal = 0;
         for (final line in lines) {
@@ -138,7 +145,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         initialValue: vendorId,
-                        decoration: const InputDecoration(labelText: 'Vendor'),
+                        decoration: const InputDecoration(labelText: 'Vendor', hintText: 'Select…'),
+                        isExpanded: true,
                         items: [for (final v in vendors) DropdownMenuItem(value: v.id, child: Text(v.name))],
                         onChanged: (v) => setDialogState(() => vendorId = v),
                       ),
@@ -156,6 +164,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       ),
                     ),
                   ]),
+                  const SizedBox(height: 12),
+                  DimPickers(options: dimOptions, selection: dims, onChanged: () => setDialogState(() {})),
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -244,28 +254,58 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     const Text('Grand Total', style: TextStyle(fontWeight: FontWeight.w700)),
                     Text(nfMoney.format(subtotal + vat), style: const TextStyle(fontWeight: FontWeight.w700)),
                   ]),
+                  if (saveError != null) ...[
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerLeft, child: Text(saveError!, style: const TextStyle(color: Color(0xFFB3261E), fontSize: 13))),
+                  ],
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: () async {
-                final validLines = lines.where((l) => l.itemId != null && l.quantity > 0).toList();
-                if (vendorId == null || validLines.isEmpty) return;
-                await repo.createPurchase(
-                  vendorId: vendorId!,
-                  date: DateFormat('yyyy-MM-dd').format(date),
-                  mode: mode,
-                  lines: [
-                    for (final l in validLines) {'item_id': l.itemId, 'quantity': l.quantity, 'rate': l.rate},
-                  ],
-                );
-                if (dialogContext.mounted) Navigator.pop(dialogContext);
-                await _refresh();
-              },
-              child: const Text('Save Purchase'),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final validLines = lines.where((l) => l.itemId != null && l.quantity > 0).toList();
+                      if (vendorId == null) {
+                        setDialogState(() => saveError = 'Select a vendor first.');
+                        return;
+                      }
+                      if (validLines.isEmpty) {
+                        setDialogState(() => saveError = 'Add at least one line with an item and a quantity.');
+                        return;
+                      }
+                      setDialogState(() {
+                        saving = true;
+                        saveError = null;
+                      });
+                      try {
+                        await repo.createRaw('purchases', {
+                          'vendor_id': vendorId,
+                          'purchase_date': DateFormat('yyyy-MM-dd').format(date),
+                          'mode': mode,
+                          ...dims.toJson(),
+                          'lines': [
+                            for (final l in validLines) {'item_id': l.itemId, 'quantity': l.quantity, 'rate': l.rate},
+                          ],
+                        });
+                      } on ApiException catch (e) {
+                        saving = false;
+                        if (dialogContext.mounted) setDialogState(() => saveError = nfErrorMessage(e));
+                        return;
+                      } catch (_) {
+                        saving = false;
+                        if (dialogContext.mounted) setDialogState(() => saveError = 'Could not save. Check your connection and try again.');
+                        return;
+                      }
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      await _refresh();
+                    },
+              child: saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save Purchase'),
             ),
           ],
         );

@@ -200,3 +200,79 @@ String nfErrorMessage(ApiException e) {
   if (e.statusCode == 403) return 'You do not have permission to do this.';
   return e.message.isEmpty ? 'Could not complete the action. Please try again.' : e.message;
 }
+
+/// One input in an [nfForm] dialog. With [options] it is a dropdown (value, label pairs).
+class NfFormField {
+  const NfFormField(this.key, this.label, {this.number = false, this.required = true, this.options = const [], this.initial});
+
+  final String key;
+  final String label;
+  final bool number;
+  final bool required;
+  final List<(String, String)> options;
+  final String? initial;
+}
+
+/// A small ask-and-confirm dialog (reason for a reversal, amount for a note, ...).
+/// Returns the typed values, or null if cancelled.
+Future<Map<String, String>?> nfForm(
+  BuildContext context, {
+  required String title,
+  String? message,
+  required List<NfFormField> fields,
+  String confirmLabel = 'Save',
+}) {
+  final controllers = {for (final f in fields) f.key: TextEditingController(text: f.initial ?? '')};
+  final picked = <String, String?>{for (final f in fields.where((f) => f.options.isNotEmpty)) f.key: f.initial};
+  final formKey = GlobalKey<FormState>();
+  return showDialog<Map<String, String>>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: 420,
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (message != null) Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(message)),
+                for (final f in fields) ...[
+                  if (f.options.isNotEmpty)
+                    DropdownButtonFormField<String>(
+                      initialValue: picked[f.key],
+                      isExpanded: true,
+                      decoration: InputDecoration(labelText: f.label),
+                      items: [for (final o in f.options) DropdownMenuItem(value: o.$1, child: Text(o.$2, overflow: TextOverflow.ellipsis))],
+                      validator: f.required ? (v) => v == null ? 'Required' : null : null,
+                      onChanged: (v) => setState(() => picked[f.key] = v),
+                    )
+                  else
+                    TextFormField(
+                      controller: controllers[f.key],
+                      decoration: InputDecoration(labelText: f.label),
+                      keyboardType: f.number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+                      validator: f.required ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null : null,
+                    ),
+                  const SizedBox(height: 12),
+                ],
+              ]),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(dialogContext, {
+                for (final f in fields) f.key: f.options.isNotEmpty ? (picked[f.key] ?? '') : controllers[f.key]!.text.trim(),
+              });
+            },
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    ),
+  );
+}

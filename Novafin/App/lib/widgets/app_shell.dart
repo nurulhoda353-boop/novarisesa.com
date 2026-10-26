@@ -30,6 +30,7 @@ const nfNavTree = [
     NavItem('Invoices', Icons.receipt_long_outlined, path: '/invoices'),
     NavItem('Sales Returns', Icons.undo_outlined, path: '/sales-returns'),
     NavItem('Credit Notes', Icons.note_alt_outlined, path: '/credit-notes'),
+    NavItem('Debit Notes', Icons.post_add_outlined, path: '/debit-notes'),
   ]),
   NavItem('Purchases', Icons.shopping_cart_outlined, children: [
     NavItem('Vendors', Icons.storefront_outlined, path: '/vendors'),
@@ -41,6 +42,8 @@ const nfNavTree = [
   NavItem('Banking & Cash', Icons.account_balance_outlined, children: [
     NavItem('Banks', Icons.account_balance_outlined, path: '/banks'),
     NavItem('Branches', Icons.location_city_outlined, path: '/branches'),
+    NavItem('Projects', Icons.engineering_outlined, path: '/projects'),
+    NavItem('Cost Centers', Icons.account_tree_outlined, path: '/cost-centers'),
     NavItem('Cash Receipts', Icons.arrow_downward, path: '/cash-receipts'),
     NavItem('Cash Payments', Icons.arrow_upward, path: '/cash-payments'),
     NavItem('Cheques', Icons.payments_outlined, path: '/cheques'),
@@ -61,11 +64,16 @@ const nfNavTree = [
     NavItem('Employees', Icons.people_outline, path: '/employees'),
     NavItem('Salary Slips', Icons.payment_outlined, path: '/salary-slips'),
   ]),
-  NavItem('Reports', Icons.bar_chart_outlined, path: '/reports'),
+  NavItem('Reports', Icons.bar_chart_outlined, children: [
+    NavItem('Overview', Icons.bar_chart_outlined, path: '/reports'),
+    NavItem('Project Profit & Loss', Icons.stacked_line_chart, path: '/project-pl'),
+    NavItem('Trial Balance', Icons.balance_outlined, path: '/trial-balance'),
+  ]),
   NavItem('Settings', Icons.settings_outlined, children: [
     NavItem('User Roles', Icons.admin_panel_settings_outlined, path: '/user-roles'),
     NavItem('Company Settings', Icons.settings_outlined, path: '/admin'),
     NavItem('Fiscal Years', Icons.event_note_outlined, path: '/fiscal-years'),
+    NavItem('Accounting Periods', Icons.lock_clock_outlined, path: '/periods'),
     NavItem('Opening Balance', Icons.playlist_add_check_outlined, path: '/opening-balance'),
     NavItem('Audit Log', Icons.history_outlined, path: '/audit-log'),
   ]),

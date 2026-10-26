@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import date as date_type
 from decimal import Decimal
@@ -5,6 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit
@@ -12,6 +14,9 @@ from app.core.auth import require_permission
 from app.core.database import get_db
 from app.models import (
     NovaFinBank,
+    NovaFinBranch,
+    NovaFinCostCenter,
+    NovaFinProject,
     NovaFinCashMove,
     NovaFinCreditNote,
     NovaFinCustomer,
@@ -35,7 +40,7 @@ from app.schemas.novafin import (
     PurchaseCreate,
     VendorUpsert,
 )
-from app.services.novafin_ledger import account_balance, post_journal
+from app.services.novafin_ledger import Dims, account_balance, post_journal
 from app.services.novafin_sequences import next_code
 
 router = APIRouter(prefix="/novafin")
@@ -59,6 +64,63 @@ def _jsonable(value: Any) -> Any:
 
 def _next_code(db: Session, model: type, prefix: str) -> str:
     return next_code(db, model, prefix)
+
+
+def dims_for(
+    db: Session,
+    project_id: uuid.UUID | None = None,
+    cost_center_id: uuid.UUID | None = None,
+    branch_id: uuid.UUID | None = None,
+    *,
+    customer_id: uuid.UUID | None = None,
+    vendor_id: uuid.UUID | None = None,
+) -> Dims:
+    """Checks that the chosen project / cost center / branch really exist, then bundles them with the party."""
+    for model, value, label in (
+        (NovaFinProject, project_id, "Project"),
+        (NovaFinCostCenter, cost_center_id, "Cost center"),
+        (NovaFinBranch, branch_id, "Branch"),
+    ):
+        if value is not None and db.get(model, value) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"{label} not found")
+    return Dims(
+        customer_id=customer_id, vendor_id=vendor_id, project_id=project_id, cost_center_id=cost_center_id, branch_id=branch_id
+    )
+
+
+_SAUDI_VAT = re.compile(r"^3\d{13}3$")
+
+
+def validate_party_vat(db: Session, model: type, vat_number: str | None, *, current_id: uuid.UUID | None = None) -> str | None:
+    """A Saudi VAT number is 15 digits, starts and ends with 3, and belongs to one party only."""
+    vat = (vat_number or "").strip().replace(" ", "")
+    if not vat:
+        return None
+    if not _SAUDI_VAT.match(vat):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="VAT number must be 15 digits, starting and ending with 3 (for example 300930779500003).",
+        )
+    clash = db.scalar(select(model).where(model.vat_number == vat, model.id != current_id if current_id else True))
+    if clash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"This VAT number is already saved for “{clash.name}”.",
+        )
+    return vat
+
+
+def delete_or_explain(db: Session, row: object, what: str) -> None:
+    """Delete a master record, or say plainly why it can't be (it already has transactions)."""
+    try:
+        db.delete(row)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"This {what} already has transactions and can't be deleted. Mark it inactive instead.",
+        ) from None
 
 
 def serialize_item(item: NovaFinItem) -> dict[str, Any]:
@@ -86,6 +148,14 @@ def serialize_customer(customer: NovaFinCustomer) -> dict[str, Any]:
         "credit_limit": customer.credit_limit,
         "opening_balance": customer.opening_balance,
         "is_active": customer.is_active,
+        "name_ar": customer.name_ar,
+        "cr_number": customer.cr_number,
+        "street": customer.street,
+        "building_no": customer.building_no,
+        "district": customer.district,
+        "postal_code": customer.postal_code,
+        "country": customer.country,
+        "payment_terms_days": customer.payment_terms_days,
     }
 
 
@@ -98,6 +168,14 @@ def serialize_vendor(vendor: NovaFinVendor) -> dict[str, Any]:
         "vat_number": vendor.vat_number,
         "opening_balance": vendor.opening_balance,
         "is_active": vendor.is_active,
+        "name_ar": vendor.name_ar,
+        "cr_number": vendor.cr_number,
+        "street": vendor.street,
+        "building_no": vendor.building_no,
+        "district": vendor.district,
+        "postal_code": vendor.postal_code,
+        "country": vendor.country,
+        "payment_terms_days": vendor.payment_terms_days,
     }
 
 
@@ -127,6 +205,10 @@ def serialize_invoice(invoice: NovaFinInvoice) -> dict[str, Any]:
         "vat_amount": invoice.vat_amount,
         "grand_total": invoice.grand_total,
         "notes": invoice.notes,
+        "project_id": str(invoice.project_id) if invoice.project_id else None,
+        "cost_center_id": str(invoice.cost_center_id) if invoice.cost_center_id else None,
+        "branch_id": str(invoice.branch_id) if invoice.branch_id else None,
+        "corrects_invoice_id": str(invoice.corrects_invoice_id) if invoice.corrects_invoice_id else None,
         "lines": [serialize_document_line(line) for line in invoice.lines],
     }
 
@@ -248,8 +330,7 @@ def delete_item(item_id: uuid.UUID, request: Request, user: NovaFinManager, db: 
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     audit(db, request, user, "novafin.item_deleted", "novafin_items", item.id, before=_jsonable(serialize_item(item)))
-    db.delete(item)
-    db.commit()
+    delete_or_explain(db, item, "item")
 
 
 # --- Customers ---
@@ -265,7 +346,9 @@ def list_customers(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 def create_customer(
     payload: CustomerUpsert, request: Request, user: NovaFinManager, db: DBSession
 ) -> dict[str, Any]:
-    customer = NovaFinCustomer(**payload.model_dump())
+    data = payload.model_dump()
+    data["vat_number"] = validate_party_vat(db, NovaFinCustomer, payload.vat_number)
+    customer = NovaFinCustomer(**data)
     db.add(customer)
     db.flush()
     if customer.opening_balance:
@@ -275,6 +358,7 @@ def create_customer(
             narration=f"Opening balance — {customer.name}",
             lines=[("ar", customer.opening_balance, Decimal("0")), ("opening_equity", Decimal("0"), customer.opening_balance)],
             code_prefix="OB",
+            dims=Dims(customer_id=customer.id),
         )
     audit(db, request, user, "novafin.customer_created", "novafin_customers", customer.id, after=_jsonable(serialize_customer(customer)))
     db.commit()
@@ -290,7 +374,10 @@ def update_customer(
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
     before = _jsonable(serialize_customer(customer))
-    for field, value in payload.model_dump().items():
+    data = payload.model_dump()
+    if (payload.vat_number or "").strip() != (customer.vat_number or ""):
+        data["vat_number"] = validate_party_vat(db, NovaFinCustomer, payload.vat_number, current_id=customer.id)
+    for field, value in data.items():
         setattr(customer, field, value)
     audit(db, request, user, "novafin.customer_updated", "novafin_customers", customer.id, before=before, after=_jsonable(serialize_customer(customer)))
     db.commit()
@@ -304,8 +391,7 @@ def delete_customer(customer_id: uuid.UUID, request: Request, user: NovaFinManag
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
     audit(db, request, user, "novafin.customer_deleted", "novafin_customers", customer.id, before=_jsonable(serialize_customer(customer)))
-    db.delete(customer)
-    db.commit()
+    delete_or_explain(db, customer, "customer")
 
 
 # --- Vendors ---
@@ -319,7 +405,9 @@ def list_vendors(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 
 @router.post("/vendors", status_code=status.HTTP_201_CREATED)
 def create_vendor(payload: VendorUpsert, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
-    vendor = NovaFinVendor(**payload.model_dump())
+    data = payload.model_dump()
+    data["vat_number"] = validate_party_vat(db, NovaFinVendor, payload.vat_number)
+    vendor = NovaFinVendor(**data)
     db.add(vendor)
     db.flush()
     if vendor.opening_balance:
@@ -329,6 +417,7 @@ def create_vendor(payload: VendorUpsert, request: Request, user: NovaFinManager,
             narration=f"Opening balance — {vendor.name}",
             lines=[("opening_equity", vendor.opening_balance, Decimal("0")), ("ap", Decimal("0"), vendor.opening_balance)],
             code_prefix="OB",
+            dims=Dims(vendor_id=vendor.id),
         )
     audit(db, request, user, "novafin.vendor_created", "novafin_vendors", vendor.id, after=_jsonable(serialize_vendor(vendor)))
     db.commit()
@@ -344,7 +433,10 @@ def update_vendor(
     if vendor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
     before = _jsonable(serialize_vendor(vendor))
-    for field, value in payload.model_dump().items():
+    data = payload.model_dump()
+    if (payload.vat_number or "").strip() != (vendor.vat_number or ""):
+        data["vat_number"] = validate_party_vat(db, NovaFinVendor, payload.vat_number, current_id=vendor.id)
+    for field, value in data.items():
         setattr(vendor, field, value)
     audit(db, request, user, "novafin.vendor_updated", "novafin_vendors", vendor.id, before=before, after=_jsonable(serialize_vendor(vendor)))
     db.commit()
@@ -358,8 +450,7 @@ def delete_vendor(vendor_id: uuid.UUID, request: Request, user: NovaFinManager, 
     if vendor is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vendor not found")
     audit(db, request, user, "novafin.vendor_deleted", "novafin_vendors", vendor.id, before=_jsonable(serialize_vendor(vendor)))
-    db.delete(vendor)
-    db.commit()
+    delete_or_explain(db, vendor, "vendor")
 
 
 # --- Invoices ---
@@ -377,6 +468,15 @@ def list_invoices(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
 
 @router.post("/invoices", status_code=status.HTTP_201_CREATED)
 def create_invoice(payload: InvoiceCreate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
+    invoice = build_invoice(db, payload)
+    audit(db, request, user, "novafin.invoice_created", "novafin_invoices", invoice.id, after={"code": invoice.code, "grand_total": str(invoice.grand_total)})
+    db.commit()
+    db.refresh(invoice)
+    return serialize_invoice(invoice)
+
+
+def build_invoice(db: Session, payload: InvoiceCreate, *, corrects_invoice_id: uuid.UUID | None = None) -> NovaFinInvoice:
+    """Create and post an invoice inside the caller's transaction (the caller audits and commits)."""
     customer = db.get(NovaFinCustomer, payload.customer_id)
     if customer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
@@ -400,7 +500,12 @@ def create_invoice(payload: InvoiceCreate, request: Request, user: NovaFinManage
         vat_amount=vat_amount,
         grand_total=subtotal + vat_amount,
         notes=payload.notes,
+        project_id=payload.project_id,
+        cost_center_id=payload.cost_center_id,
+        branch_id=payload.branch_id,
+        corrects_invoice_id=corrects_invoice_id,
     )
+    dims = dims_for(db, payload.project_id, payload.cost_center_id, payload.branch_id, customer_id=payload.customer_id)
     db.add(invoice)
     db.flush()
 
@@ -443,6 +548,7 @@ def create_invoice(payload: InvoiceCreate, request: Request, user: NovaFinManage
                 ("vout", Decimal("0"), invoice.vat_amount),
             ],
             code_prefix="GL",
+            dims=dims,
         )
         # Cost side: a separate paired entry, same as the reference's
         # perpetual-inventory model (Inventory asset reduced, COGS expensed).
@@ -453,12 +559,10 @@ def create_invoice(payload: InvoiceCreate, request: Request, user: NovaFinManage
                 narration=f"COGS — {invoice.code}",
                 lines=[("cogs", cost_of_goods_sold, Decimal("0")), ("inventory", Decimal("0"), cost_of_goods_sold)],
                 code_prefix="GL",
+                dims=dims,
             )
 
-    audit(db, request, user, "novafin.invoice_created", "novafin_invoices", invoice.id, after={"code": invoice.code, "grand_total": str(invoice.grand_total)})
-    db.commit()
-    db.refresh(invoice)
-    return serialize_invoice(invoice)
+    return invoice
 
 
 @router.get("/invoices/{invoice_id}")
@@ -510,7 +614,11 @@ def create_purchase(payload: PurchaseCreate, request: Request, user: NovaFinMana
         vat_amount=vat_amount,
         grand_total=subtotal + vat_amount,
         notes=payload.notes,
+        project_id=payload.project_id,
+        cost_center_id=payload.cost_center_id,
+        branch_id=payload.branch_id,
     )
+    dims = dims_for(db, payload.project_id, payload.cost_center_id, payload.branch_id, vendor_id=payload.vendor_id)
     db.add(purchase)
     db.flush()
 
@@ -555,6 +663,7 @@ def create_purchase(payload: PurchaseCreate, request: Request, user: NovaFinMana
             (cash_or_ap, Decimal("0"), purchase.grand_total),
         ],
         code_prefix="GL",
+        dims=dims,
     )
 
     audit(db, request, user, "novafin.purchase_created", "novafin_purchases", purchase.id, after={"code": purchase.code, "grand_total": str(purchase.grand_total)})

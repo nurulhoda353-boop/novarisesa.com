@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api_client.dart';
 import '../../core/auth_state.dart';
 import '../../core/novafin_repository.dart';
 import '../../core/theme.dart';
+import '../../widgets/dims_picker.dart';
 import '../../widgets/nf_widgets.dart';
 
 class JournalVouchersScreen extends StatefulWidget {
@@ -77,13 +79,19 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
                                   Text(jv['voucher_date'].toString(), style: const TextStyle(color: NfColors.muted, fontSize: 12)),
                                   const SizedBox(width: 10),
                                   if (jv['narration'] != null) Expanded(child: Text(jv['narration'].toString(), style: const TextStyle(fontSize: 12.5))),
+                                  if (canManage && jv['reversal_of_id'] == null && jv['code'].toString().startsWith('JV-'))
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.undo, size: 16),
+                                      label: const Text('Reverse'),
+                                      onPressed: () => _reverse(jv),
+                                    ),
                                 ]),
                                 const SizedBox(height: 6),
                                 for (final l in lines)
                                   Padding(
                                     padding: const EdgeInsets.only(left: 8, top: 2),
                                     child: Row(children: [
-                                      Expanded(child: Text(l['account_name']?.toString() ?? '—', style: const TextStyle(fontSize: 12.5))),
+                                      Expanded(child: Text('${l['account_number'] ?? ''} ${l['account_name'] ?? '—'}'.trim(), style: const TextStyle(fontSize: 12.5))),
                                       SizedBox(width: 90, child: Text(double.parse(l['debit'].toString()) > 0 ? nfMoney.format(double.parse(l['debit'].toString())) : '', textAlign: TextAlign.right)),
                                       SizedBox(width: 90, child: Text(double.parse(l['credit'].toString()) > 0 ? nfMoney.format(double.parse(l['credit'].toString())) : '', textAlign: TextAlign.right)),
                                     ]),
@@ -104,9 +112,26 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
     );
   }
 
+  Future<void> _reverse(Map<String, dynamic> jv) async {
+    final repo = context.read<NovaFinRepository>();
+    final values = await nfForm(
+      context,
+      title: 'Reverse ${jv['code']}',
+      message: 'Posts the exact opposite entry, linked to this one. The original stays in the books.',
+      fields: const [NfFormField('reason', 'Why is it being reversed?')],
+      confirmLabel: 'Reverse',
+    );
+    if (values == null || !mounted) return;
+    if (await nfRun(context, () => repo.createRaw('journal-vouchers/${jv['id']}/reverse', {'reason': values['reason']}))) await _refresh();
+  }
+
   Future<void> _openCreateDialog(BuildContext context) async {
     final repo = context.read<NovaFinRepository>();
-    final accounts = await repo.listRaw('accounts');
+    final accounts = (await repo.listRaw('accounts')).where((a) => a['is_group'] != true && a['is_active'] != false).toList();
+    final dimOptions = await DimOptions.load(repo);
+    final dims = DimSelection();
+    var saving = false;
+    String? saveError;
     if (accounts.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add at least two accounts in Chart of Accounts first.')));
@@ -121,6 +146,7 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
     if (!context.mounted) return;
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(builder: (dialogContext, setDialogState) {
         double totalDebit = 0, totalCredit = 0;
         for (final l in lines) {
@@ -147,6 +173,8 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
                 ]),
                 const SizedBox(height: 12),
                 TextFormField(controller: narrationController, decoration: const InputDecoration(labelText: 'Narration')),
+                const SizedBox(height: 12),
+                DimPickers(options: dimOptions, selection: dims, onChanged: () => setDialogState(() {})),
                 const SizedBox(height: 16),
                 for (var i = 0; i < lines.length; i++)
                   Padding(
@@ -158,7 +186,7 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
                           initialValue: lines[i].accountId,
                           isExpanded: true,
                           decoration: const InputDecoration(labelText: 'Account', isDense: true),
-                          items: [for (final a in accounts) DropdownMenuItem(value: a['id'] as String, child: Text('${a['code']} - ${a['name']}', overflow: TextOverflow.ellipsis))],
+                          items: [for (final a in accounts) DropdownMenuItem(value: a['id'] as String, child: Text('${a['number'] ?? a['code']} - ${a['name']}', overflow: TextOverflow.ellipsis))],
                           onChanged: (v) => setDialogState(() => lines[i].accountId = v),
                         ),
                       ),
@@ -198,24 +226,42 @@ class _JournalVouchersScreenState extends State<JournalVouchersScreen> {
                   const Text('Total Credit'),
                   Text(nfMoney.format(totalCredit), style: TextStyle(fontWeight: FontWeight.w700, color: totalDebit == totalCredit ? NfColors.success : NfColors.danger)),
                 ]),
+                if (saveError != null) ...[
+                  const SizedBox(height: 12),
+                  Align(alignment: Alignment.centerLeft, child: Text(saveError!, style: const TextStyle(color: Color(0xFFB3261E), fontSize: 13))),
+                ],
               ]),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: totalDebit != totalCredit || totalDebit == 0
+              onPressed: saving || totalDebit != totalCredit || totalDebit == 0
                   ? null
                   : () async {
-                      await repo.createRaw('journal-vouchers', {
-                        'voucher_date': DateFormat('yyyy-MM-dd').format(date),
-                        'narration': narrationController.text.trim().isEmpty ? null : narrationController.text.trim(),
-                        'lines': [for (final l in lines) {'account_id': l.accountId, 'debit': l.debit, 'credit': l.credit}],
+                      setDialogState(() {
+                        saving = true;
+                        saveError = null;
                       });
+                      try {
+                        await repo.createRaw('journal-vouchers', {
+                          'voucher_date': DateFormat('yyyy-MM-dd').format(date),
+                          'narration': narrationController.text.trim().isEmpty ? null : narrationController.text.trim(),
+                          'lines': [for (final l in lines) {'account_id': l.accountId, 'debit': l.debit, 'credit': l.credit, ...dims.toJson()}],
+                        });
+                      } on ApiException catch (e) {
+                        saving = false;
+                        if (dialogContext.mounted) setDialogState(() => saveError = nfErrorMessage(e));
+                        return;
+                      } catch (_) {
+                        saving = false;
+                        if (dialogContext.mounted) setDialogState(() => saveError = 'Could not save. Check your connection and try again.');
+                        return;
+                      }
                       if (dialogContext.mounted) Navigator.pop(dialogContext);
                       await _refresh();
                     },
-              child: const Text('Save'),
+              child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
             ),
           ],
         );

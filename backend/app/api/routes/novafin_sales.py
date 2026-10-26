@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit
-from app.api.routes.novafin import _jsonable, _next_code
+from app.api.routes.novafin import _jsonable, _next_code, dims_for
 from app.core.auth import require_permission
 from app.core.database import get_db
 from app.models import (
@@ -34,6 +34,7 @@ from app.schemas.novafin_sales import (
     QuoteCreate,
     SalesReturnCreate,
 )
+from app.services.novafin_ar import invoice_open_balance, record_allocation
 from app.services.novafin_ledger import post_journal
 
 router = APIRouter(prefix="/novafin")
@@ -295,6 +296,13 @@ def create_sales_return(payload: SalesReturnCreate, request: Request, user: Nova
             cost_of_goods_reversed += line.quantity * item.cost
 
     cash_or_ar = "cash" if (original_invoice and original_invoice.mode == "cash") else "ar"
+    dims = dims_for(
+        db,
+        original_invoice.project_id if original_invoice else None,
+        original_invoice.cost_center_id if original_invoice else None,
+        original_invoice.branch_id if original_invoice else None,
+        customer_id=payload.customer_id,
+    )
     post_journal(
         db,
         entry_date=payload.return_date,
@@ -305,7 +313,18 @@ def create_sales_return(payload: SalesReturnCreate, request: Request, user: Nova
             (cash_or_ar, Decimal("0"), sr.grand_total),
         ],
         code_prefix="GL",
+        dims=dims,
     )
+    if original_invoice is not None and original_invoice.mode == "credit":
+        record_allocation(
+            db,
+            source_type="sales_return",
+            source_id=sr.id,
+            target_type="invoice",
+            target_id=original_invoice.id,
+            amount=min(invoice_open_balance(db, original_invoice), sr.grand_total),
+            on=payload.return_date,
+        )
     if cost_of_goods_reversed:
         post_journal(
             db,
@@ -313,6 +332,7 @@ def create_sales_return(payload: SalesReturnCreate, request: Request, user: Nova
             narration=f"Stock restored — {sr.code}",
             lines=[("inventory", cost_of_goods_reversed, Decimal("0")), ("cogs", Decimal("0"), cost_of_goods_reversed)],
             code_prefix="GL",
+            dims=dims,
         )
 
     audit(db, request, user, "novafin.sales_return_created", "novafin_sales_returns", sr.id, after={"code": sr.code})
@@ -332,7 +352,11 @@ def serialize_credit_note(cn: NovaFinCreditNote) -> dict[str, Any]:
         "customer_name": cn.customer.name if cn.customer else None,
         "note_date": cn.note_date.isoformat(),
         "amount": cn.amount,
+        "subtotal": cn.subtotal,
+        "vat_amount": cn.vat_amount,
         "reason": cn.reason,
+        "reason_code": cn.reason_code,
+        "invoice_id": str(cn.invoice_id) if cn.invoice_id else None,
     }
 
 
@@ -344,31 +368,3 @@ def list_credit_notes(user: NovaFinUser, db: DBSession) -> dict[str, Any]:
         .order_by(NovaFinCreditNote.note_date.desc(), NovaFinCreditNote.code.desc())
     ).all()
     return {"items": [serialize_credit_note(cn) for cn in rows]}
-
-
-@router.post("/credit-notes", status_code=status.HTTP_201_CREATED)
-def create_credit_note(payload: CreditNoteCreate, request: Request, user: NovaFinManager, db: DBSession) -> dict[str, Any]:
-    customer = db.get(NovaFinCustomer, payload.customer_id)
-    if customer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer not found")
-
-    cn = NovaFinCreditNote(
-        code=_next_code(db, NovaFinCreditNote, "CN"),
-        customer_id=payload.customer_id,
-        note_date=payload.note_date,
-        amount=payload.amount,
-        reason=payload.reason,
-    )
-    db.add(cn)
-    db.flush()
-    post_journal(
-        db,
-        entry_date=payload.note_date,
-        narration=f"Credit note — {customer.name} ({cn.code})",
-        lines=[("credit_note", cn.amount, Decimal("0")), ("ar", Decimal("0"), cn.amount)],
-        code_prefix="GL",
-    )
-    audit(db, request, user, "novafin.credit_note_created", "novafin_credit_notes", cn.id, after=_jsonable({"code": cn.code, "amount": cn.amount}))
-    db.commit()
-    db.refresh(cn)
-    return serialize_credit_note(cn)

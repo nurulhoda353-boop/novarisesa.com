@@ -12,6 +12,7 @@ import 'features/accounting/assets_screen.dart';
 import 'features/accounting/journal_vouchers_screen.dart';
 import 'features/admin/company_settings_screen.dart';
 import 'features/admin/opening_balance_screen.dart';
+import 'features/admin/periods_screen.dart';
 import 'features/auth/login_screen.dart';
 import 'features/settings/user_roles_screen.dart';
 import 'features/banking/bank_reconciliation_screen.dart';
@@ -25,6 +26,7 @@ import 'features/invoices/invoices_screen.dart';
 import 'features/items/items_screen.dart';
 import 'features/purchases/purchases_screen.dart';
 import 'features/purchasing/rfq_screen.dart';
+import 'features/reports/phase1_reports.dart';
 import 'features/reports/reports_screen.dart';
 import 'features/vendors/vendors_screen.dart';
 import 'widgets/app_shell.dart';
@@ -161,6 +163,15 @@ class _NovaFinAppState extends State<NovaFinApp> {
               ),
             ),
             GoRoute(path: '/credit-notes', builder: (context, state) => buildCreditNotesScreen()),
+            GoRoute(path: '/debit-notes', builder: (context, state) => buildDebitNotesScreen()),
+            GoRoute(
+              path: '/statement/:kind/:id',
+              builder: (context, state) => StatementScreen(
+                key: ValueKey('${state.pathParameters['kind']}-${state.pathParameters['id']}'),
+                kind: state.pathParameters['kind']!,
+                id: state.pathParameters['id']!,
+              ),
+            ),
 
             // Purchases
             GoRoute(path: '/vendors', builder: (context, state) => const VendorsScreen()),
@@ -203,6 +214,8 @@ class _NovaFinAppState extends State<NovaFinApp> {
             // Banking & Cash
             GoRoute(path: '/banks', builder: (context, state) => buildBanksScreen()),
             GoRoute(path: '/branches', builder: (context, state) => buildBranchesScreen()),
+            GoRoute(path: '/projects', builder: (context, state) => buildProjectsScreen()),
+            GoRoute(path: '/cost-centers', builder: (context, state) => buildCostCentersScreen()),
             GoRoute(path: '/cash-receipts', builder: (context, state) => const CashMoveScreen(kind: 'receipt')),
             GoRoute(path: '/cash-payments', builder: (context, state) => const CashMoveScreen(kind: 'payment')),
             GoRoute(path: '/cheques', builder: (context, state) => buildChequesScreen()),
@@ -225,11 +238,14 @@ class _NovaFinAppState extends State<NovaFinApp> {
 
             // Reports
             GoRoute(path: '/reports', builder: (context, state) => const ReportsScreen()),
+            GoRoute(path: '/project-pl', builder: (context, state) => const ProjectPlScreen()),
+            GoRoute(path: '/trial-balance', builder: (context, state) => const TrialBalanceScreen()),
 
             // Settings
             GoRoute(path: '/user-roles', builder: (context, state) => const UserRolesScreen()),
             GoRoute(path: '/admin', builder: (context, state) => const CompanySettingsScreen()),
             GoRoute(path: '/fiscal-years', builder: (context, state) => buildFiscalYearsScreen()),
+            GoRoute(path: '/periods', builder: (context, state) => const PeriodsScreen()),
             GoRoute(path: '/opening-balance', builder: (context, state) => const OpeningBalanceScreen()),
             GoRoute(path: '/audit-log', builder: (context, state) => buildAuditLogScreen()),
           ],

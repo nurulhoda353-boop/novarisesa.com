@@ -31,7 +31,9 @@ class NfCustomer {
         email = j['email'] as String?,
         city = j['city'] as String?,
         creditLimit = _num(j['credit_limit']),
-        openingBalance = _num(j['opening_balance']);
+        openingBalance = _num(j['opening_balance']),
+        vatNumber = j['vat_number'] as String?,
+        street = j['street'] as String?;
 
   final String id;
   final String name;
@@ -40,6 +42,11 @@ class NfCustomer {
   final String? city;
   final double creditLimit;
   final double openingBalance;
+  final String? vatNumber;
+  final String? street;
+
+  /// What a ZATCA B2B tax invoice needs about the buyer.
+  bool get zatcaReady => (vatNumber ?? '').isNotEmpty && (street ?? '').isNotEmpty && (city ?? '').isNotEmpty;
 }
 
 class NfVendor {
@@ -48,13 +55,19 @@ class NfVendor {
         name = j['name'] as String,
         phone = j['phone'] as String?,
         city = j['city'] as String?,
-        openingBalance = _num(j['opening_balance']);
+        openingBalance = _num(j['opening_balance']),
+        vatNumber = j['vat_number'] as String?,
+        street = j['street'] as String?;
 
   final String id;
   final String name;
   final String? phone;
   final String? city;
   final double openingBalance;
+  final String? vatNumber;
+  final String? street;
+
+  bool get zatcaReady => (vatNumber ?? '').isNotEmpty && (street ?? '').isNotEmpty && (city ?? '').isNotEmpty;
 }
 
 class NfDocumentLine {

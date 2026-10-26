@@ -40,6 +40,14 @@ class CustomerUpsert(BaseModel):
     credit_limit: Decimal = Decimal("0")
     opening_balance: Decimal = Decimal("0")
     is_active: bool = True
+    name_ar: str | None = Field(default=None, max_length=200)
+    cr_number: str | None = Field(default=None, max_length=40)
+    street: str | None = Field(default=None, max_length=200)
+    building_no: str | None = Field(default=None, max_length=20)
+    district: str | None = Field(default=None, max_length=120)
+    postal_code: str | None = Field(default=None, max_length=20)
+    country: str = Field(default="SA", min_length=2, max_length=2)
+    payment_terms_days: int = Field(default=0, ge=0, le=365)
 
 
 class VendorUpsert(BaseModel):
@@ -49,6 +57,14 @@ class VendorUpsert(BaseModel):
     vat_number: str | None = Field(default=None, max_length=40)
     opening_balance: Decimal = Decimal("0")
     is_active: bool = True
+    name_ar: str | None = Field(default=None, max_length=200)
+    cr_number: str | None = Field(default=None, max_length=40)
+    street: str | None = Field(default=None, max_length=200)
+    building_no: str | None = Field(default=None, max_length=20)
+    district: str | None = Field(default=None, max_length=120)
+    postal_code: str | None = Field(default=None, max_length=20)
+    country: str = Field(default="SA", min_length=2, max_length=2)
+    payment_terms_days: int = Field(default=0, ge=0, le=365)
 
 
 class DocumentLineInput(BaseModel):
@@ -64,6 +80,9 @@ class InvoiceCreate(BaseModel):
     status: InvoiceStatus = "posted"
     vat_rate: Decimal = Decimal("15.00")
     notes: str | None = None
+    project_id: uuid.UUID | None = None
+    cost_center_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     lines: list[DocumentLineInput] = Field(min_length=1)
 
 
@@ -73,4 +92,7 @@ class PurchaseCreate(BaseModel):
     mode: PaymentMode = "cash"
     vat_rate: Decimal = Decimal("15.00")
     notes: str | None = None
+    project_id: uuid.UUID | None = None
+    cost_center_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
     lines: list[DocumentLineInput] = Field(min_length=1)

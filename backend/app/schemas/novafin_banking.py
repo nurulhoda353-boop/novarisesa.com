@@ -24,6 +24,13 @@ class BranchUpsert(BaseModel):
     city: str | None = None
 
 
+class AllocationInput(BaseModel):
+    """How much of this receipt/payment settles one invoice (receipts) or bill (payments)."""
+
+    document_id: uuid.UUID
+    amount: Decimal = Field(gt=0)
+
+
 class CashMoveCreate(BaseModel):
     kind: CashKind
     party_name: str | None = None
@@ -32,6 +39,10 @@ class CashMoveCreate(BaseModel):
     amount: Decimal = Field(gt=0)
     move_date: date
     method: str = "cash"
+    project_id: uuid.UUID | None = None
+    cost_center_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
+    allocations: list[AllocationInput] = []
 
 
 class ChequeCreate(BaseModel):
@@ -43,6 +54,8 @@ class ChequeCreate(BaseModel):
     cheque_date: date
     amount: Decimal = Field(gt=0)
     status: ChequeStatus = "pending"
+    customer_id: uuid.UUID | None = None
+    vendor_id: uuid.UUID | None = None
 
 
 class CategoryUpsert(BaseModel):
@@ -55,6 +68,9 @@ class VoucherCreate(BaseModel):
     amount: Decimal = Field(gt=0)
     method: str = "cash"
     note: str | None = None
+    project_id: uuid.UUID | None = None
+    cost_center_id: uuid.UUID | None = None
+    branch_id: uuid.UUID | None = None
 
 
 class CapitalMoveCreate(BaseModel):

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/novafin_repository.dart';
 import '../core/theme.dart';
 import '../widgets/generic_list_screen.dart';
+import '../widgets/nf_widgets.dart';
 
 Widget buildBanksScreen() => GenericListScreen(
       title: 'Banks',
@@ -68,13 +69,17 @@ Widget buildAccountsScreen() => GenericListScreen(
       addButtonLabel: 'New Account',
       emptyMessage: 'No ledger accounts yet.',
       columns: [
-        ColumnSpec('Code', (r) => r['code'].toString()),
-        ColumnSpec('Name', (r) => r['name'].toString()),
+        ColumnSpec('No.', (r) => r['number']?.toString() ?? '—'),
+        ColumnSpec('Name', (r) => (r['is_group'] == true ? '■ ' : '') + r['name'].toString()),
+        ColumnSpec('الاسم', (r) => r['name_ar']?.toString() ?? '—'),
         ColumnSpec('Type', (r) => r['account_type'].toString()),
+        ColumnSpec('Code', (r) => r['code'].toString()),
       ],
       buildFormFields: (repo) async => const [
-        FieldSpec(key: 'code', label: 'Account Code', required: true),
+        FieldSpec(key: 'code', label: 'Internal code (short, unique)', required: true),
+        FieldSpec(key: 'number', label: 'Account number (e.g. 6350)'),
         FieldSpec(key: 'name', label: 'Account Name', required: true),
+        FieldSpec(key: 'name_ar', label: 'Arabic name (الاسم بالعربية)'),
         FieldSpec(
           key: 'account_type',
           label: 'Type',
@@ -130,12 +135,27 @@ Widget buildFiscalYearsScreen() => GenericListScreen(
                   ],
                 ),
               );
-              if (confirmed == true) {
-                await repo.createRaw('fiscal-years/${row['id']}/close', {});
-                refresh();
+              if (confirmed == true && context.mounted) {
+                if (await nfRun(context, () => repo.createRaw('fiscal-years/${row['id']}/close', {}))) refresh();
               }
             },
             child: const Text('Close Year'),
+          ),
+        if (row['status'] == 'closed')
+          TextButton(
+            onPressed: () async {
+              final repo = context.read<NovaFinRepository>();
+              final values = await nfForm(
+                context,
+                title: 'Reopen ${row['label']}',
+                message: 'The closing entry is reversed (nothing is deleted) so the year can be corrected again. Directors only.',
+                fields: const [NfFormField('reason', 'Why is it being reopened?')],
+                confirmLabel: 'Reopen year',
+              );
+              if (values == null || !context.mounted) return;
+              if (await nfRun(context, () => repo.createRaw('fiscal-years/${row['id']}/reopen', {'reason': values['reason']}))) refresh();
+            },
+            child: const Text('Reopen'),
           ),
       ],
       buildFormFields: (repo) async => const [
@@ -174,6 +194,7 @@ Widget buildIncomeVouchersScreen() => GenericListScreen(
       ],
       buildFormFields: (repo) async {
         final categories = await repo.listRaw('income-categories');
+        final projects = (await repo.listRaw('projects')).where((p) => p['is_active'] != false).toList();
         return [
           FieldSpec(
             key: 'category_id',
@@ -185,6 +206,12 @@ Widget buildIncomeVouchersScreen() => GenericListScreen(
           const FieldSpec(key: 'voucher_date', label: 'Date', type: FieldType.date, required: true),
           const FieldSpec(key: 'amount', label: 'Amount', type: FieldType.number, required: true),
           const FieldSpec(key: 'method', label: 'Method', initialValue: 'cash'),
+          FieldSpec(
+            key: 'project_id',
+            label: 'Project (optional)',
+            type: FieldType.dropdown,
+            options: [for (final p in projects) DropdownOption(p['id'] as String, '${p['code']} · ${p['name']}')],
+          ),
           const FieldSpec(key: 'note', label: 'Note'),
         ];
       },
@@ -205,6 +232,7 @@ Widget buildExpenseVouchersScreen() => GenericListScreen(
       ],
       buildFormFields: (repo) async {
         final categories = await repo.listRaw('expense-categories');
+        final projects = (await repo.listRaw('projects')).where((p) => p['is_active'] != false).toList();
         return [
           FieldSpec(
             key: 'category_id',
@@ -216,6 +244,12 @@ Widget buildExpenseVouchersScreen() => GenericListScreen(
           const FieldSpec(key: 'voucher_date', label: 'Date', type: FieldType.date, required: true),
           const FieldSpec(key: 'amount', label: 'Amount', type: FieldType.number, required: true),
           const FieldSpec(key: 'method', label: 'Method', initialValue: 'cash'),
+          FieldSpec(
+            key: 'project_id',
+            label: 'Project (optional)',
+            type: FieldType.dropdown,
+            options: [for (final p in projects) DropdownOption(p['id'] as String, '${p['code']} · ${p['name']}')],
+          ),
           const FieldSpec(key: 'note', label: 'Note'),
         ];
       },
@@ -271,6 +305,14 @@ Widget buildContraScreen() => GenericListScreen(
       ],
     );
 
+const _creditReasons = [
+  DropdownOption('price_error', 'Price or value was wrong'),
+  DropdownOption('goods_returned', 'Goods were returned'),
+  DropdownOption('discount', 'Discount agreed afterwards'),
+  DropdownOption('cancellation', 'Invoice should not have been issued'),
+  DropdownOption('other', 'Other'),
+];
+
 Widget buildCreditNotesScreen() => GenericListScreen(
       title: 'Credit Notes',
       eyebrow: 'Sales',
@@ -281,24 +323,113 @@ Widget buildCreditNotesScreen() => GenericListScreen(
         ColumnSpec('Code', (r) => r['code'].toString()),
         ColumnSpec('Customer', (r) => r['customer_name']?.toString() ?? '—'),
         ColumnSpec('Date', (r) => r['note_date'].toString()),
-        ColumnSpec('Amount', (r) => moneyCell(r['amount']), numeric: true),
+        ColumnSpec('Before VAT', (r) => r['subtotal'] == null ? '—' : moneyCell(r['subtotal']), numeric: true),
+        ColumnSpec('VAT', (r) => moneyCell(r['vat_amount']), numeric: true),
+        ColumnSpec('Total', (r) => moneyCell(r['amount']), numeric: true),
         ColumnSpec('Reason', (r) => r['reason']?.toString() ?? '—'),
       ],
       buildFormFields: (repo) async {
-        final customers = await repo.listRaw('customers');
+        final invoices = (await repo.listRaw('invoices')).where((i) => i['status'] == 'posted').toList();
         return [
           FieldSpec(
-            key: 'customer_id',
-            label: 'Customer',
+            key: 'invoice_id',
+            label: 'Invoice being credited',
             type: FieldType.dropdown,
             required: true,
-            options: [for (final c in customers) DropdownOption(c['id'] as String, c['name'].toString())],
+            options: [
+              for (final i in invoices)
+                DropdownOption(i['id'] as String, '${i['code']} · ${i['customer_name']} · ${moneyCell(i['grand_total'])}'),
+            ],
           ),
           const FieldSpec(key: 'note_date', label: 'Date', type: FieldType.date, required: true),
-          const FieldSpec(key: 'amount', label: 'Amount', type: FieldType.number, required: true),
+          const FieldSpec(key: 'amount', label: 'Amount before VAT (0 = credit whatever is left on the invoice)', type: FieldType.number, initialValue: 0),
+          const FieldSpec(key: 'reason_code', label: 'Why', type: FieldType.dropdown, required: true, options: _creditReasons),
+          const FieldSpec(key: 'reason', label: 'Details'),
+        ];
+      },
+    );
+
+Widget buildDebitNotesScreen() => GenericListScreen(
+      title: 'Debit Notes',
+      eyebrow: 'Sales',
+      endpoint: 'debit-notes',
+      addButtonLabel: 'New Debit Note',
+      emptyMessage: 'No debit notes yet.',
+      columns: [
+        ColumnSpec('Code', (r) => r['code'].toString()),
+        ColumnSpec('Customer', (r) => r['customer_name']?.toString() ?? '—'),
+        ColumnSpec('Date', (r) => r['note_date'].toString()),
+        ColumnSpec('Before VAT', (r) => moneyCell(r['subtotal']), numeric: true),
+        ColumnSpec('VAT', (r) => moneyCell(r['vat_amount']), numeric: true),
+        ColumnSpec('Total', (r) => moneyCell(r['amount']), numeric: true),
+        ColumnSpec('Reason', (r) => r['reason']?.toString() ?? '—'),
+      ],
+      buildFormFields: (repo) async {
+        final invoices = (await repo.listRaw('invoices')).where((i) => i['status'] == 'posted').toList();
+        return [
+          FieldSpec(
+            key: 'invoice_id',
+            label: 'Invoice the extra charge belongs to',
+            type: FieldType.dropdown,
+            required: true,
+            options: [
+              for (final i in invoices)
+                DropdownOption(i['id'] as String, '${i['code']} · ${i['customer_name']} · ${moneyCell(i['grand_total'])}'),
+            ],
+          ),
+          const FieldSpec(key: 'note_date', label: 'Date', type: FieldType.date, required: true),
+          const FieldSpec(key: 'amount', label: 'Extra amount before VAT', type: FieldType.number, required: true),
           const FieldSpec(key: 'reason', label: 'Reason'),
         ];
       },
+    );
+
+Widget buildProjectsScreen() => GenericListScreen(
+      title: 'Projects',
+      eyebrow: 'Company',
+      endpoint: 'projects',
+      addButtonLabel: 'New Project',
+      emptyMessage: 'No projects yet.',
+      columns: [
+        ColumnSpec('Code', (r) => r['code'].toString()),
+        ColumnSpec('Project', (r) => r['name'].toString()),
+        ColumnSpec('Client', (r) => r['client_name']?.toString() ?? '—'),
+        ColumnSpec('Status', (r) => r['status'].toString()),
+        ColumnSpec('Budget', (r) => r['budget'] == null ? '—' : moneyCell(r['budget']), numeric: true),
+        ColumnSpec('Website', (r) => r['website_slug'] == null ? '—' : 'linked'),
+      ],
+      buildFormFields: (repo) async => const [
+        FieldSpec(key: 'code', label: 'Short code (e.g. RSG-SHURA)', required: true),
+        FieldSpec(key: 'name', label: 'Project name', required: true),
+        FieldSpec(key: 'name_ar', label: 'Arabic name'),
+        FieldSpec(key: 'client_name', label: 'Client'),
+        FieldSpec(key: 'budget', label: 'Budget (optional)', type: FieldType.number),
+        FieldSpec(
+          key: 'status',
+          label: 'Status',
+          type: FieldType.dropdown,
+          initialValue: 'active',
+          options: [DropdownOption('active', 'Active'), DropdownOption('on_hold', 'On hold'), DropdownOption('completed', 'Completed')],
+        ),
+      ],
+    );
+
+Widget buildCostCentersScreen() => GenericListScreen(
+      title: 'Cost Centers',
+      eyebrow: 'Company',
+      endpoint: 'cost-centers',
+      addButtonLabel: 'New Cost Center',
+      emptyMessage: 'No cost centers yet.',
+      columns: [
+        ColumnSpec('Code', (r) => r['code'].toString()),
+        ColumnSpec('Name', (r) => r['name'].toString()),
+        ColumnSpec('الاسم', (r) => r['name_ar']?.toString() ?? '—'),
+      ],
+      buildFormFields: (repo) async => const [
+        FieldSpec(key: 'code', label: 'Short code', required: true),
+        FieldSpec(key: 'name', label: 'Name', required: true),
+        FieldSpec(key: 'name_ar', label: 'Arabic name'),
+      ],
     );
 
 Widget buildChequesScreen() => GenericListScreen(
@@ -318,6 +449,8 @@ Widget buildChequesScreen() => GenericListScreen(
       ],
       buildFormFields: (repo) async {
         final banks = await repo.listRaw('banks');
+        final customers = await repo.listRaw('customers');
+        final vendors = await repo.listRaw('vendors');
         return [
           FieldSpec(
             key: 'bank_id',
@@ -334,6 +467,18 @@ Widget buildChequesScreen() => GenericListScreen(
             options: [DropdownOption('inward', 'Inward (received)'), DropdownOption('outward', 'Outward (issued)')],
           ),
           const FieldSpec(key: 'party_name', label: 'Party name'),
+          FieldSpec(
+            key: 'customer_id',
+            label: 'Customer (for a cheque we receive)',
+            type: FieldType.dropdown,
+            options: [for (final c in customers) DropdownOption(c['id'] as String, c['name'].toString())],
+          ),
+          FieldSpec(
+            key: 'vendor_id',
+            label: 'Vendor (for a cheque we issue)',
+            type: FieldType.dropdown,
+            options: [for (final v in vendors) DropdownOption(v['id'] as String, v['name'].toString())],
+          ),
           const FieldSpec(key: 'cheque_date', label: 'Cheque Date', type: FieldType.date, required: true),
           const FieldSpec(key: 'due_date', label: 'Due Date', type: FieldType.date, required: true),
           const FieldSpec(key: 'amount', label: 'Amount', type: FieldType.number, required: true),

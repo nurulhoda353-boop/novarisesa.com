@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth_state.dart';
@@ -6,6 +7,7 @@ import '../../core/models.dart';
 import '../../core/novafin_repository.dart';
 import '../../core/theme.dart';
 import '../../widgets/nf_widgets.dart';
+import '../../widgets/party_dialog.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -70,6 +72,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       DataColumn(label: Text('Name')),
                       DataColumn(label: Text('Phone')),
                       DataColumn(label: Text('City')),
+                      DataColumn(label: Text('VAT No.')),
+                      DataColumn(label: Text('ZATCA info')),
                       DataColumn(label: Text('Credit Limit'), numeric: true),
                       DataColumn(label: Text('Opening Balance'), numeric: true),
                       DataColumn(label: Text('')),
@@ -80,10 +84,18 @@ class _CustomersScreenState extends State<CustomersScreen> {
                           DataCell(Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600))),
                           DataCell(Text(c.phone ?? '—')),
                           DataCell(Text(c.city ?? '—')),
+                          DataCell(Text(c.vatNumber ?? '—')),
+                          DataCell(_ZatcaTag(ready: c.zatcaReady)),
                           DataCell(Text(nfMoney.format(c.creditLimit))),
                           DataCell(Text(nfMoney.format(c.openingBalance))),
-                          DataCell(canManage
-                              ? IconButton(
+                          DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
+                            IconButton(
+                              tooltip: 'Statement of account',
+                              icon: const Icon(Icons.receipt_long_outlined, size: 18, color: NfColors.primary),
+                              onPressed: () => context.go('/statement/customer/${c.id}'),
+                            ),
+                            if (canManage)
+                              IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 18, color: NfColors.danger),
                                   onPressed: () async {
                                     final repo = context.read<NovaFinRepository>();
@@ -95,8 +107,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                     if (!ok || !context.mounted) return;
                                     if (await nfRun(context, () => repo.deleteCustomer(c.id))) await _refresh();
                                   },
-                                )
-                              : const SizedBox.shrink()),
+                              ),
+                          ])),
                         ]),
                     ],
                   ),
@@ -110,57 +122,18 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 
   Future<void> _openCreateDialog(BuildContext context) async {
-    final formKey = GlobalKey<FormState>();
-    final name = TextEditingController();
-    final phone = TextEditingController();
-    final city = TextEditingController();
-    final creditLimit = TextEditingController(text: '0');
-    final repo = context.read<NovaFinRepository>();
-
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('New Customer'),
-        content: SizedBox(
-          width: 400,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: name,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  validator: (v) => (v == null || v.trim().length < 2) ? 'Required' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(controller: phone, decoration: const InputDecoration(labelText: 'Phone')),
-                const SizedBox(height: 12),
-                TextFormField(controller: city, decoration: const InputDecoration(labelText: 'City')),
-                const SizedBox(height: 12),
-                TextFormField(controller: creditLimit, decoration: const InputDecoration(labelText: 'Credit Limit'), keyboardType: TextInputType.number),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-              await repo.createCustomer(
-                name: name.text.trim(),
-                phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
-                city: city.text.trim().isEmpty ? null : city.text.trim(),
-                creditLimit: double.tryParse(creditLimit.text) ?? 0,
-              );
-              if (dialogContext.mounted) Navigator.pop(dialogContext);
-              await _refresh();
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
+    final saved = await showPartyDialog(context, isCustomer: true);
+    if (saved) await _refresh();
   }
+}
+
+class _ZatcaTag extends StatelessWidget {
+  const _ZatcaTag({required this.ready});
+  final bool ready;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: ready ? 'VAT number and national address are on file' : 'Missing VAT number or address — needed before ZATCA tax invoices',
+        child: Text(ready ? 'Complete' : 'Incomplete', style: TextStyle(color: ready ? NfColors.success : NfColors.warning, fontWeight: FontWeight.w600, fontSize: 12)),
+      );
 }

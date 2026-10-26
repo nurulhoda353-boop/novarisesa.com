@@ -1,6 +1,7 @@
 import uuid
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -42,8 +43,32 @@ class SalesReturnCreate(BaseModel):
     lines: list[DocumentLineInput] = Field(min_length=1)
 
 
+CorrectionReason = Literal["price_error", "goods_returned", "discount", "cancellation", "other"]
+
+
 class CreditNoteCreate(BaseModel):
-    customer_id: uuid.UUID
+    """Credit part or all of an invoice. `amount` is the value before VAT; leave it out to credit
+    whatever is still uncredited on the invoice. VAT follows the invoice's own rate."""
+
+    invoice_id: uuid.UUID
     note_date: date
-    amount: Decimal = Field(gt=0)
+    amount: Decimal | None = Field(default=None, ge=0)  # empty or 0 = credit what is left
+    reason_code: CorrectionReason
     reason: str | None = None
+
+
+class DebitNoteCreate(BaseModel):
+    invoice_id: uuid.UUID
+    note_date: date
+    amount: Decimal = Field(gt=0)  # extra value before VAT
+    reason: str | None = None
+
+
+class InvoiceReplace(BaseModel):
+    """One-step correction: credit the whole invoice, then issue the right one in its place."""
+
+    invoice_date: date
+    reason_code: CorrectionReason
+    reason: str | None = None
+    notes: str | None = None
+    lines: list[DocumentLineInput] = Field(min_length=1)
