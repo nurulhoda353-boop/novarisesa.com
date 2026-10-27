@@ -21,8 +21,8 @@ from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import sessionmaker
 
-from app.api.routes import novafin_admin, novafin_banking, novafin_corrections, novafin_hr
-from app.api.routes.novafin import build_invoice, validate_party_vat
+from app.api.routes import novafin, novafin_admin, novafin_banking, novafin_corrections, novafin_hr, novafin_vat
+from app.api.routes.novafin import build_invoice, create_purchase, validate_party_vat
 from app.api.routes.novafin_reports import project_profit_and_loss
 from app.core import idempotency
 from app.core.config import settings
@@ -41,7 +41,7 @@ from app.models import (
     NovaFinSalarySlip,
     NovaFinVendor,
 )
-from app.schemas.novafin import DocumentLineInput, InvoiceCreate
+from app.schemas.novafin import DocumentLineInput, InvoiceCreate, PurchaseCreate
 from app.schemas.novafin_banking import AllocationInput, CashMoveCreate
 from app.schemas.novafin_phase1 import FiscalYearReopen, WriteOffCreate
 from app.schemas.novafin_sales import InvoiceReplace
@@ -78,6 +78,7 @@ def db(session_factory):
 
 
 WIPE = [
+    "DELETE FROM novafin_vat_returns",
     "DELETE FROM novafin_allocations",
     "UPDATE novafin_fiscal_years SET closing_voucher_id = NULL, status = 'open', closed_at = NULL, net_profit_snapshot = NULL",
     "DELETE FROM novafin_journal_voucher_lines",
@@ -91,6 +92,10 @@ WIPE = [
     "UPDATE novafin_invoices SET corrects_invoice_id = NULL",
     "DELETE FROM novafin_invoices",
     "DELETE FROM novafin_cash_moves",
+    "DELETE FROM novafin_purchase_return_lines",
+    "DELETE FROM novafin_purchase_returns",
+    "DELETE FROM novafin_purchase_lines",
+    "DELETE FROM novafin_purchases",
     "DELETE FROM novafin_salary_slips",
     "DELETE FROM novafin_employees",
     "DELETE FROM novafin_items",
@@ -120,7 +125,7 @@ def clean(session_factory):
 
 @pytest.fixture()
 def no_audit(monkeypatch):
-    for module in (novafin_hr, novafin_banking, novafin_corrections, novafin_admin):
+    for module in (novafin, novafin_hr, novafin_banking, novafin_corrections, novafin_admin, novafin_vat):
         monkeypatch.setattr(module, "audit", lambda *a, **k: None)
 
 
@@ -699,3 +704,135 @@ def test_the_owner_can_run_a_whole_sale_correct_it_and_read_the_reports(api) -> 
     assert months[8]["status"] == "locked"
     unlocked = api.post(f"{prefix}/periods/2026/9/unlock", json={"note": "Late invoice"})
     assert unlocked.status_code == 200
+
+
+# =============================================================================== phase 2A: VAT return
+
+
+def make_bill(s, vendor, net, *, on, category="standard", recoverable=True, supplier_no="SUP-1"):
+    item = s.scalar(select(NovaFinItem).where(NovaFinItem.name == "Bill service")) or make_item(s, "Bill service")
+    return create_purchase(
+        PurchaseCreate(
+            vendor_id=vendor.id,
+            purchase_date=on,
+            mode="credit",
+            vat_rate=D("15.00"),
+            tax_category=category,
+            vat_recoverable=recoverable,
+            supplier_invoice_no=supplier_no,
+            lines=[DocumentLineInput(item_id=item.id, quantity=D(1), rate=net)],
+        ),
+        REQUEST,
+        USER,
+        s,
+    )
+
+
+def make_vendor(s, name="Steel Co") -> NovaFinVendor:
+    vendor = NovaFinVendor(name=name, vat_number="300000000000011", opening_balance=D(0), is_active=True)
+    s.add(vendor)
+    s.flush()
+    return vendor
+
+
+def _q1_books(s):
+    """Q1 2026: standard 100,000 (credited 10,000), zero-rated 40,000, exempt 10,000; bills 60,000 claimed, 10,000 not claimable, 5,000 zero."""
+    customer, item, vendor = make_customer(s), make_item(s), make_vendor(s)
+    standard = make_invoice(s, customer, item, net=D(100_000), on=date(2026, 1, 20))
+    make_invoice(s, customer, item, net=D(40_000), on=date(2026, 2, 10), tax_category="zero")
+    make_invoice(s, customer, item, net=D(10_000), on=date(2026, 3, 5), tax_category="exempt")
+    novafin_corrections.issue_credit_note(s, standard, note_date=date(2026, 3, 12), net=D(10_000), reason_code="price_error", reason=None)
+    make_bill(s, vendor, D(60_000), on=date(2026, 1, 25))
+    make_bill(s, vendor, D(10_000), on=date(2026, 2, 3), recoverable=False, supplier_no="SUP-2")
+    make_bill(s, vendor, D(5_000), on=date(2026, 3, 9), category="zero", supplier_no="SUP-3")
+    s.flush()
+
+
+def test_only_standard_rated_documents_carry_vat(db, clean, no_audit) -> None:
+    customer, item = make_customer(db), make_item(db)
+    for category in ("zero", "exempt", "out_of_scope"):
+        invoice = make_invoice(db, customer, item, net=D(1_000), tax_category=category)
+        assert invoice.vat_amount == D("0.00") and invoice.vat_rate == D("0") and invoice.tax_category == category
+    assert make_invoice(db, customer, item, net=D(1_000)).vat_amount == D("150.00")
+
+
+def test_the_quarterly_return_adds_up_and_agrees_with_the_ledger(db, clean, no_audit) -> None:
+    from app.services.novafin_vat import build_period, compute_return
+
+    _q1_books(db)
+    result = compute_return(db, build_period(2026, 1, "quarterly"))
+    assert result["sales"]["standard"] == {"net": D("90000.00"), "vat": D("13500.00")}  # 100,000 less the 10,000 credit note
+    assert result["sales"]["zero"]["net"] == D("40000.00") and result["sales"]["zero"]["vat"] == D("0.00")
+    assert result["sales"]["exempt"]["net"] == D("10000.00")
+    assert result["purchases"]["standard_recoverable"] == {"net": D("60000.00"), "vat": D("9000.00")}
+    assert result["purchases"]["standard_non_recoverable"] == {"net": D("10000.00"), "vat": D("1500.00")}
+    assert result["purchases"]["zero"]["net"] == D("5000.00")
+    assert result["output_vat"] == D("13500.00") and result["input_vat"] == D("9000.00") and result["net_vat"] == D("4500.00")
+    assert result["control"]["matches"], result["control"]
+    assert account_balance(db, "vin") == D("9000.00")  # the 1,500 that cannot be claimed never reached VAT Input
+    assert result["warnings"] == []
+
+
+def test_a_bill_without_a_supplier_invoice_number_raises_a_warning(db, clean, no_audit) -> None:
+    from app.services.novafin_vat import build_period, compute_return
+
+    make_bill(db, make_vendor(db), D(1_000), on=date(2026, 2, 1), supplier_no="")
+    assert "supplier invoice number" in compute_return(db, build_period(2026, 1, "quarterly"))["warnings"][0]
+
+
+def test_filing_locks_the_months_and_settling_clears_the_vat_accounts(session_factory, clean, no_audit) -> None:
+    with session_factory() as s:
+        _q1_books(s)
+        s.commit()
+    from app.api.routes.novafin_vat import VatReturnFile, VatReturnSettle, file_vat_return, settle_vat_return
+
+    with session_factory() as s:
+        filed = file_vat_return(VatReturnFile(year=2026, index=1), REQUEST, USER, s)
+        assert filed["net_vat"] == D("4500.00") and filed["settled"] is False
+        with pytest.raises(HTTPException) as again:
+            file_vat_return(VatReturnFile(year=2026, index=1), REQUEST, USER, s)
+        assert again.value.status_code == 409
+    with session_factory() as s:
+        for month in (1, 2, 3):
+            assert s.scalar(select(NovaFinPeriodLock.id).where(NovaFinPeriodLock.year == 2026, NovaFinPeriodLock.month == month)) is not None
+        with pytest.raises(HTTPException) as locked:
+            make_invoice(s, s.scalar(select(NovaFinCustomer)), s.scalar(select(NovaFinItem)), net=D(5), on=date(2026, 3, 20))
+        assert locked.value.status_code == 422
+    with session_factory() as s:
+        settled = settle_vat_return(
+            uuid.UUID(filed["id"]),
+            VatReturnSettle(payment_date=date(2026, 4, 20), method="cash"),
+            REQUEST,
+            USER,
+            s,
+        )
+        assert settled["settled"] is True
+    with session_factory() as s:
+        assert account_balance(s, "vout") == D("0.00") and account_balance(s, "vin") == D("0.00")
+        assert account_balance(s, "cash") == D("-4500.00")  # paid to ZATCA from cash
+        with pytest.raises(HTTPException) as twice:
+            settle_vat_return(uuid.UUID(filed["id"]), VatReturnSettle(payment_date=date(2026, 4, 21)), REQUEST, USER, s)
+        assert twice.value.status_code == 409
+
+
+def test_a_return_that_disagrees_with_the_ledger_cannot_be_filed(session_factory, clean, no_audit) -> None:
+    from app.api.routes.novafin_vat import VatReturnFile, file_vat_return
+
+    with session_factory() as s:
+        _q1_books(s)
+        # A hand-made entry that moves VAT without any invoice behind it.
+        post_journal(s, entry_date=date(2026, 2, 14), narration="stray", lines=[("cash", D(100), D(0)), ("vout", D(0), D(100))])
+        s.commit()
+    with session_factory() as s:
+        with pytest.raises(HTTPException) as refused:
+            file_vat_return(VatReturnFile(year=2026, index=1), REQUEST, USER, s)
+        assert refused.value.status_code == 409 and "does not agree with the ledger" in refused.value.detail
+
+
+def test_a_period_that_has_not_ended_cannot_be_filed(session_factory, clean, no_audit) -> None:
+    from app.api.routes.novafin_vat import VatReturnFile, file_vat_return
+
+    with session_factory() as s:
+        with pytest.raises(HTTPException) as early:
+            file_vat_return(VatReturnFile(year=2099, index=4), REQUEST, USER, s)
+        assert early.value.status_code == 422

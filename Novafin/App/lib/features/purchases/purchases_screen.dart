@@ -119,6 +119,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     var saving = false;
     String? saveError;
     String mode = 'cash';
+    String taxCategory = 'standard';
+    bool recoverable = true;
+    final supplierNo = TextEditingController();
+    DateTime? supplierDate;
     DateTime date = DateTime.now();
     final lines = <_LineDraft>[_LineDraft()];
 
@@ -131,7 +135,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         for (final line in lines) {
           subtotal += line.quantity * line.rate;
         }
-        final vat = subtotal * 0.15;
+        final vat = taxCategory == 'standard' ? subtotal * 0.15 : 0.0;
 
         return AlertDialog(
           title: const Text('New Purchase'),
@@ -164,6 +168,40 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                       ),
                     ),
                   ]),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: taxCategory,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'VAT treatment'),
+                    items: [for (final c in nfTaxCategories) DropdownMenuItem(value: c.$1, child: Text(c.$2))],
+                    onChanged: (v) => setDialogState(() => taxCategory = v ?? 'standard'),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: supplierNo,
+                        decoration: const InputDecoration(labelText: 'Supplier invoice no.', helperText: 'Needed to claim the VAT back'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(supplierDate == null ? 'Supplier invoice date' : DateFormat('dd/MM/yyyy').format(supplierDate!)),
+                      onPressed: () async {
+                        final picked = await showDatePicker(context: dialogContext, initialDate: supplierDate ?? date, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                        if (picked != null) setDialogState(() => supplierDate = picked);
+                      },
+                    ),
+                  ]),
+                  if (taxCategory == 'standard')
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('VAT can be claimed back'),
+                      subtitle: const Text('Turn off for VAT that is not claimable, such as entertainment. It then counts as a cost.', style: TextStyle(fontSize: 12)),
+                      value: recoverable,
+                      onChanged: (v) => setDialogState(() => recoverable = v),
+                    ),
                   const SizedBox(height: 12),
                   DimPickers(options: dimOptions, selection: dims, onChanged: () => setDialogState(() {})),
                   const SizedBox(height: 12),
@@ -247,7 +285,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                     Text(nfMoney.format(subtotal)),
                   ]),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('VAT (15%)'),
+                    Text(taxCategory == 'standard' ? 'VAT (15%)' : 'VAT (0%)'),
                     Text(nfMoney.format(vat)),
                   ]),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -286,6 +324,10 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                           'vendor_id': vendorId,
                           'purchase_date': DateFormat('yyyy-MM-dd').format(date),
                           'mode': mode,
+                          'tax_category': taxCategory,
+                          'vat_recoverable': taxCategory == 'standard' ? recoverable : true,
+                          if (supplierNo.text.trim().isNotEmpty) 'supplier_invoice_no': supplierNo.text.trim(),
+                          if (supplierDate != null) 'supplier_invoice_date': DateFormat('yyyy-MM-dd').format(supplierDate!),
                           ...dims.toJson(),
                           'lines': [
                             for (final l in validLines) {'item_id': l.itemId, 'quantity': l.quantity, 'rate': l.rate},

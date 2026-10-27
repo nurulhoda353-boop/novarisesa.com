@@ -68,6 +68,7 @@ const nfNavTree = [
     NavItem('Overview', Icons.bar_chart_outlined, path: '/reports'),
     NavItem('Project Profit & Loss', Icons.stacked_line_chart, path: '/project-pl'),
     NavItem('Trial Balance', Icons.balance_outlined, path: '/trial-balance'),
+    NavItem('VAT Return', Icons.receipt_long_outlined, path: '/vat-return'),
   ]),
   NavItem('Settings', Icons.settings_outlined, children: [
     NavItem('User Roles', Icons.admin_panel_settings_outlined, path: '/user-roles'),

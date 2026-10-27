@@ -28,6 +28,7 @@ import 'features/purchases/purchases_screen.dart';
 import 'features/purchasing/rfq_screen.dart';
 import 'features/reports/phase1_reports.dart';
 import 'features/reports/reports_screen.dart';
+import 'features/reports/vat_return_screen.dart';
 import 'features/vendors/vendors_screen.dart';
 import 'widgets/app_shell.dart';
 import 'widgets/document_screen.dart';
@@ -244,6 +245,7 @@ class _NovaFinAppState extends State<NovaFinApp> {
             GoRoute(path: '/reports', builder: (context, state) => const ReportsScreen()),
             GoRoute(path: '/project-pl', builder: (context, state) => const ProjectPlScreen()),
             GoRoute(path: '/trial-balance', builder: (context, state) => const TrialBalanceScreen()),
+            GoRoute(path: '/vat-return', builder: (context, state) => const VatReturnScreen()),
 
             // Settings
             GoRoute(path: '/user-roles', builder: (context, state) => const UserRolesScreen()),

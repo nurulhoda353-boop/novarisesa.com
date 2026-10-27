@@ -253,6 +253,7 @@ def replace_invoice(
             mode=original.mode,
             status="posted",
             vat_rate=original.vat_rate,
+            tax_category=original.tax_category or "standard",
             notes=payload.notes if payload.notes is not None else original.notes,
             project_id=original.project_id,
             cost_center_id=original.cost_center_id,

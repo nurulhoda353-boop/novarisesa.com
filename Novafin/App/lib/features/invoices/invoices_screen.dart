@@ -136,6 +136,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     var saving = false;
     String? saveError;
     String mode = 'cash';
+    String taxCategory = 'standard';
     DateTime date = DateTime.now();
     final lines = <_LineDraft>[_LineDraft()];
 
@@ -148,7 +149,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         for (final line in lines) {
           subtotal += line.quantity * line.rate;
         }
-        final vat = subtotal * 0.15;
+        final vat = taxCategory == 'standard' ? subtotal * 0.15 : 0.0;
 
         return AlertDialog(
           title: const Text('New Invoice'),
@@ -181,6 +182,14 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                       ),
                     ),
                   ]),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: taxCategory,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'VAT treatment'),
+                    items: [for (final c in nfTaxCategories) DropdownMenuItem(value: c.$1, child: Text(c.$2))],
+                    onChanged: (v) => setDialogState(() => taxCategory = v ?? 'standard'),
+                  ),
                   const SizedBox(height: 12),
                   DimPickers(options: dimOptions, selection: dims, onChanged: () => setDialogState(() {})),
                   const SizedBox(height: 12),
@@ -264,7 +273,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     Text(nfMoney.format(subtotal)),
                   ]),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('VAT (15%)'),
+                    Text(taxCategory == 'standard' ? 'VAT (15%)' : 'VAT (0%)'),
                     Text(nfMoney.format(vat)),
                   ]),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -303,6 +312,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                           'customer_id': customerId,
                           'invoice_date': DateFormat('yyyy-MM-dd').format(date),
                           'mode': mode,
+                          'tax_category': taxCategory,
                           ...dims.toJson(),
                           'lines': [
                             for (final l in validLines) {'item_id': l.itemId, 'quantity': l.quantity, 'rate': l.rate},

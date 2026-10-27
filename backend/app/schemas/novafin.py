@@ -73,12 +73,16 @@ class DocumentLineInput(BaseModel):
     rate: Decimal = Field(ge=0)
 
 
+TaxCategory = Literal["standard", "zero", "exempt", "out_of_scope"]
+
+
 class InvoiceCreate(BaseModel):
     customer_id: uuid.UUID
     invoice_date: date
     mode: PaymentMode = "cash"
     status: InvoiceStatus = "posted"
     vat_rate: Decimal = Decimal("15.00")
+    tax_category: TaxCategory = "standard"
     notes: str | None = None
     project_id: uuid.UUID | None = None
     cost_center_id: uuid.UUID | None = None
@@ -91,6 +95,10 @@ class PurchaseCreate(BaseModel):
     purchase_date: date
     mode: PaymentMode = "cash"
     vat_rate: Decimal = Decimal("15.00")
+    tax_category: TaxCategory = "standard"
+    supplier_invoice_no: str | None = Field(default=None, max_length=60)
+    supplier_invoice_date: date | None = None
+    vat_recoverable: bool = True
     notes: str | None = None
     project_id: uuid.UUID | None = None
     cost_center_id: uuid.UUID | None = None

@@ -207,7 +207,9 @@ def create_purchase_return(payload: PurchaseReturnCreate, request: Request, user
         lines=[
             (cash_or_ap, pr.grand_total, Decimal("0")),
             ("inventory", Decimal("0"), product_subtotal),
-            ("vin", Decimal("0"), pr.vat_amount),
+            ("vin", Decimal("0"), pr.vat_amount)
+            if original_purchase is None or original_purchase.vat_recoverable
+            else ("purchase_expense", Decimal("0"), pr.vat_amount),
         ],
         code_prefix="GL",
         dims=dims_for(

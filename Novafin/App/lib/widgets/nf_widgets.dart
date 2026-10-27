@@ -6,6 +6,14 @@ import '../core/theme.dart';
 
 final nfMoney = NumberFormat('#,##0.00');
 
+/// How VAT applies to a whole invoice or bill. Only Standard carries VAT.
+const nfTaxCategories = [
+  ('standard', 'Standard rated (15%)'),
+  ('zero', 'Zero-rated (0%)'),
+  ('exempt', 'Exempt'),
+  ('out_of_scope', 'Out of scope'),
+];
+
 class NfStatCard extends StatelessWidget {
   const NfStatCard({super.key, required this.label, required this.value, required this.caption, required this.accent});
 

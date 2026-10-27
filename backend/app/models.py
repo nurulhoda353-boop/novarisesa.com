@@ -1097,6 +1097,7 @@ class NovaFinInvoice(UUIDMixin, TimestampMixin, Base):
         default=NovaFinInvoiceStatus.POSTED,
     )
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    tax_category: Mapped[str] = mapped_column(String(20), default="standard")  # standard | zero | exempt | out_of_scope
     subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
@@ -1139,6 +1140,10 @@ class NovaFinPurchase(UUIDMixin, TimestampMixin, Base):
     purchase_date: Mapped[date] = mapped_column(Date)
     mode: Mapped[str] = mapped_column(String(10), default="cash")
     vat_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=Decimal("15.00"))
+    tax_category: Mapped[str] = mapped_column(String(20), default="standard")  # standard | zero | exempt | out_of_scope
+    supplier_invoice_no: Mapped[str | None] = mapped_column(String(60))
+    supplier_invoice_date: Mapped[date | None] = mapped_column(Date)
+    vat_recoverable: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     vat_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
     grand_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=Decimal("0"))
@@ -1776,3 +1781,25 @@ class NovaFinPeriodLock(UUIDMixin, Base):
     locked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     locked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class NovaFinVatReturn(UUIDMixin, Base):
+    """A filed VAT return: the figures exactly as they stood when it was filed, plus how it was paid."""
+
+    __tablename__ = "novafin_vat_returns"
+    __table_args__ = (UniqueConstraint("period_start", "period_end", name="uq_novafin_vat_returns_period"),)
+
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    frequency: Mapped[str] = mapped_column(String(12))  # monthly | quarterly
+    output_vat: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    input_vat: Mapped[Decimal] = mapped_column(Numeric(14, 2))
+    net_vat: Mapped[Decimal] = mapped_column(Numeric(14, 2))  # positive = payable to ZATCA, negative = refundable
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    filed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    filed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    note: Mapped[str | None] = mapped_column(Text)
+    settlement_voucher_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("novafin_journal_vouchers.id", ondelete="RESTRICT")
+    )
+    settled_on: Mapped[date | None] = mapped_column(Date)

@@ -42,6 +42,7 @@ from app.schemas.novafin import (
 )
 from app.services.novafin_ledger import Dims, account_balance, post_journal
 from app.services.novafin_sequences import next_code
+from app.services.novafin_vat import effective_rate
 
 router = APIRouter(prefix="/novafin")
 
@@ -201,6 +202,7 @@ def serialize_invoice(invoice: NovaFinInvoice) -> dict[str, Any]:
         "mode": invoice.mode,
         "status": _status_value(invoice.status),
         "vat_rate": invoice.vat_rate,
+        "tax_category": invoice.tax_category,
         "subtotal": invoice.subtotal,
         "vat_amount": invoice.vat_amount,
         "grand_total": invoice.grand_total,
@@ -226,6 +228,10 @@ def serialize_purchase(purchase: NovaFinPurchase) -> dict[str, Any]:
         "purchase_date": purchase.purchase_date.isoformat(),
         "mode": purchase.mode,
         "vat_rate": purchase.vat_rate,
+        "tax_category": purchase.tax_category,
+        "supplier_invoice_no": purchase.supplier_invoice_no,
+        "supplier_invoice_date": purchase.supplier_invoice_date.isoformat() if purchase.supplier_invoice_date else None,
+        "vat_recoverable": purchase.vat_recoverable,
         "subtotal": purchase.subtotal,
         "vat_amount": purchase.vat_amount,
         "grand_total": purchase.grand_total,
@@ -488,14 +494,16 @@ def build_invoice(db: Session, payload: InvoiceCreate, *, corrects_invoice_id: u
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item(s) not found: {missing}")
 
     subtotal = sum((line.quantity * line.rate for line in payload.lines), Decimal("0"))
-    vat_amount = (subtotal * payload.vat_rate / Decimal("100")).quantize(Decimal("0.01"))
+    vat_rate = effective_rate(payload.tax_category, payload.vat_rate)
+    vat_amount = (subtotal * vat_rate / Decimal("100")).quantize(Decimal("0.01"))
     invoice = NovaFinInvoice(
         code=_next_code(db, NovaFinInvoice, "INV"),
         customer_id=payload.customer_id,
         invoice_date=payload.invoice_date,
         mode=payload.mode,
         status=payload.status,
-        vat_rate=payload.vat_rate,
+        vat_rate=vat_rate,
+        tax_category=payload.tax_category,
         subtotal=subtotal,
         vat_amount=vat_amount,
         grand_total=subtotal + vat_amount,
@@ -603,13 +611,18 @@ def create_purchase(payload: PurchaseCreate, request: Request, user: NovaFinMana
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item(s) not found: {missing}")
 
     subtotal = sum((line.quantity * line.rate for line in payload.lines), Decimal("0"))
-    vat_amount = (subtotal * payload.vat_rate / Decimal("100")).quantize(Decimal("0.01"))
+    vat_rate = effective_rate(payload.tax_category, payload.vat_rate)
+    vat_amount = (subtotal * vat_rate / Decimal("100")).quantize(Decimal("0.01"))
     purchase = NovaFinPurchase(
         code=_next_code(db, NovaFinPurchase, "PUR"),
         vendor_id=payload.vendor_id,
         purchase_date=payload.purchase_date,
         mode=payload.mode,
-        vat_rate=payload.vat_rate,
+        vat_rate=vat_rate,
+        tax_category=payload.tax_category,
+        supplier_invoice_no=(payload.supplier_invoice_no or "").strip() or None,
+        supplier_invoice_date=payload.supplier_invoice_date,
+        vat_recoverable=payload.vat_recoverable,
         subtotal=subtotal,
         vat_amount=vat_amount,
         grand_total=subtotal + vat_amount,
@@ -658,8 +671,9 @@ def create_purchase(payload: PurchaseCreate, request: Request, user: NovaFinMana
         narration=f"Purchase — {vendor.name} ({purchase.code})",
         lines=[
             ("inventory", product_subtotal, Decimal("0")),
-            ("purchase_expense", service_subtotal, Decimal("0")),
-            ("vin", purchase.vat_amount, Decimal("0")),
+            # VAT the company may not claim back is part of what the purchase cost.
+            ("purchase_expense", service_subtotal + (Decimal("0") if purchase.vat_recoverable else purchase.vat_amount), Decimal("0")),
+            ("vin", purchase.vat_amount if purchase.vat_recoverable else Decimal("0"), Decimal("0")),
             (cash_or_ap, Decimal("0"), purchase.grand_total),
         ],
         code_prefix="GL",
