@@ -6,7 +6,7 @@ import { MailOpen } from "lucide-react";
 import * as api from "@/lib/api";
 import type { StoredAccount } from "@/lib/api";
 import type { ComposeInitial, FolderInfo, MailAccount, MailMessageSummary, SendMailRequest } from "@/lib/types";
-import { SYSTEM_FOLDERS } from "@/lib/types";
+import { SYSTEM_FOLDERS, resetSystemFolders, resolveSystemFolders, toImapFolder } from "@/lib/types";
 import { groupIntoThreads, type MailThread } from "@/lib/threads";
 import { buildReplyInitial } from "@/lib/compose-helpers";
 import { useTheme } from "@/lib/theme";
@@ -56,9 +56,15 @@ function loadCachedMessages(address: string, folder: string): MailMessageSummary
 
 export type SplitMode = "none" | "right";
 
-function imapFolderFor(key: string): string {
-  if (key === SYSTEM_FOLDERS.starred) return SYSTEM_FOLDERS.inbox;
-  return key;
+// The real IMAP folder behind a sidebar key - differs from the key itself on
+// mailboxes whose folders are named differently (Gmail's "[Gmail]/Sent Mail").
+const imapFolderFor = toImapFolder;
+
+// Folders whose real name needs the mailbox's folder list to be known first;
+// asking for e.g. "INBOX.Sent" on a Gmail mailbox before that would create a
+// stray folder with that name instead of opening the real Sent one.
+function needsFolderList(key: string): boolean {
+  return key !== SYSTEM_FOLDERS.inbox && key !== SYSTEM_FOLDERS.starred && key !== SYSTEM_FOLDERS.drafts;
 }
 
 // Keeps the folder in the URL - refreshing (or sharing/bookmarking a link)
@@ -151,11 +157,19 @@ function MailAppInner() {
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
   const [splitMode, setSplitMode] = useState<SplitMode>("none");
 
+  const foldersResolvedFor = useRef<string | null>(null);
+  const foldersResetFor = useRef<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const wsRetryRef = useRef(0);
 
   const loadFolders = useCallback(() => {
-    api.listFolders().then(setFolders).catch(() => {});
+    api
+      .listFolders()
+      .then((rows) => {
+        resolveSystemFolders(rows);
+        setFolders(rows);
+      })
+      .catch(() => {});
     api.listSnoozes().then((rows) => setSnoozeCount(rows.length)).catch(() => {});
     api.listDrafts().then((rows) => setDraftCount(rows.length)).catch(() => {});
   }, []);
@@ -192,7 +206,7 @@ function MailAppInner() {
         setNextBeforeUid(result.next_before_uid);
         setOffline(false);
         if (isPlainView && account) cacheMessages(account.address, folder, result.data);
-      } catch {
+      } catch (error) {
         if (isPlainView && account) {
           const cached = loadCachedMessages(account.address, folder);
           if (cached) {
@@ -203,7 +217,7 @@ function MailAppInner() {
             return;
           }
         }
-        toast.show("Could not load messages");
+        toast.show(api.errorMessage(error, "Could not load messages"));
       } finally {
         setBusy(false);
       }
@@ -233,6 +247,11 @@ function MailAppInner() {
 
   useEffect(() => {
     if (!account) return;
+    if (foldersResetFor.current !== account.address) {
+      resetSystemFolders();
+      foldersResolvedFor.current = null;
+      foldersResetFor.current = account.address;
+    }
     setOpenThread(null);
     setSelected(new Set());
     setActiveSearch("");
@@ -241,11 +260,27 @@ function MailAppInner() {
     setFilters(EMPTY_FILTERS);
     if (activeFolder === SYSTEM_FOLDERS.drafts) {
       setDraftsRefreshKey((v) => v + 1);
-    } else {
-      loadMessages(activeFolder);
+      return;
     }
+    let cancelled = false;
+    (async () => {
+      if (needsFolderList(activeFolder) && foldersResolvedFor.current !== account.address) {
+        try {
+          const rows = await api.listFolders();
+          resolveSystemFolders(rows);
+          foldersResolvedFor.current = account.address;
+          setFolders(rows);
+        } catch {
+          // fall through with the default names - same as before this existed
+        }
+      }
+      if (!cancelled) loadMessages(activeFolder);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account, activeFolder]);
+  }, [account?.address, activeFolder]);
 
   useEffect(() => {
     try {
@@ -276,8 +311,11 @@ function MailAppInner() {
       };
       socket.onmessage = (event) => {
         try {
-          const payload = JSON.parse(event.data) as { type?: string };
-          if (payload.type === "new_mail") {
+          // The server sends {"event": "new_mail", ...} (the mobile app reads
+          // the same field) - this used to look for "type", so live updates
+          // never fired on the web.
+          const payload = JSON.parse(event.data) as { event?: string };
+          if (payload.event === "new_mail") {
             loadFolders();
             if (activeFolderRef.current === SYSTEM_FOLDERS.inbox) {
               loadMessages(SYSTEM_FOLDERS.inbox);
@@ -356,13 +394,13 @@ function MailAppInner() {
     try {
       await api.moveMessage(imapFolderFor(activeFolder), message.uid, destination);
       removeFromList([message.uid]);
-    } catch {
-      toast.show("That action could not be completed");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "That action could not be completed"));
     }
   }
 
   async function handleArchive(message: MailMessageSummary) {
-    await moveAndDrop(message, SYSTEM_FOLDERS.archive);
+    await moveAndDrop(message, imapFolderFor(SYSTEM_FOLDERS.archive));
   }
   const isRealMember = !!account && account.role === "member" && !account.acting_as_admin;
   async function requestDelete(message: MailMessageSummary) {
@@ -379,8 +417,8 @@ function MailAppInner() {
         message.subject || "(no subject)",
       );
       toast.show("Delete request sent for admin approval");
-    } catch {
-      toast.show("Could not send that request");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not send that request"));
     }
   }
   async function handleDelete(message: MailMessageSummary) {
@@ -392,11 +430,11 @@ function MailAppInner() {
       try {
         await api.deleteMessage(imapFolderFor(activeFolder), message.uid);
         removeFromList([message.uid]);
-      } catch {
-        toast.show("Could not delete permanently");
+      } catch (error) {
+        toast.show(api.errorMessage(error, "Could not delete permanently"));
       }
     } else {
-      await moveAndDrop(message, SYSTEM_FOLDERS.trash);
+      await moveAndDrop(message, imapFolderFor(SYSTEM_FOLDERS.trash));
     }
   }
   async function handleToggleStar(message: MailMessageSummary) {
@@ -410,8 +448,8 @@ function MailAppInner() {
     );
     try {
       await api.setStar(imapFolderFor(activeFolder), message.uid, willStar);
-    } catch {
-      toast.show("Could not update the star");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update the star"));
     }
   }
   async function handleMarkRead(message: MailMessageSummary, value: boolean) {
@@ -424,8 +462,8 @@ function MailAppInner() {
     );
     try {
       await api.setRead(imapFolderFor(activeFolder), message.uid, value);
-    } catch {
-      toast.show("Could not update the message");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update the message"));
     }
   }
 
@@ -438,8 +476,8 @@ function MailAppInner() {
           removeFromList([message.uid]);
           loadFolders();
           toast.show(`Snoozed until ${date.toLocaleString()}`);
-        } catch {
-          toast.show("Could not snooze this message");
+        } catch (error) {
+          toast.show(api.errorMessage(error, "Could not snooze this message"));
         } finally {
           setSnoozeTarget(null);
         }
@@ -471,8 +509,8 @@ function MailAppInner() {
         );
         toast.show("Delete request sent for admin approval");
         setOpenThread(null);
-      } catch {
-        toast.show("Could not send that request");
+      } catch (error) {
+        toast.show(api.errorMessage(error, "Could not send that request"));
       }
       return;
     }
@@ -480,8 +518,9 @@ function MailAppInner() {
       if (action === "unread") {
         await Promise.all(uids.map((uid) => api.setRead(imapFolderFor(activeFolder), uid, false)));
       } else {
-        const destination =
-          action === "archive" ? SYSTEM_FOLDERS.archive : action === "moveToInbox" ? SYSTEM_FOLDERS.inbox : SYSTEM_FOLDERS.trash;
+        const destination = imapFolderFor(
+          action === "archive" ? SYSTEM_FOLDERS.archive : action === "moveToInbox" ? SYSTEM_FOLDERS.inbox : SYSTEM_FOLDERS.trash,
+        );
         if (action === "trash" && activeFolder === SYSTEM_FOLDERS.trash) {
           await Promise.all(uids.map((uid) => api.deleteMessage(imapFolderFor(activeFolder), uid)));
         } else {
@@ -490,8 +529,8 @@ function MailAppInner() {
       }
       removeFromList(uids);
       setOpenThread(null);
-    } catch {
-      toast.show("That action could not be completed");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "That action could not be completed"));
     }
   }
 
@@ -501,8 +540,8 @@ function MailAppInner() {
     try {
       const detail = await api.getMessage(imapFolderFor(activeFolder), latestMessage.uid);
       openCompose(await buildReplyInitial(detail, mode, account.address));
-    } catch {
-      toast.show("Could not open a reply for this message");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not open a reply for this message"));
     }
   }
 
@@ -540,8 +579,8 @@ function MailAppInner() {
         },
       });
       window.setTimeout(loadFolders, UNDO_SEND_MS + 2000);
-    } catch {
-      toast.show("Could not send the message — it was not sent");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not send the message — it was not sent"));
     }
   }
 
@@ -553,13 +592,17 @@ function MailAppInner() {
   }
 
   async function handleSwitchAccount(address: string) {
-    const next = await api.switchAccount(address);
-    if (next) {
+    try {
+      const next = await api.switchAccount(address);
       setAccount(next);
       setActiveFolder(SYSTEM_FOLDERS.inbox);
       setMessages([]);
-    } else {
-      toast.show("Could not switch accounts — please sign in again");
+    } catch (error) {
+      // switchAccount leaves the current account active and usable on
+      // failure; just report why, and refresh the saved-account list since
+      // a dead one may have been dropped from it.
+      setAccounts(api.savedAccounts());
+      toast.show(error instanceof Error ? error.message : "Could not switch accounts - please sign in again");
     }
   }
 
@@ -568,7 +611,15 @@ function MailAppInner() {
     setAccounts(api.savedAccounts());
     const remaining = api.savedAccounts();
     if (remaining.length > 0) {
-      await handleSwitchAccount(remaining[0].address);
+      try {
+        const next = await api.switchAccount(remaining[0].address);
+        setAccount(next);
+        setActiveFolder(SYSTEM_FOLDERS.inbox);
+        setMessages([]);
+      } catch {
+        setAccounts(api.savedAccounts());
+        setAccount(null);
+      }
     } else {
       setAccount(null);
     }

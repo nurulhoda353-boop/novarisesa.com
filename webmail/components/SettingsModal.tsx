@@ -13,6 +13,7 @@ import type {
   MailRuleInfo,
 } from "@/lib/types";
 import { initials } from "@/lib/format";
+import { SYSTEM_FOLDERS, toImapFolder } from "@/lib/types";
 import { useToast } from "@/lib/toast";
 
 type Tab = "profile" | "security" | "requests" | "contacts" | "aliases" | "forwarders" | "autoreply" | "rules";
@@ -112,8 +113,8 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
       });
       onAccountUpdated(updated);
       if (!(isMember && nameChanged)) toast.show("Profile updated");
-    } catch {
-      toast.show("Could not save your profile");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not save your profile"));
     } finally {
       setSaving(false);
     }
@@ -128,8 +129,8 @@ function ProfileTab({ account, onAccountUpdated }: { account: MailAccount; onAcc
       const updated = await api.uploadAvatar(file);
       onAccountUpdated(updated);
       toast.show(updated.avatar_url !== account.avatar_url ? "Profile photo updated" : "Photo sent for admin approval");
-    } catch {
-      toast.show("Could not upload that photo");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not upload that photo"));
     } finally {
       setUploadingAvatar(false);
     }
@@ -336,8 +337,8 @@ function ContactsTab() {
       setContacts((prev) => [...(prev ?? []), created]);
       setEmail("");
       setDisplayName("");
-    } catch {
-      toast.show("Could not save that contact");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not save that contact"));
     }
   }
 
@@ -350,8 +351,8 @@ function ContactsTab() {
         is_favorite: !contact.is_favorite,
       });
       setContacts((prev) => (prev ?? []).map((item) => (item.id === contact.id ? updated : item)));
-    } catch {
-      toast.show("Could not update that contact");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update that contact"));
     }
   }
 
@@ -359,8 +360,8 @@ function ContactsTab() {
     try {
       await api.deleteContact(id);
       setContacts((prev) => (prev ?? []).filter((item) => item.id !== id));
-    } catch {
-      toast.show("Could not remove that contact");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not remove that contact"));
     }
   }
 
@@ -419,8 +420,8 @@ function AliasesTab() {
       const created = await api.createAlias(localPart.trim());
       setAliases((prev) => [...(prev ?? []), created]);
       setLocalPart("");
-    } catch {
-      toast.show("Could not create that alias");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not create that alias"));
     }
   }
 
@@ -428,8 +429,8 @@ function AliasesTab() {
     try {
       await api.deleteAlias(id);
       setAliases((prev) => (prev ?? []).filter((item) => item.id !== id));
-    } catch {
-      toast.show("Could not remove that alias");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not remove that alias"));
     }
   }
 
@@ -479,8 +480,8 @@ function ForwardersTab() {
       const created = await api.createForwarder(destination.trim(), keepCopy);
       setForwarders((prev) => [...(prev ?? []), created]);
       setDestination("");
-    } catch {
-      toast.show("Could not create that forwarder");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not create that forwarder"));
     }
   }
 
@@ -488,8 +489,8 @@ function ForwardersTab() {
     try {
       await api.deleteForwarder(id);
       setForwarders((prev) => (prev ?? []).filter((item) => item.id !== id));
-    } catch {
-      toast.show("Could not remove that forwarder");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not remove that forwarder"));
     }
   }
 
@@ -543,8 +544,8 @@ function AutoreplyTab() {
       setAutoreplies((prev) => [...(prev ?? []), created]);
       setSubject("");
       setBody("");
-    } catch {
-      toast.show("Could not save the auto-reply");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not save the auto-reply"));
     }
   }
 
@@ -552,8 +553,8 @@ function AutoreplyTab() {
     try {
       await api.deleteAutoreply(id);
       setAutoreplies((prev) => (prev ?? []).filter((item) => item.id !== id));
-    } catch {
-      toast.show("Could not remove the auto-reply");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not remove the auto-reply"));
     }
   }
 
@@ -587,15 +588,20 @@ function AutoreplyTab() {
   );
 }
 
-const DESTINATION_PRESETS = [
-  { value: "INBOX.Archive", label: "Archive" },
-  { value: "INBOX.Junk", label: "Spam" },
-  { value: "INBOX.Trash", label: "Trash" },
-  { value: "__custom__", label: "Custom folder…" },
-];
+// Computed on use, not at load: the real folder names depend on the mailbox
+// (Gmail's Trash isn't "INBOX.Trash"), which is only known once its folder
+// list has been fetched.
+function destinationPresets() {
+  return [
+    { value: toImapFolder(SYSTEM_FOLDERS.archive), label: "Archive" },
+    { value: toImapFolder(SYSTEM_FOLDERS.spam), label: "Spam" },
+    { value: toImapFolder(SYSTEM_FOLDERS.trash), label: "Trash" },
+    { value: "__custom__", label: "Custom folder…" },
+  ];
+}
 
 function folderLabel(destination: string): string {
-  const preset = DESTINATION_PRESETS.find((item) => item.value === destination);
+  const preset = destinationPresets().find((item) => item.value === destination);
   if (preset) return preset.label;
   return destination.replace(/^INBOX\./, "");
 }
@@ -604,7 +610,7 @@ function RulesTab() {
   const [rules, setRules] = useState<MailRuleInfo[] | null>(null);
   const [fromContains, setFromContains] = useState("");
   const [subjectContains, setSubjectContains] = useState("");
-  const [destinationPreset, setDestinationPreset] = useState(DESTINATION_PRESETS[0].value);
+  const [destinationPreset, setDestinationPreset] = useState(() => destinationPresets()[0].value);
   const [customLabel, setCustomLabel] = useState("");
   const toast = useToast();
 
@@ -637,8 +643,8 @@ function RulesTab() {
       setFromContains("");
       setSubjectContains("");
       setCustomLabel("");
-    } catch {
-      toast.show("Could not save that rule");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not save that rule"));
     }
   }
 
@@ -652,8 +658,8 @@ function RulesTab() {
         is_enabled: !rule.is_enabled,
       });
       setRules((prev) => (prev ?? []).map((item) => (item.id === rule.id ? updated : item)));
-    } catch {
-      toast.show("Could not update that rule");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update that rule"));
     }
   }
 
@@ -661,8 +667,8 @@ function RulesTab() {
     try {
       await api.deleteRule(id);
       setRules((prev) => (prev ?? []).filter((item) => item.id !== id));
-    } catch {
-      toast.show("Could not remove that rule");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not remove that rule"));
     }
   }
 
@@ -701,7 +707,7 @@ function RulesTab() {
       <div className="form-group">
         <label>Move matching mail to</label>
         <select className="form-input" value={destinationPreset} onChange={(event) => setDestinationPreset(event.target.value)}>
-          {DESTINATION_PRESETS.map((preset) => (
+          {destinationPresets().map((preset) => (
             <option key={preset.value} value={preset.value}>
               {preset.label}
             </option>

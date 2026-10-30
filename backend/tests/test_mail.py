@@ -265,6 +265,7 @@ class _FakeListFetchImap:
 
     def __init__(self, fetch_by_uid: dict[str, tuple[str, list]]) -> None:
         self._fetch_by_uid = fetch_by_uid
+        self.fetch_calls: list[str] = []
 
     def select(self, folder, readonly=False):  # noqa: ANN001, ARG002
         return "OK", [b"1"]
@@ -273,9 +274,14 @@ class _FakeListFetchImap:
         if command == "search":
             return "OK", [" ".join(self._fetch_by_uid.keys()).encode()]
         if command == "fetch":
-            # messages() calls client.uid("fetch", str(uid), ...) - a plain
+            # messages() batches UIDs into one comma-separated FETCH - a plain
             # str, unlike the bytes imaplib itself hands back from "search".
-            return self._fetch_by_uid[args[0]]
+            # A real server answers with one flat list for all of them.
+            self.fetch_calls.append(args[0])
+            rows: list = []
+            for uid in args[0].split(","):
+                rows.extend(self._fetch_by_uid[uid][1])
+            return "OK", rows
         raise AssertionError(f"unexpected uid command {command}")
 
 
@@ -324,6 +330,8 @@ def test_messages_list_fetches_headers_only_and_detects_real_attachments(monkeyp
     mailbox = HostingerMailboxClient("list-fetch-test@novarisesa.com", "secret")
     results = mailbox.messages(folder="INBOX", limit=10)
 
+    # All three messages come back from a single FETCH round trip.
+    assert len(fake_client.fetch_calls) == 1
     by_uid = {row["uid"]: row for row in results}
     assert set(by_uid) == {101, 102, 103}
     assert by_uid[101]["subject"] == "Hello"
@@ -990,3 +998,33 @@ def test_watcher_registry_restarts_a_watcher_whose_password_changed() -> None:
         asyncio.run(scenario())
     finally:
         mail_watcher_module.MailboxWatcher = original
+
+
+def test_ensure_folder_matches_the_exact_name_not_a_suffix() -> None:
+    # Regression: ensure_folder used endswith(), so a folder called
+    # "Old.Archive" made "Archive" look like it already existed and it was
+    # never created.
+    created: list[str] = []
+
+    class _Imap:
+        def list(self):  # noqa: ANN201
+            return "OK", [b'(\\HasNoChildren) "." "Old.Archive"', b'(\\HasNoChildren) "." "INBOX"']
+
+        def create(self, name):  # noqa: ANN001, ANN201
+            created.append(name)
+            return "OK", []
+
+    mailbox = HostingerMailboxClient("ensure-folder@novarisesa.com", "secret")
+    mailbox._connect = lambda: _Imap()  # type: ignore[method-assign]
+    mailbox.ensure_folder("Archive")
+    assert created == ['"Archive"']
+    created.clear()
+    mailbox.ensure_folder("Old.Archive")
+    assert created == []
+
+
+def test_logout_with_a_refresh_token_only_revokes_that_session() -> None:
+    from app.schemas.mail import MobileLogoutRequest
+
+    assert MobileLogoutRequest().refresh_token is None
+    assert MobileLogoutRequest(refresh_token="x" * 40).refresh_token == "x" * 40

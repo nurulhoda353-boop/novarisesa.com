@@ -122,3 +122,41 @@ Two small API changes exist only to support the web client:
    that when regenerating Gradle config.
 6. Archive iOS on macOS/Xcode with the Apple Developer team and distribute via
    TestFlight/App Store.
+
+## Additions since the first release
+
+- **Google Workspace mailboxes** (`MailAccount.provider = "google"`): same
+  `HostingerMailboxClient`, pointed at Gmail's IMAP/SMTP via
+  `MAIL_GOOGLE_*` settings. Connected by an admin with an app password;
+  Hostinger-only features (aliases, forwarders, auto-reply) don't apply.
+  Gmail names its system folders differently (`[Gmail]/Sent Mail`, ...), so
+  the web client maps its Sent/Archive/Spam/Trash entries to each mailbox's
+  real folder by special-use flag (`resolveSystemFolders` in
+  `webmail/lib/types.ts`), keeping Hostinger's own `INBOX.*` names when
+  they exist.
+- **Roles and admin panel** (`/admin` on the web app): admins can switch
+  into any mailbox without its password, reset Novamail-only logins, create
+  mailboxes, connect Google ones, review member change requests (name,
+  photo, password, message deletion) and read the audit log. Members can't
+  move/archive/delete mail directly.
+- **Rules** (`/mail/rules`): applied by the IMAP IDLE watcher to new INBOX
+  mail (first enabled match wins).
+- **Send later / Undo send**: both are rows in `mail_scheduled_sends`,
+  fired by a 5-second poll loop (`mail_scheduled_send.py`).
+- **Directory sync**: a 30-minute loop creates stub accounts for every
+  Hostinger mailbox so the compose dropdown lists all teammates.
+- **Health monitor**: logs a greppable `ALERT:` line when mail loggers warn
+  repeatedly or webmail refreshes keep failing.
+- **Sessions**: `POST /mail/auth/logout` takes an optional
+  `{"refresh_token": ...}` and then revokes only that session; with no body
+  it still revokes every session for the mailbox. The web and mobile apps
+  send it, so signing out on one device no longer kills an admin's saved
+  "switched into this mailbox" sessions. Web `switchAccount` leaves the
+  current account untouched if the target's saved sign-in has expired.
+- **Message list performance**: `HostingerMailboxClient.messages()` fetches
+  headers/preview for up to 25 UIDs per IMAP FETCH instead of one round
+  trip per message.
+- **WebSocket event shape**: `{"event": "new_mail", "folder", "uid"}` - both
+  clients read `event`.
+- Drafts now keep their attached files (base64 in the draft's JSON column,
+  capped at 10 MB per draft on the web client).

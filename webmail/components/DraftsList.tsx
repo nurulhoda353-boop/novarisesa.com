@@ -7,6 +7,29 @@ import type { ComposeInitial, DraftInfo } from "@/lib/types";
 import { listTimestamp } from "@/lib/format";
 import { useToast } from "@/lib/toast";
 
+/** Rebuilds the File objects a draft was saved with (see ComposeWindow's
+ * handleCloseAndSaveDraft) so reopening it brings its attachments back. */
+function draftFiles(draft: DraftInfo): File[] {
+  const files: File[] = [];
+  for (const item of draft.attachments ?? []) {
+    const { filename, content_type, content_base64 } = item as {
+      filename?: string;
+      content_type?: string;
+      content_base64?: string;
+    };
+    if (!filename || !content_base64) continue;
+    try {
+      const binary = window.atob(content_base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      files.push(new File([bytes], filename, { type: content_type || "application/octet-stream" }));
+    } catch {
+      // a corrupt attachment shouldn't stop the draft itself from opening
+    }
+  }
+  return files;
+}
+
 export function DraftsList({ onOpenDraft, refreshKey }: { onOpenDraft: (initial: ComposeInitial) => void; refreshKey: number }) {
   const [drafts, setDrafts] = useState<DraftInfo[] | null>(null);
   const toast = useToast();
@@ -20,8 +43,8 @@ export function DraftsList({ onOpenDraft, refreshKey }: { onOpenDraft: (initial:
     try {
       await api.deleteDraft(id);
       setDrafts((prev) => (prev ?? []).filter((item) => item.id !== id));
-    } catch {
-      toast.show("Could not delete the draft");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not delete the draft"));
     }
   }
 
@@ -54,9 +77,11 @@ export function DraftsList({ onOpenDraft, refreshKey }: { onOpenDraft: (initial:
               mode: "new",
               to: draft.to,
               cc: draft.cc,
+              bcc: draft.bcc,
               subject: draft.subject,
               bodyHtml: draft.html_body ?? draft.text_body,
               draftId: draft.id,
+              attachmentFiles: draftFiles(draft),
             })
           }
         >

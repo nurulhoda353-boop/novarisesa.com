@@ -93,6 +93,7 @@ from app.schemas.mail import (
     MailProfileUpdate,
     MailRuleResponse,
     MailRuleUpsert,
+    MobileLogoutRequest,
     MobileRefreshRequest,
     MobileSessionResponse,
     MoveRequest,
@@ -451,11 +452,17 @@ def refresh(payload: MobileRefreshRequest, db: DBSession) -> MobileSessionRespon
 
 
 @router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(user: MobileUser, db: DBSession) -> None:
+def logout(user: MobileUser, db: DBSession, payload: MobileLogoutRequest | None = None) -> None:
+    """Signs out one session when the client says which (its refresh
+    token), so one device/browser signing out doesn't kill every other
+    saved session for the same mailbox - including an admin's "switched
+    into this mailbox" session. A client that sends no token still gets
+    the old sign-out-everywhere behavior."""
     now = datetime.now(UTC)
-    for token in db.scalars(
-        select(RefreshToken).where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
-    ):
+    query = select(RefreshToken).where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+    if payload and payload.refresh_token:
+        query = query.where(RefreshToken.token_hash == digest_token(payload.refresh_token))
+    for token in db.scalars(query):
         token.revoked_at = now
     db.commit()
 

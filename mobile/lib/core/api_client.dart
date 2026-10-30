@@ -400,7 +400,14 @@ class ApiClient {
 
   Future<void> logout() async {
     try {
-      await _request('POST', '/mail/auth/logout');
+      // Names this device's own session so signing out here doesn't revoke
+      // the same mailbox's other sessions (the web app, an admin's
+      // switched-in session).
+      await _request(
+        'POST',
+        '/mail/auth/logout',
+        body: _refreshToken == null ? null : {'refresh_token': _refreshToken},
+      );
     } finally {
       await clearSession();
     }

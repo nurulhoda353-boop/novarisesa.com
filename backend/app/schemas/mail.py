@@ -17,6 +17,13 @@ class MobileRefreshRequest(BaseModel):
     refresh_token: str = Field(min_length=40)
 
 
+class MobileLogoutRequest(BaseModel):
+    # The refresh token of the one session being signed out. Optional so
+    # older clients (which send no body) keep their sign-out-everywhere
+    # behavior.
+    refresh_token: str | None = Field(default=None, min_length=40)
+
+
 class MobileSessionResponse(BaseModel):
     access_token: str
     refresh_token: str
@@ -54,7 +61,7 @@ class MailPasswordChange(BaseModel):
     # resetting its password directly - they have no way to know its
     # current one. Still required for a mailbox changing its own.
     current_password: str | None = Field(default=None, min_length=8, max_length=256)
-    new_password: str = Field(min_length=8, max_length=50)
+    new_password: str = Field(min_length=8, max_length=256)
 
 
 class MailAddress(BaseModel):
@@ -302,7 +309,7 @@ class AdminAccountSummary(BaseModel):
 
 
 class AdminSetPassword(BaseModel):
-    new_password: str = Field(min_length=8, max_length=50)
+    new_password: str = Field(min_length=8, max_length=256)
 
 
 class AdminSetHostingerPassword(BaseModel):
@@ -310,7 +317,7 @@ class AdminSetHostingerPassword(BaseModel):
     - `confirm` exists so a client can't trigger this by accidentally
     reusing the (much more common) Novamail-only reset call's shape."""
 
-    new_password: str = Field(min_length=8, max_length=50)
+    new_password: str = Field(min_length=8, max_length=256)
     confirm: bool = Field(default=False, validate_default=True)
 
     @field_validator("confirm")

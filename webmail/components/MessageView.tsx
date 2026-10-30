@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import * as api from "@/lib/api";
 import type { MailAccount, MailAttachmentInfo, MailMessageDetail, MailMessageSummary } from "@/lib/types";
-import { SYSTEM_FOLDERS, type ComposeInitial } from "@/lib/types";
+import { SYSTEM_FOLDERS, toLogicalFolder, type ComposeInitial } from "@/lib/types";
 import type { MailThread } from "@/lib/threads";
 import { avatarColorFor } from "@/lib/avatar";
 import { displayName, formatBytes, fullTimestamp, initials } from "@/lib/format";
@@ -49,11 +49,12 @@ export function MessageView({
   const latest = thread.messages[thread.messages.length - 1];
   const starred = thread.messages.some((message) => message.flags.includes("\\Flagged"));
   const toast = useToast();
-  const showArchive = folder === SYSTEM_FOLDERS.inbox;
+  const logicalFolder = toLogicalFolder(folder);
+  const showArchive = logicalFolder === SYSTEM_FOLDERS.inbox;
   const showMoveToInbox = (
     [SYSTEM_FOLDERS.archive, SYSTEM_FOLDERS.spam, SYSTEM_FOLDERS.trash] as string[]
-  ).includes(folder);
-  const isTrash = folder === SYSTEM_FOLDERS.trash;
+  ).includes(logicalFolder);
+  const isTrash = logicalFolder === SYSTEM_FOLDERS.trash;
   const readOnly = account.role === "member" && !account.acting_as_admin;
   const restrictedTitle = "Members can't archive or move mail — ask your admin";
   const deleteTitle = readOnly ? "Request deletion from admin" : isTrash ? "Delete forever" : "Move to trash";
@@ -61,8 +62,8 @@ export function MessageView({
   async function toggleThreadStar() {
     try {
       await Promise.all(thread.messages.map((message) => api.setStar(folder, message.uid, !starred)));
-    } catch {
-      toast.show("Could not update the star");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update the star"));
     }
   }
 
@@ -217,8 +218,8 @@ function MessageCard({
     if (!detail) return;
     try {
       onCompose(await buildReplyInitial(detail, "forward", account.address));
-    } catch {
-      toast.show("Could not prepare the forward");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not prepare the forward"));
     }
   }
 
@@ -226,8 +227,8 @@ function MessageCard({
     try {
       const { blob, filename } = await api.downloadAttachment(folder, message.uid, attachment.part);
       saveBlob(blob, filename || attachment.filename);
-    } catch {
-      toast.show("Could not download the attachment");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not download the attachment"));
     }
   }
 
@@ -236,8 +237,8 @@ function MessageCard({
       try {
         const { blob, filename } = await api.downloadAttachment(folder, message.uid, attachment.part);
         setPreview({ url: URL.createObjectURL(blob), filename: filename || attachment.filename, blob });
-      } catch {
-        toast.show("Could not preview the attachment");
+      } catch (error) {
+        toast.show(api.errorMessage(error, "Could not preview the attachment"));
       }
       return;
     }
@@ -247,8 +248,8 @@ function MessageCard({
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank", "noopener");
         window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      } catch {
-        toast.show("Could not open the attachment");
+      } catch (error) {
+        toast.show(api.errorMessage(error, "Could not open the attachment"));
       }
       return;
     }

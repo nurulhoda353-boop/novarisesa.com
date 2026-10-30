@@ -60,6 +60,52 @@ IDLE_CLOSE_AFTER_SECONDS = 300
 STATUS_FETCH_CONCURRENCY = 6
 
 
+LIST_FETCH_BATCH = 25
+_FETCH_GROUP_START = re.compile(rb"^\s*(\d+) \(")
+
+
+def _parse_list_fetch(rows: list[Any]) -> dict[int, dict[str, Any]]:
+    """Splits the flat response of one multi-message FETCH into per-message
+    pieces keyed by UID. imaplib returns, for each message, a tuple per
+    literal (marker, bytes) followed by trailing bytes rows; a new message
+    starts at the marker that opens with `<seq> (`. The UID is read from the
+    message's whole metadata afterwards, since servers differ on whether it
+    comes before or after the literals."""
+    groups: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    for row in rows:
+        if isinstance(row, tuple):
+            marker, literal = row
+            start = _FETCH_GROUP_START.match(marker)
+            if start:
+                current = {"seq": int(start.group(1)), "metadata": b"", "header": b"", "text": b""}
+                groups.append(current)
+            if current is None:
+                continue
+            current["metadata"] += marker
+            if b"HEADER" in marker:
+                current["header"] += literal
+            else:
+                current["text"] += literal
+        elif isinstance(row, bytes) and current is not None:
+            current["metadata"] += row
+    grouped: dict[int, dict[str, Any]] = {}
+    for group in groups:
+        uid_match = re.search(rb"UID (\d+)", group["metadata"])
+        grouped[int(uid_match.group(1)) if uid_match else group["seq"]] = group
+    return grouped
+
+
+_LIST_ROW = re.compile(rb'^\((?P<flags>[^)]*)\)\s+"?(?P<delimiter>[^" ]*)"?\s+"?(?P<name>.*)"?$')
+
+
+def _list_row_name(row: bytes) -> str | None:
+    match = _LIST_ROW.match(row)
+    if not match:
+        return None
+    return match.group("name").rstrip(b'"').decode("utf-8", errors="replace")
+
+
 def _quote_mailbox(name: str) -> str:
     """imaplib joins command arguments with a bare space and never quotes
     them itself - a mailbox name containing a space (Gmail's "[Gmail]/All
@@ -485,63 +531,55 @@ class HostingerMailboxClient:
             # (bounded so a mailbox with no attachments at all can't spin
             # through its entire history in one request).
             scan_budget = max(limit * 8, 200)
-            for uid in uids:
-                if len(results) >= limit or scan_budget <= 0:
-                    break
-                scan_budget -= 1
+            position = 0
+            while position < len(uids) and len(results) < limit and scan_budget > 0:
+                # One FETCH round trip per batch of UIDs instead of one per
+                # message - the old one-FETCH-per-row loop made listing 30
+                # messages cost 30 sequential round trips to the server.
                 # Only headers + a bounded preview snippet + BODYSTRUCTURE (to
-                # tell if there's a real attachment) - never the full body.
-                # A list row used to fetch BODY.PEEK[] (the entire raw
-                # message, attachments included) for every candidate, which
-                # meant listing an inbox with a few large attachments could
-                # pull tens of megabytes over IMAP just to render subject
-                # lines. message() below still fetches the full body, but
-                # only for the one message actually being opened.
-                # BODY[TEXT] only means "everything after the top-level
-                # headers" - for a multipart message that's the raw MIME
-                # envelope (boundary markers, nested Content-Type headers,
-                # etc.), not any part's decoded text. Fetching a slice of
-                # the *whole* message from byte 0 instead lets it be parsed
-                # as a real (if truncated) MIME message in _list_summary.
-                # 32KB (not the original 4-8KB) because a message relayed
-                # through Google routinely carries several KB of Received/
-                # DKIM-Signature/ARC-* headers alone - a smaller budget can
-                # be entirely consumed before reaching any real body part.
+                # tell if there's a real attachment) - never the full body;
+                # message() below fetches the full body for the one message
+                # actually being opened. The preview slice is fetched from
+                # byte 0 of the *whole* message (BODY[]<0.N>, not BODY[TEXT],
+                # which for multipart mail is the raw MIME envelope) so it
+                # parses as a real, truncated MIME message; 32KB because mail
+                # relayed through Google carries several KB of Received/
+                # DKIM/ARC headers before any body part.
+                batch_size = min(LIST_FETCH_BATCH, scan_budget)
+                if not has_attachment:
+                    batch_size = min(batch_size, limit - len(results))
+                batch = uids[position : position + batch_size]
+                position += len(batch)
+                scan_budget -= len(batch)
                 fetch_status, rows = client.uid(
                     "fetch",
-                    str(uid),
-                    "(FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[]<0.32000>)",
+                    ",".join(str(uid) for uid in batch),
+                    "(UID FLAGS RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER] BODY.PEEK[]<0.32000>)",
                 )
                 if fetch_status != "OK" or not rows:
                     continue
-                metadata = b""
-                header_bytes = b""
-                text_bytes = b""
-                for row in rows:
-                    if isinstance(row, tuple):
-                        marker, literal = row
-                        metadata += marker
-                        if b"HEADER" in marker:
-                            header_bytes += literal
-                        else:
-                            text_bytes += literal
-                    elif isinstance(row, bytes):
-                        metadata += row
-                if not header_bytes:
-                    continue
-                flags_match = re.search(rb"FLAGS \(([^)]*)\)", metadata)
-                size_match = re.search(rb"RFC822\.SIZE (\d+)", metadata)
-                flags = flags_match.group(1).decode("ascii", errors="ignore").split() if flags_match else []
-                size = int(size_match.group(1)) if size_match else None
-                # A real (non-inline) attachment always carries an explicit
-                # "attachment" disposition in BODYSTRUCTURE from every
-                # mainstream MTA; inline cid: images use "inline" instead, so
-                # this can't mistake a signature logo for an attachment.
-                message_has_attachment = bool(re.search(rb'"attachment"', metadata, re.IGNORECASE))
-                if has_attachment and not message_has_attachment:
-                    continue
-                summary = _list_summary(uid, folder, header_bytes, text_bytes, flags, size, message_has_attachment)
-                results.append(summary)
+                fetched = _parse_list_fetch(rows)
+                for uid in batch:
+                    entry = fetched.get(uid)
+                    if entry is None or not entry["header"]:
+                        continue
+                    metadata = entry["metadata"]
+                    flags_match = re.search(rb"FLAGS \(([^)]*)\)", metadata)
+                    size_match = re.search(rb"RFC822\.SIZE (\d+)", metadata)
+                    flags = flags_match.group(1).decode("ascii", errors="ignore").split() if flags_match else []
+                    size = int(size_match.group(1)) if size_match else None
+                    # A real (non-inline) attachment always carries an explicit
+                    # "attachment" disposition in BODYSTRUCTURE from every
+                    # mainstream MTA; inline cid: images use "inline" instead,
+                    # so this can't mistake a signature logo for an attachment.
+                    message_has_attachment = bool(re.search(rb'"attachment"', metadata, re.IGNORECASE))
+                    if has_attachment and not message_has_attachment:
+                        continue
+                    results.append(
+                        _list_summary(uid, folder, entry["header"], entry["text"], flags, size, message_has_attachment)
+                    )
+                    if len(results) >= limit:
+                        break
             return results
 
     def message(self, folder: str, uid: int) -> dict[str, Any]:
@@ -625,9 +663,7 @@ class HostingerMailboxClient:
             status, rows = client.list()
             if status == "OK":
                 for row in rows or []:
-                    if isinstance(row, bytes) and row.endswith(f'"{name}"'.encode()):
-                        return
-                    if isinstance(row, bytes) and row.decode("utf-8", errors="replace").endswith(name):
+                    if isinstance(row, bytes) and _list_row_name(row) == name:
                         return
             client.create(_quote_mailbox(name))
 

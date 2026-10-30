@@ -91,8 +91,13 @@ export function forgetAccount(address: string): void {
 }
 
 let accessToken: string | null = null;
-let refreshInFlight: Promise<boolean> | null = null;
+let refreshInFlight: { address: string; promise: Promise<RefreshOutcome> } | null = null;
 let onSessionChange: ((account: MailAccount | null) => void) | null = null;
+
+/** "expired" = the server definitively rejected the saved token (revoked,
+ * rotated away, or past its lifetime); "network" = we couldn't tell (timeout,
+ * offline, 5xx) so the saved sign-in may well still be fine. */
+type RefreshOutcome = "ok" | "expired" | "network";
 
 export function setSessionListener(callback: (account: MailAccount | null) => void): void {
   onSessionChange = callback;
@@ -129,15 +134,24 @@ function resolveDetail(body: unknown): string {
   return "Something went wrong";
 }
 
+/** The real reason an action failed, for a toast - the server's own message
+ * (e.g. "Members can't delete mail") instead of a blanket "Could not...". */
+export function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError && error.message && error.message !== "Something went wrong") {
+    return `${fallback}: ${error.message}`;
+  }
+  if (error instanceof TypeError) return `${fallback}: you appear to be offline`;
+  return fallback;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function performRefresh(): Promise<boolean> {
-  const address = activeAddress();
+async function performRefresh(address: string): Promise<RefreshOutcome> {
   const stored = readAccounts().find((item) => item.address === address);
-  if (!stored) return false;
-  return performRefreshWithToken(address!, stored.refresh_token, 3);
+  if (!stored) return "expired";
+  return performRefreshWithToken(address, stored.refresh_token, 3);
 }
 
 // Refresh tokens are single-use (rotated on every call), but `accessToken`
@@ -151,7 +165,7 @@ async function performRefresh(): Promise<boolean> {
 // finishes well inside these delays, so a few short retries are enough
 // without ever blocking a single-tab refresh (which never sees a 401 here
 // and returns on the first attempt).
-async function performRefreshWithToken(address: string, refreshToken: string, attemptsLeft: number): Promise<boolean> {
+async function performRefreshWithToken(address: string, refreshToken: string, attemptsLeft: number): Promise<RefreshOutcome> {
   try {
     const response = await timedFetch(`${API_URL}/mail/auth/refresh`, {
       method: "POST",
@@ -166,22 +180,39 @@ async function performRefreshWithToken(address: string, refreshToken: string, at
           return performRefreshWithToken(address, latest.refresh_token, attemptsLeft - 1);
         }
       }
-      return false;
+      return response.status === 401 ? "expired" : "network";
     }
     const session = (await response.json()) as MobileSession;
-    accessToken = session.access_token;
+    // Only adopt the new session if it's still the one the user is on - a
+    // refresh that finishes after they switched to another account must not
+    // overwrite that account's access token with this one's.
+    if (activeAddress() === address) {
+      accessToken = session.access_token;
+      onSessionChange?.(session.account);
+    }
     rememberAccount(address, session.refresh_token, session.account);
-    onSessionChange?.(session.account);
-    return true;
+    return "ok";
   } catch {
-    return false;
+    return "network";
   }
 }
 
-function refreshSession(): Promise<boolean> {
-  return (refreshInFlight ??= performRefresh().finally(() => {
-    refreshInFlight = null;
-  }));
+function refreshSessionOutcome(): Promise<RefreshOutcome> {
+  const address = activeAddress();
+  if (!address) return Promise.resolve("expired");
+  // One refresh at a time per account, but never share one across accounts:
+  // an in-flight refresh for the account we just left must not answer for
+  // the account we're switching to.
+  if (refreshInFlight && refreshInFlight.address === address) return refreshInFlight.promise;
+  const promise = performRefresh(address).finally(() => {
+    if (refreshInFlight?.promise === promise) refreshInFlight = null;
+  });
+  refreshInFlight = { address, promise };
+  return promise;
+}
+
+async function refreshSession(): Promise<boolean> {
+  return (await refreshSessionOutcome()) === "ok";
 }
 
 export async function ensureSession(): Promise<MailAccount | null> {
@@ -228,19 +259,54 @@ export async function login(
   return session.account;
 }
 
-export async function switchAccount(address: string): Promise<MailAccount | null> {
+/** Switches to another saved account. If its saved sign-in no longer works
+ * the previous account stays active and fully usable (nothing is half
+ * switched), and the thrown ApiError says why. A definitively dead saved
+ * sign-in is dropped from the list so it stops being offered. */
+export async function switchAccount(address: string): Promise<MailAccount> {
+  const previousAddress = activeAddress();
+  const previousToken = accessToken;
   accessToken = null;
   setActiveAddress(address);
-  return ensureSession();
+  const outcome = await refreshSessionOutcome();
+  let account: MailAccount | null = null;
+  if (outcome === "ok") {
+    try {
+      account = await getAccount();
+    } catch {
+      account = null;
+    }
+  }
+  if (account) return account;
+  if (previousAddress) setActiveAddress(previousAddress);
+  else window.localStorage.removeItem(ACTIVE_KEY);
+  accessToken = previousToken;
+  if (outcome === "expired") {
+    writeAccounts(readAccounts().filter((item) => item.address !== address));
+    throw new ApiError(401, `${address}'s saved sign-in has expired - please sign in to it again`);
+  }
+  throw new ApiError(503, `Could not reach the server to switch to ${address} - check your connection and try again`);
 }
 
 export async function logout(): Promise<void> {
-  try {
-    await api("/mail/auth/logout", { method: "POST" });
-  } catch {
-    // ignore network errors on logout
-  }
   const address = activeAddress();
+  const tokenFor = () => readAccounts().find((item) => item.address === address)?.refresh_token;
+  // Only this browser's session is revoked server-side - other devices (and
+  // an admin's saved sessions into this mailbox) stay signed in. If the
+  // request itself had to refresh first, the token we sent is already
+  // rotated away, so go around once more with the new one.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const sent = tokenFor();
+    try {
+      await api("/mail/auth/logout", {
+        method: "POST",
+        body: sent ? JSON.stringify({ refresh_token: sent }) : undefined,
+      });
+    } catch {
+      break;
+    }
+    if (tokenFor() === sent) break;
+  }
   if (address) forgetAccount(address);
   accessToken = null;
   onSessionChange?.(null);

@@ -273,8 +273,8 @@ function AccountsTab({
       const target = await api.adminSwitchToAccount(account.id);
       onSwitchedAccount(target);
       toast.show(`Switched to ${target.address}`);
-    } catch {
-      toast.show("Could not switch to that mailbox");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not switch to that mailbox"));
     } finally {
       setSwitching(null);
     }
@@ -412,8 +412,8 @@ function CreateMailboxModal({ onClose, onCreated }: { onClose: () => void; onCre
       toast.show(`${account.address} created`);
       onCreated();
       onClose();
-    } catch {
-      toast.show("Could not create that mailbox — it may already exist");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not create that mailbox — it may already exist"));
     } finally {
       setSaving(false);
     }
@@ -510,8 +510,8 @@ function ConnectGoogleMailboxModal({ onClose, onConnected }: { onClose: () => vo
       toast.show(`${account.address} connected`);
       onConnected();
       onClose();
-    } catch {
-      toast.show("Could not connect — check the address and app password");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not connect — check the address and app password"));
     } finally {
       setSaving(false);
     }
@@ -618,8 +618,8 @@ function EditAccountModal({
       await api.adminSetProfile(account.id, displayName);
       toast.show("Name updated");
       onSaved();
-    } catch {
-      toast.show("Could not update the name");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update the name"));
     } finally {
       setSaving(false);
     }
@@ -647,8 +647,8 @@ function EditAccountModal({
       await api.adminSetAvatar(account.id, file);
       toast.show("Photo updated");
       onSaved();
-    } catch {
-      toast.show("Could not update the photo");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not update the photo"));
     } finally {
       setSaving(false);
     }
@@ -664,8 +664,8 @@ function EditAccountModal({
       await api.adminSetPassword(account.id, newPassword);
       toast.show(`Novamail password changed — ${account.address} is signed out everywhere`);
       setNewPassword("");
-    } catch {
-      toast.show("Could not change the password");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not change the password"));
     } finally {
       setSaving(false);
     }
@@ -676,8 +676,8 @@ function EditAccountModal({
     try {
       const result = await api.adminViewHostingerPassword(account.id);
       setRevealedPassword(result.password);
-    } catch {
-      toast.show("Could not fetch the Hostinger password");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not fetch the Hostinger password"));
     } finally {
       setSaving(false);
     }
@@ -695,8 +695,8 @@ function EditAccountModal({
       setHostingerPassword("");
       setHostingerStep(0);
       setRevealedPassword(null);
-    } catch {
-      toast.show("Could not change the Hostinger password");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not change the Hostinger password"));
     } finally {
       setSaving(false);
     }
@@ -912,8 +912,8 @@ function RequestsTab({ onPendingCountChange }: { onPendingCountChange: (count: n
       await api.adminApproveChangeRequest(id);
       toast.show("Approved");
       reload();
-    } catch {
-      toast.show("Could not approve that request");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not approve that request"));
     }
   }
 
@@ -922,8 +922,8 @@ function RequestsTab({ onPendingCountChange }: { onPendingCountChange: (count: n
       await api.adminRejectChangeRequest(id);
       toast.show("Rejected");
       reload();
-    } catch {
-      toast.show("Could not reject that request");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not reject that request"));
     }
   }
 

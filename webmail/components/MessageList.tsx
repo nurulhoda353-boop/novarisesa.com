@@ -14,12 +14,12 @@ import {
   Trash2,
 } from "lucide-react";
 import type { MailMessageSummary } from "@/lib/types";
-import { SYSTEM_FOLDERS } from "@/lib/types";
+import { SYSTEM_FOLDERS, toLogicalFolder } from "@/lib/types";
 import { avatarColorFor } from "@/lib/avatar";
 import { displayName, initials, listTimestamp } from "@/lib/format";
 
 export function MessageList({
-  folder,
+  folder: imapFolder,
   messages,
   selected,
   onToggleSelect,
@@ -59,6 +59,7 @@ export function MessageList({
       of a real delete - see MailApp), so it's never disabled here. */
   readOnly?: boolean;
 }) {
+  const folder = toLogicalFolder(imapFolder);
   const allSelected = messages.length > 0 && selected.size === messages.length;
   const someSelected = selected.size > 0 && !allSelected;
   const showArchive = folder === SYSTEM_FOLDERS.inbox;

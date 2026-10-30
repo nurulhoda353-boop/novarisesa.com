@@ -240,12 +240,55 @@ export const SYSTEM_FOLDERS = {
   trash: "INBOX.Trash",
 } as const;
 
+// The keys above are what the UI (sidebar, URLs, comparisons) works in, and
+// they are also the folder names a Hostinger mailbox really has. Other
+// providers name the same folders differently (Gmail: "[Gmail]/Sent Mail"),
+// so the real IMAP name is looked up from the mailbox's own folder list -
+// by its special-use flag - whenever the default name isn't there.
+const SPECIAL_USE_FLAGS: Record<string, string[]> = {
+  [SYSTEM_FOLDERS.sent]: ["\\sent"],
+  [SYSTEM_FOLDERS.archive]: ["\\archive", "\\all"],
+  [SYSTEM_FOLDERS.spam]: ["\\junk"],
+  [SYSTEM_FOLDERS.trash]: ["\\trash"],
+};
+let resolvedFolders: Record<string, string> = {};
+
+export function resolveSystemFolders(folders: FolderInfo[]): void {
+  const names = new Set(folders.map((folder) => folder.name));
+  const next: Record<string, string> = {};
+  for (const [key, flags] of Object.entries(SPECIAL_USE_FLAGS)) {
+    if (names.has(key)) continue;
+    const match = folders.find((folder) => folder.flags.some((flag) => flags.includes(flag.toLowerCase())));
+    if (match) next[key] = match.name;
+  }
+  resolvedFolders = next;
+}
+
+export function resetSystemFolders(): void {
+  resolvedFolders = {};
+}
+
+/** The real IMAP folder name behind a UI folder key. */
+export function toImapFolder(key: string): string {
+  if (key === SYSTEM_FOLDERS.starred) return SYSTEM_FOLDERS.inbox;
+  return resolvedFolders[key] ?? key;
+}
+
+/** The UI folder key for a real IMAP folder name (inverse of toImapFolder). */
+export function toLogicalFolder(imapName: string): string {
+  for (const [key, actual] of Object.entries(resolvedFolders)) {
+    if (actual === imapName) return key;
+  }
+  return imapName;
+}
+
 export type ComposeMode = "new" | "reply" | "replyAll" | "forward";
 
 export interface ComposeInitial {
   mode: ComposeMode;
   to?: string[];
   cc?: string[];
+  bcc?: string[];
   subject?: string;
   bodyHtml?: string;
   quoteHtml?: string;

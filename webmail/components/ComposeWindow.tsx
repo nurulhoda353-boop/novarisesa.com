@@ -44,6 +44,8 @@ export interface ComposeWindowHandle {
   initial: ComposeInitial;
 }
 
+const DRAFT_ATTACHMENT_LIMIT_BYTES = 10 * 1024 * 1024;
+
 const TEXT_COLORS = ["#0b1739", "#3a4658", "#d64545", "#dfa247", "#1e9e63", "#3563e9", "#9455d3"];
 const HIGHLIGHT_COLORS = [
   { value: "#fff3c4", label: "Yellow" },
@@ -111,9 +113,9 @@ export function ComposeWindow({
   const { initial } = handle;
   const [to, setTo] = useState<string[]>(initial.to ?? []);
   const [cc, setCc] = useState<string[]>(initial.cc ?? []);
-  const [bcc, setBcc] = useState<string[]>([]);
+  const [bcc, setBcc] = useState<string[]>(initial.bcc ?? []);
   const [showCc, setShowCc] = useState((initial.cc?.length ?? 0) > 0);
-  const [showBcc, setShowBcc] = useState(false);
+  const [showBcc, setShowBcc] = useState((initial.bcc?.length ?? 0) > 0);
   const [subject, setSubject] = useState(initial.subject ?? "");
   const [attachments, setAttachments] = useState<File[]>(initial.attachmentFiles ?? []);
   const [minimized, setMinimized] = useState(false);
@@ -356,8 +358,8 @@ export function ComposeWindow({
         },
       });
       onClose(handle.id);
-    } catch {
-      toast.show("Could not schedule this message");
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not schedule this message"));
     }
   }
 
@@ -374,14 +376,44 @@ export function ComposeWindow({
       return;
     }
     try {
-      const payload = { to, cc, bcc, subject, text_body: editorRef.current?.innerText ?? "", html_body: htmlBody, attachments: [] };
+      // Attached files go into the draft too (as base64), so reopening it
+      // later still has them. Capped so one big file can't make every
+      // draft save slow/huge - anything over the cap is dropped with a
+      // heads-up rather than silently.
+      const draftAttachments: Record<string, unknown>[] = [];
+      let draftBytes = 0;
+      let droppedFiles = 0;
+      for (const file of attachments) {
+        if (draftBytes + file.size > DRAFT_ATTACHMENT_LIMIT_BYTES) {
+          droppedFiles += 1;
+          continue;
+        }
+        draftBytes += file.size;
+        draftAttachments.push({
+          filename: file.name,
+          content_type: file.type || "application/octet-stream",
+          content_base64: await fileToBase64(file),
+        });
+      }
+      const payload = {
+        to,
+        cc,
+        bcc,
+        subject,
+        text_body: editorRef.current?.innerText ?? "",
+        html_body: htmlBody,
+        attachments: draftAttachments,
+      };
+      if (droppedFiles > 0) {
+        toast.show(`${droppedFiles} large attachment(s) were not saved with the draft`);
+      }
       if (draftId) {
         await api.updateDraft(draftId, payload);
       } else {
         const created = await api.createDraft(payload);
         setDraftId(created.id);
       }
-      toast.show("Draft saved");
+      if (droppedFiles === 0) toast.show("Draft saved");
     } catch {
       // best-effort — don't block closing the window on a draft-save failure
     }
