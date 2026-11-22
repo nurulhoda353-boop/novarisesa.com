@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     LOGIN_WINDOW_MINUTES: int = 15
     INITIAL_ADMIN_EMAIL: str | None = None
     INITIAL_ADMIN_PASSWORD: str | None = None
+    # One-shot: when true, bootstrap also resets an EXISTING initial admin's password to the value above.
+    INITIAL_ADMIN_RESET_PASSWORD: bool = False
     MEDIA_ROOT: str = "storage/media"
     MEDIA_PUBLIC_BASE_URL: str = "http://localhost:8000/media"
     MEDIA_MAX_UPLOAD_MB: int = 15

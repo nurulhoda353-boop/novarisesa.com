@@ -196,6 +196,9 @@ def bootstrap() -> None:
             )
             db.add(admin)
             db.flush()
+        elif settings.INITIAL_ADMIN_RESET_PASSWORD:
+            admin.password_hash = hash_password(settings.INITIAL_ADMIN_PASSWORD)
+            admin.is_active = True
         if roles["super_admin"] not in admin.roles:
             admin.roles = [roles["super_admin"]]
 
