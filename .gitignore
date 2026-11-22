@@ -50,3 +50,6 @@ releases/*.apk
 *.njsproj
 *.sln
 *.sw?
+
+# Licensed (Linotype) font - never commit to this public repo
+muqeem/public/fonts/

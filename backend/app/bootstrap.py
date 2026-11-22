@@ -29,6 +29,8 @@ CMS_PERMISSIONS = {
     "novafin.payroll": "View and run NovaFin payroll (employees, salary slips)",
     "novafin.close_period": "Lock accounting months, close fiscal years and write off bad debts",
     "novafin.reopen_period": "Unlock a locked month or reopen a closed fiscal year",
+    "muqeem.view": "View Muqeem resident records",
+    "muqeem.manage": "Enter, edit and delete Muqeem resident records",
 }
 
 ROLE_PERMISSIONS = {
@@ -46,6 +48,8 @@ ROLE_PERMISSIONS = {
         "novafin.payroll",
         "novafin.close_period",
         "novafin.reopen_period",
+        "muqeem.view",
+        "muqeem.manage",
     },
     "accountant": {
         "novafin.view",

@@ -1803,3 +1803,42 @@ class NovaFinVatReturn(UUIDMixin, Base):
         ForeignKey("novafin_journal_vouchers.id", ondelete="RESTRICT")
     )
     settled_on: Mapped[date | None] = mapped_column(Date)
+
+
+class MuqeemRecord(UUIDMixin, TimestampMixin, Base):
+    """One Muqeem Resident Information report, entered by hand.
+
+    Every date is stored as the text printed on the report (Hijri, e.g. "1448-05-25")
+    because Hijri dates are not Gregorian dates and must never be converted or re-parsed.
+    """
+
+    __tablename__ = "muqeem_records"
+    __table_args__ = (Index("ix_muqeem_records_iqama_number", "iqama_number"),)
+
+    report_date: Mapped[str] = mapped_column(String(10))
+    operator_id: Mapped[str] = mapped_column(String(20), default="")
+    location: Mapped[str] = mapped_column(String(60), default="Muqeem Portal")
+    iqama_number: Mapped[str] = mapped_column(String(20))
+    version_number: Mapped[str] = mapped_column(String(6), default="1")
+    gender: Mapped[str] = mapped_column(String(12), default="Male")
+    name: Mapped[str] = mapped_column(String(120))
+    translated_name: Mapped[str] = mapped_column(String(120), default="")
+    birth_date: Mapped[str] = mapped_column(String(10), default="")
+    birth_country: Mapped[str] = mapped_column(String(60), default="")
+    marital_status: Mapped[str] = mapped_column(String(30), default="")
+    religion: Mapped[str] = mapped_column(String(30), default="")
+    occupation: Mapped[str] = mapped_column(String(80), default="")
+    status: Mapped[str] = mapped_column(String(30), default="Valid")
+    entry_date: Mapped[str] = mapped_column(String(10), default="")
+    entry_location: Mapped[str] = mapped_column(String(80), default="")
+    passport_number: Mapped[str] = mapped_column(String(30), default="")
+    passport_nationality: Mapped[str] = mapped_column(String(60), default="")
+    passport_issue_date: Mapped[str] = mapped_column(String(10), default="")
+    passport_expiry_date: Mapped[str] = mapped_column(String(10), default="")
+    passport_issue_location: Mapped[str] = mapped_column(String(80), default="")
+    iqama_issue_date: Mapped[str] = mapped_column(String(10), default="")
+    iqama_expiry_date: Mapped[str] = mapped_column(String(10), default="")
+    iqama_issue_location: Mapped[str] = mapped_column(String(80), default="")
+    employer_number: Mapped[str] = mapped_column(String(20), default="")
+    employer_name: Mapped[str] = mapped_column(String(160), default="")
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
