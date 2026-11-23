@@ -99,7 +99,7 @@ export default function DashboardPage() {
       {!stats && !error && (
         <div className="dash2">
           <div className="dash2-main">
-            <div className="skeleton c5" style={{ height: 200, marginTop: 34 }} />
+            <div className="skeleton c5" style={{ height: 200 }} />
             <div className="skeleton c7" style={{ height: 240 }} />
             <div className="skeleton c7" style={{ height: 240 }} />
             <div className="skeleton c5" style={{ height: 240 }} />
