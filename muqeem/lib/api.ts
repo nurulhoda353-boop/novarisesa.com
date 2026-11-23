@@ -1,4 +1,14 @@
-import type { MuqeemFields, MuqeemRecord, SessionUser } from "./types";
+import type {
+  Facets,
+  HistoryEntry,
+  ImportResult,
+  MuqeemFields,
+  MuqeemRecord,
+  PublicVerify,
+  RecordFilters,
+  SessionUser,
+  Stats,
+} from "./types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.novarisesa.com/api/v1";
 
@@ -75,11 +85,32 @@ export const auth = {
   logout: () => api<void>("/auth/logout", { method: "POST" }),
 };
 
+function query(filters: RecordFilters): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined || value === "" || value === false) continue;
+    params.set(key, String(value));
+  }
+  const text = params.toString();
+  return text ? `?${text}` : "";
+}
+
 export const records = {
-  list: (q = "") => api<MuqeemRecord[]>(`/muqeem/records${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  list: (filters: RecordFilters = {}) => api<MuqeemRecord[]>(`/muqeem/records${query(filters)}`),
   get: (id: string) => api<MuqeemRecord>(`/muqeem/records/${id}`),
   create: (body: MuqeemFields) => api<MuqeemRecord>("/muqeem/records", { method: "POST", body: JSON.stringify(body) }),
   update: (id: string, body: MuqeemFields) =>
     api<MuqeemRecord>(`/muqeem/records/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  remove: (id: string) => api<void>(`/muqeem/records/${id}`, { method: "DELETE" }),
+  /** Archives the record (reversible). */
+  archive: (id: string) => api<void>(`/muqeem/records/${id}`, { method: "DELETE" }),
+  /** Erases the record for good (admin only). */
+  removePermanently: (id: string) => api<void>(`/muqeem/records/${id}?permanent=true`, { method: "DELETE" }),
+  bulk: (ids: string[], action: "archive" | "restore") =>
+    api<{ changed: number }>("/muqeem/records/bulk", { method: "POST", body: JSON.stringify({ ids, action }) }),
+  history: (id: string) => api<HistoryEntry[]>(`/muqeem/records/${id}/history`),
+  importRows: (rows: Record<string, string>[]) =>
+    api<ImportResult>("/muqeem/records/import", { method: "POST", body: JSON.stringify({ rows, skip_duplicates: true }) }),
+  stats: () => api<Stats>("/muqeem/stats"),
+  facets: () => api<Facets>("/muqeem/facets"),
+  verify: (code: string) => api<PublicVerify>(`/muqeem/verify/${encodeURIComponent(code)}`),
 };

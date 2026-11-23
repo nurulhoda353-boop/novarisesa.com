@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from datetime import date, datetime
 from decimal import Decimal
@@ -1841,4 +1842,8 @@ class MuqeemRecord(UUIDMixin, TimestampMixin, Base):
     iqama_issue_location: Mapped[str] = mapped_column(String(80), default="")
     employer_number: Mapped[str] = mapped_column(String(20), default="")
     employer_name: Mapped[str] = mapped_column(String(160), default="")
+    # Random public code printed as a QR on the PDF; lets anyone verify the report without logging in.
+    verify_code: Mapped[str] = mapped_column(String(16), unique=True, default=lambda: secrets.token_urlsafe(8)[:10])
+    # Soft delete: archived records are hidden from the main list and can be restored.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))

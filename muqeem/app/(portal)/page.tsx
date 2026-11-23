@@ -2,132 +2,165 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Download, Eye, FilePlus2, FileText, Pencil, Search, Trash2 } from "lucide-react";
+import { Archive, Building2, CalendarPlus, CheckCircle2, FilePlus2, TrendingUp, Users, XCircle } from "lucide-react";
 import { useAuth } from "@/components/Auth";
+import { Donut, HBars, MonthlyBars } from "@/components/Charts";
 import { ApiError, records } from "@/lib/api";
-import type { MuqeemRecord } from "@/lib/types";
+import { usePrefs } from "@/lib/prefs";
+import type { Stats } from "@/lib/types";
 
-export default function RecordsPage() {
-  const router = useRouter();
-  const { canManage } = useAuth();
-  const [rows, setRows] = useState<MuqeemRecord[] | null>(null);
-  const [query, setQuery] = useState("");
+function Kpi({ icon, value, label, tone, delay }: { icon: React.ReactNode; value: number; label: string; tone: string; delay: number }) {
+  return (
+    <div className="panel kpi rise" style={{ ["--tone" as string]: tone, animationDelay: `${delay}ms` }}>
+      <div className="chip">{icon}</div>
+      <div>
+        <div className="num">{value.toLocaleString()}</div>
+        <div className="lbl">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+export default function DashboardPage() {
+  const { user, canManage } = useAuth();
+  const { t } = usePrefs();
+  const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      records
-        .list(query)
-        .then((list) => {
-          setRows(list);
-          setError("");
-        })
-        .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load records"));
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [query]);
-
-  async function remove(row: MuqeemRecord) {
-    if (!window.confirm(`Delete the Muqeem record for ${row.name}? This cannot be undone.`)) return;
-    try {
-      await records.remove(row.id);
-      setRows((current) => current?.filter((item) => item.id !== row.id) ?? null);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not delete the record");
-    }
-  }
+    records
+      .stats()
+      .then(setStats)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Could not load the dashboard"));
+  }, []);
 
   return (
     <>
       <div className="page-head">
         <div>
-          <p className="eyebrow">Muqeem Control</p>
-          <h1>Muqeem Records</h1>
+          <p className="eyebrow">{t("dash.eyebrow")}</p>
+          <h1>{t("dash.title")}</h1>
+          <p style={{ margin: "10px 0 0", color: "var(--muted)" }}>
+            {t("dash.welcome")}, {user.full_name.split(" ")[0]}
+          </p>
         </div>
         {canManage && (
           <Link href="/new" className="btn primary">
-            <FilePlus2 size={17} /> Entry Muqeem
+            <FilePlus2 size={17} /> {t("dash.new")}
           </Link>
         )}
       </div>
 
       {error && <div className="alert error">{error}</div>}
 
-      <div className="panel">
-        <div className="toolbar">
-          <div className="search">
-            <Search size={16} />
-            <input placeholder="Search name, iqama, passport or employer" value={query} onChange={(e) => setQuery(e.target.value)} />
+      {!stats && !error && (
+        <>
+          <div className="kpis">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="panel kpi">
+                <div className="skeleton" style={{ width: 46, height: 46 }} />
+                <div className="skeleton" style={{ flex: 1, height: 40 }} />
+              </div>
+            ))}
           </div>
-          <span className="count">{rows ? `${rows.length} record${rows.length === 1 ? "" : "s"}` : ""}</span>
-        </div>
+          <div className="skeleton" style={{ height: 280 }} />
+        </>
+      )}
 
-        {rows === null ? (
-          <div className="empty">Loading…</div>
-        ) : rows.length === 0 ? (
-          <div className="empty">
-            <FileText size={34} />
-            <h3>{query ? "No matching records" : "No Muqeem records yet"}</h3>
-            <p>{query ? "Try a different search." : "Use Entry Muqeem to add the first resident report."}</p>
+      {stats && (
+        <>
+          <div className="kpis">
+            <Kpi icon={<Users size={22} />} value={stats.total} label={t("dash.total")} tone="var(--gold)" delay={0} />
+            <Kpi icon={<CheckCircle2 size={22} />} value={stats.valid} label={t("dash.valid")} tone="var(--success)" delay={60} />
+            <Kpi icon={<CalendarPlus size={22} />} value={stats.this_month} label={t("dash.month")} tone="var(--orange)" delay={120} />
+            <Kpi icon={<TrendingUp size={22} />} value={stats.last_7_days} label={t("dash.week")} tone="#6b8fd6" delay={180} />
           </div>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Iqama No.</th>
-                  <th>Name</th>
-                  <th>Nationality</th>
-                  <th>Occupation</th>
-                  <th>Iqama Expiry</th>
-                  <th>Status</th>
-                  <th>Employer</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id} onClick={() => router.push(`/records/${row.id}`)}>
-                    <td>{row.iqama_number}</td>
-                    <td>
-                      <div className="cell-name">{row.name}</div>
-                      {row.translated_name && <div className="cell-sub ar">{row.translated_name}</div>}
-                    </td>
-                    <td>{row.passport_nationality || row.birth_country}</td>
-                    <td>{row.occupation}</td>
-                    <td>{row.iqama_expiry_date}</td>
-                    <td>
-                      <span className={`badge${row.status.toLowerCase() === "valid" ? "" : " off"}`}>{row.status}</span>
-                    </td>
-                    <td className="ar" style={{ maxWidth: 190, overflow: "hidden", textOverflow: "ellipsis" }} title={row.employer_name}>{row.employer_name}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="actions">
-                        <Link href={`/records/${row.id}`} className="btn small" title="View">
-                          <Eye size={15} />
-                        </Link>
-                        <Link href={`/records/${row.id}?download=1`} className="btn small" title="Download PDF">
-                          <Download size={15} />
-                        </Link>
-                        {canManage && (
-                          <>
-                            <Link href={`/records/${row.id}/edit`} className="btn small" title="Edit">
-                              <Pencil size={15} />
-                            </Link>
-                            <button className="btn small danger" title="Delete" onClick={() => remove(row)}>
-                              <Trash2 size={15} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="dash-grid">
+            <section className="panel panel-pad c8 rise" style={{ animationDelay: "120ms" }}>
+              <h2>
+                <i />
+                {t("dash.monthly")}
+              </h2>
+              <MonthlyBars items={stats.monthly} />
+            </section>
+
+            <section className="panel panel-pad c4 rise" style={{ animationDelay: "180ms" }}>
+              <h2>
+                <i />
+                {t("dash.status")}
+              </h2>
+              {stats.by_status.length ? <Donut items={stats.by_status} centerLabel={t("common.records")} /> : <p className="cell-sub">{t("common.none")}</p>}
+              <div style={{ display: "flex", gap: 16, marginTop: 16, flexWrap: "wrap", fontSize: 13.5, color: "var(--muted)" }}>
+                <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                  <Building2 size={15} /> {t("dash.employers")}: <b style={{ color: "var(--heading)" }}>{stats.employers}</b>
+                </span>
+                <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                  <XCircle size={15} /> {t("dash.notvalid")}: <b style={{ color: "var(--heading)" }}>{stats.not_valid}</b>
+                </span>
+                <Link href="/records?tab=archived" style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+                  <Archive size={15} /> {t("dash.archived")}: <b style={{ color: "var(--heading)" }}>{stats.archived}</b>
+                </Link>
+              </div>
+            </section>
+
+            <section className="panel panel-pad c4 rise" style={{ animationDelay: "240ms" }}>
+              <h2>
+                <i />
+                {t("dash.nationality")}
+              </h2>
+              {stats.by_nationality.length ? <HBars items={stats.by_nationality} tone="var(--gold)" /> : <p className="cell-sub">{t("common.none")}</p>}
+            </section>
+
+            <section className="panel panel-pad c4 rise" style={{ animationDelay: "300ms" }}>
+              <h2>
+                <i />
+                {t("dash.occupation")}
+              </h2>
+              {stats.by_occupation.length ? <HBars items={stats.by_occupation} tone="var(--c2)" /> : <p className="cell-sub">{t("common.none")}</p>}
+            </section>
+
+            <section className="panel panel-pad c4 rise" style={{ animationDelay: "360ms" }}>
+              <h2>
+                <i />
+                {t("dash.recent")}
+              </h2>
+              {stats.recent.length ? (
+                <div className="recent-list">
+                  {stats.recent.map((row) => (
+                    <Link key={row.id} href={`/records/${row.id}`}>
+                      <span className="avatar">{initials(row.name)}</span>
+                      <span className="who">
+                        <b>{row.name}</b>
+                        <span>
+                          {row.iqama_number} · {row.occupation || row.passport_nationality}
+                        </span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="cell-sub">{t("common.none")}</p>
+              )}
+              <div style={{ marginTop: 12 }}>
+                <Link href="/records" className="btn small">
+                  {t("dash.viewall")}
+                </Link>
+              </div>
+            </section>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </>
   );
 }

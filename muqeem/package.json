@@ -12,10 +12,14 @@
     "@fontsource/noto-sans-arabic": "^5.2.6",
     "html2canvas-pro": "^1.5.11",
     "jspdf": "^3.0.1",
+    "jszip": "^3.10.2",
     "lucide-react": "^0.575.0",
     "next": "^16.2.12",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "read-excel-file": "^9.3.20",
+    "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",

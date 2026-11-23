@@ -7,6 +7,7 @@ import type { SessionUser } from "@/lib/types";
 interface AuthValue {
   user: SessionUser;
   canManage: boolean;
+  canAdmin: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -70,7 +71,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
   return (
-    <AuthContext.Provider value={{ user, canManage: permissions.has("muqeem.manage"), signOut }}>
+    <AuthContext.Provider value={{ user, canManage: permissions.has("muqeem.manage"), canAdmin: permissions.has("muqeem.admin"), signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import type { MuqeemFields } from "@/lib/types";
 
 /**
@@ -62,7 +63,8 @@ function Heading({ y, size = 11, children }: { y: number; size?: number; childre
   );
 }
 
-export function MuqeemSheet({ data }: { data: MuqeemFields }) {
+/** `verifyUrl` adds a small QR in the bottom-left corner; the original layout above it is untouched. */
+export function MuqeemSheet({ data, verifyUrl }: { data: MuqeemFields; verifyUrl?: string }) {
   // Each item may carry its own y: the original portal prints a few cells a point or two off the row.
   const row = (y: number, items: [number, string, React.ReactNode, number?][]) =>
     items.flatMap(([lx, label, value, dy = 0], i) => [
@@ -149,6 +151,18 @@ export function MuqeemSheet({ data }: { data: MuqeemFields }) {
       {row(524.1, [[COL.l1, "Number", data.employer_number]])}
       <At x={20} y={548.2} label>Name</At>
       <At x={105.2} y={548.2} rtl>{data.employer_name}</At>
+
+      {verifyUrl && (
+        <div style={{ position: "absolute", left: 20, top: 758, display: "flex", alignItems: "center", gap: 10 }}>
+          <QRCodeSVG value={verifyUrl} size={64} level="M" marginSize={0} />
+          <div style={{ fontSize: 7.5, lineHeight: "10px", color: "#555", maxWidth: 150 }}>
+            <div style={{ fontWeight: 600, color: ORANGE, fontSize: 8.5 }}>Scan to verify</div>
+            Confirms this report is genuine and current.
+            <br />
+            novarisesa.com
+          </div>
+        </div>
+      )}
     </div>
   );
 }

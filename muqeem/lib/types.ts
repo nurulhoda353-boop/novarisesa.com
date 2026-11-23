@@ -29,6 +29,76 @@ export interface MuqeemFields {
 
 export interface MuqeemRecord extends MuqeemFields {
   id: string;
+  verify_code: string;
+  archived_at: string | null;
+  created_at: string;
+}
+
+export interface CountItem {
+  label: string;
+  count: number;
+}
+
+export interface Stats {
+  total: number;
+  valid: number;
+  not_valid: number;
+  this_month: number;
+  last_7_days: number;
+  archived: number;
+  employers: number;
+  by_status: CountItem[];
+  by_nationality: CountItem[];
+  by_occupation: CountItem[];
+  by_gender: CountItem[];
+  monthly: CountItem[];
+  recent: MuqeemRecord[];
+}
+
+export interface Facets {
+  nationalities: string[];
+  occupations: string[];
+  statuses: string[];
+  employers: string[];
+  genders: string[];
+}
+
+export interface RecordFilters {
+  q?: string;
+  nationality?: string;
+  occupation?: string;
+  status?: string;
+  employer?: string;
+  gender?: string;
+  archived?: boolean;
+  sort?: string;
+  order?: "asc" | "desc";
+  limit?: number;
+}
+
+export interface HistoryEntry {
+  id: string;
+  action: string;
+  at: string;
+  actor: string;
+  changes: { field: string; from: string; to: string }[];
+}
+
+export interface PublicVerify {
+  verified: boolean;
+  name: string;
+  iqama_number: string;
+  status: string;
+  report_date: string;
+  employer_name: string;
+  nationality: string;
+  iqama_expiry_date: string;
+}
+
+export interface ImportResult {
+  created: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
 }
 
 export interface SessionUser {
