@@ -610,7 +610,24 @@ function EditAccountModal({
   const [hostingerStep, setHostingerStep] = useState(0);
   const [hostingerPassword, setHostingerPassword] = useState("");
   const [showHostingerPassword, setShowHostingerPassword] = useState(false);
+  const [googleAppPassword, setGoogleAppPassword] = useState("");
   const toast = useToast();
+
+  async function moveToGoogle() {
+    if (!window.confirm(`Move ${account.address} from Hostinger to Google Workspace? Its cached message list is cleared and reloaded from Google.`)) return;
+    setSaving(true);
+    try {
+      await api.adminMoveMailboxToGoogle(account.id, googleAppPassword);
+      toast.show(`${account.address} now uses Google Workspace`);
+      setGoogleAppPassword("");
+      onSaved();
+      onClose();
+    } catch (error) {
+      toast.show(api.errorMessage(error, "Could not move the mailbox to Google"));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function saveProfile() {
     setSaving(true);
@@ -783,6 +800,29 @@ function EditAccountModal({
               </button>
             </div>
           </div>
+
+          {account.provider !== "google" && (
+            <div className="modal-section">
+              <div className="modal-section-title">
+                <KeyRound size={13} /> Move to Google Workspace
+              </div>
+              <p className="form-hint" style={{ marginBottom: 8 }}>
+                Use after this mailbox's hosting moved to Google. Paste the 16-character App Password generated
+                from the mailbox's own Google Account.
+              </p>
+              <div className="form-row">
+                <input
+                  className="form-input"
+                  placeholder="Google App Password"
+                  value={googleAppPassword}
+                  onChange={(event) => setGoogleAppPassword(event.target.value)}
+                />
+                <button className="btn btn-primary" onClick={moveToGoogle} disabled={saving || googleAppPassword.replace(/\s/g, "").length < 8}>
+                  Move to Google
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="modal-section modal-danger-zone">
             <div className="modal-section-title">

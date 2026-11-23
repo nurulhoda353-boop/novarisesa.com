@@ -456,6 +456,14 @@ export const adminConnectGoogleMailbox = (address: string, appPassword: string, 
     body: JSON.stringify({ address, app_password: appPassword, role }),
   });
 
+/** Moves an already-connected Hostinger mailbox over to Google Workspace
+ * (same address) once its hosting has moved - verifies the app password. */
+export const adminMoveMailboxToGoogle = (accountId: string, appPassword: string) =>
+  api<AdminAccountInfo>(`/mail/admin/accounts/${accountId}/move-to-google`, {
+    method: "POST",
+    body: JSON.stringify({ app_password: appPassword }),
+  });
+
 /** Switches the active session into a member mailbox without its
  * password - the same "saved account" storage the manual switch-account
  * flow already uses, so AccountSwitcherMenu and everything else just
