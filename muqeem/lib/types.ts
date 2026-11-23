@@ -138,3 +138,32 @@ export const EMPTY_FIELDS: MuqeemFields = {
   employer_number: "",
   employer_name: "",
 };
+
+export interface TeamRole {
+  name: string;
+  label: string;
+  description: string;
+  permissions: string[];
+  assignable: boolean;
+}
+
+export interface TeamUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string | null;
+  role_label: string;
+  managed: boolean;
+  editable: boolean;
+  status: "active" | "suspended" | "deleted";
+  last_login_at: string | null;
+  created_at: string;
+  active_sessions: number;
+}
+
+export interface TeamOverview {
+  roles: TeamRole[];
+  permissions: Record<string, string>;
+  users: TeamUser[];
+  me: { id: string; is_super: boolean };
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Archive, FileSpreadsheet, FilePlus2, LayoutDashboard, LogOut, Moon, Search, Sun, Table2 } from "lucide-react";
+import { Archive, FileSpreadsheet, FilePlus2, LayoutDashboard, LogOut, Moon, Search, Settings, Sun, Table2 } from "lucide-react";
 import { useAuth } from "./Auth";
 import { CommandPalette } from "./CommandPalette";
 import { usePrefs, type Lang } from "@/lib/prefs";
@@ -39,6 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     ...(canManage ? [{ href: "/new", label: t("nav.entry"), icon: FilePlus2, active: pathname === "/new" }] : []),
     { href: "/records?tab=archived", label: t("nav.archive"), icon: Archive, active: pathname === "/records" && archivedTab },
     { href: "/import", label: t("nav.import"), icon: FileSpreadsheet, active: pathname === "/import" },
+    { href: "/settings", label: t("nav.settings"), icon: Settings, active: pathname === "/settings" },
   ];
 
   return (

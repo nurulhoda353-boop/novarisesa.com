@@ -8,6 +8,8 @@ import type {
   RecordFilters,
   SessionUser,
   Stats,
+  TeamOverview,
+  TeamUser,
 } from "./types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "https://api.novarisesa.com/api/v1";
@@ -113,4 +115,25 @@ export const records = {
   stats: () => api<Stats>("/muqeem/stats"),
   facets: () => api<Facets>("/muqeem/facets"),
   verify: (code: string) => api<PublicVerify>(`/muqeem/verify/${encodeURIComponent(code)}`),
+};
+
+export const team = {
+  overview: () => api<TeamOverview>("/muqeem/team"),
+  create: (body: { email: string; full_name: string; password: string; role: string; is_active: boolean }) =>
+    api<TeamUser>("/muqeem/team/users", { method: "POST", body: JSON.stringify(body) }),
+  update: (id: string, body: { full_name?: string; role?: string; is_active?: boolean }) =>
+    api<TeamUser>(`/muqeem/team/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  resetPassword: (id: string, current_password: string, new_password: string) =>
+    api<{ ok: boolean; sessions_revoked: number }>(`/muqeem/team/users/${id}/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+  revokeSessions: (id: string, current_password: string) =>
+    api<{ ok: boolean; sessions_revoked: number }>(`/muqeem/team/users/${id}/revoke-sessions`, {
+      method: "POST",
+      body: JSON.stringify({ current_password }),
+    }),
+  remove: (id: string) => api<void>(`/muqeem/team/users/${id}`, { method: "DELETE" }),
+  restore: (id: string) => api<TeamUser>(`/muqeem/team/users/${id}/restore`, { method: "POST" }),
+  activity: (id: string) => api<{ id: string; action: string; at: string }[]>(`/muqeem/team/users/${id}/activity`),
 };

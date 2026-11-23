@@ -7,6 +7,7 @@ from app.api.routes import (
     health,
     mail,
     muqeem,
+    muqeem_team,
     novafin,
     novafin_accounting,
     novafin_admin,
@@ -39,4 +40,5 @@ api_router.include_router(novafin_reports.router, tags=["novafin"])
 api_router.include_router(novafin_admin.router, tags=["novafin"])
 api_router.include_router(novafin_vat.router, tags=["novafin"])
 api_router.include_router(muqeem.router, tags=["muqeem"])
+api_router.include_router(muqeem_team.router, tags=["muqeem"])
 api_router.include_router(app_releases.router, tags=["app-releases"])

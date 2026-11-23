@@ -31,7 +31,8 @@ CMS_PERMISSIONS = {
     "novafin.reopen_period": "Unlock a locked month or reopen a closed fiscal year",
     "muqeem.view": "View Muqeem resident records",
     "muqeem.manage": "Enter, edit and archive Muqeem resident records",
-    "muqeem.admin": "Permanently delete, bulk-import and view the history of Muqeem records",
+    "muqeem.admin": "Permanently delete, bulk-import and view the history of Muqeem records, and manage Muqeem Editors and Admins",
+    "muqeem.super": "Create and manage Muqeem Super Admins",
 }
 
 ROLE_PERMISSIONS = {
@@ -67,6 +68,9 @@ ROLE_PERMISSIONS = {
         "cms.manage_content",
         "cms.manage_media",
     },
+    "muqeem_editor": {"muqeem.view", "muqeem.manage"},
+    "muqeem_admin": {"muqeem.view", "muqeem.manage", "muqeem.admin"},
+    "muqeem_super_admin": {"muqeem.view", "muqeem.manage", "muqeem.admin", "muqeem.super"},
 }
 
 ROLE_DESCRIPTIONS = {
@@ -75,6 +79,9 @@ ROLE_DESCRIPTIONS = {
     "editor": "Create and edit website content and media without publishing",
     "accountant": "NovaFin: enter invoices, bills, receipts and vouchers (no payroll, no period closing)",
     "finance_manager": "NovaFin: everything an Accountant does, plus lock months, close years and write off bad debts",
+    "muqeem_editor": "Muqeem Control Editor: view, enter, edit and archive resident reports",
+    "muqeem_admin": "Muqeem Control Admin: everything an Editor does, plus import, history, permanent delete and adding Editors and Admins",
+    "muqeem_super_admin": "Muqeem Control Super Admin: everything an Admin does, plus creating and managing Super Admins",
 }
 
 INITIAL_REQUIREMENTS = [
@@ -110,9 +117,7 @@ INITIAL_REQUIREMENTS = [
 
 def seed_requirements(db: Session) -> None:
     for seed in INITIAL_REQUIREMENTS:
-        existing = db.scalar(
-            select(Requirement).where(Requirement.code == seed["code"])
-        )
+        existing = db.scalar(select(Requirement).where(Requirement.code == seed["code"]))
         if existing is not None:
             continue
         item = Requirement(
@@ -176,18 +181,14 @@ def bootstrap() -> None:
                 db.flush()
             role.description = description
             role.is_system = True
-            role.permissions = [
-                item for item in permissions if item.code in ROLE_PERMISSIONS[role_name]
-            ]
+            role.permissions = [item for item in permissions if item.code in ROLE_PERMISSIONS[role_name]]
             roles[role_name] = role
         seed_requirements(db)
 
         if not settings.INITIAL_ADMIN_EMAIL or not settings.INITIAL_ADMIN_PASSWORD:
             return
 
-        admin = db.scalar(
-            select(User).where(User.email == settings.INITIAL_ADMIN_EMAIL.lower())
-        )
+        admin = db.scalar(select(User).where(User.email == settings.INITIAL_ADMIN_EMAIL.lower()))
         if admin is None:
             admin = User(
                 email=settings.INITIAL_ADMIN_EMAIL.lower(),

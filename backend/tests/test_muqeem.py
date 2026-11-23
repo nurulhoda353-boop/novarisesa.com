@@ -1,4 +1,7 @@
+from types import SimpleNamespace
+
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.api.routes.muqeem import SORTABLE, MuqeemFields, MuqeemRead
@@ -26,13 +29,37 @@ def test_record_has_archive_and_verify_columns_and_read_schema_exposes_them() ->
     assert {"verify_code", "archived_at", "created_at"} <= set(MuqeemRead.model_fields)
 
 
-def test_muqeem_admin_permission_is_not_given_to_plain_managers() -> None:
-    assert "muqeem.admin" in CMS_PERMISSIONS
+def test_muqeem_admin_and_super_permissions_follow_the_hierarchy() -> None:
+    assert {"muqeem.admin", "muqeem.super"} <= set(CMS_PERMISSIONS)
+    assert "muqeem.super" in ROLE_PERMISSIONS["super_admin"]
+    assert "muqeem.super" not in ROLE_PERMISSIONS["admin"]  # a dashboard Admin may never mint Super Admins
     assert "muqeem.admin" in ROLE_PERMISSIONS["admin"]
-    assert "muqeem.admin" in ROLE_PERMISSIONS["super_admin"]
+    assert ROLE_PERMISSIONS["muqeem_editor"] == {"muqeem.view", "muqeem.manage"}
+    assert "muqeem.admin" in ROLE_PERMISSIONS["muqeem_admin"]
+    assert "muqeem.super" not in ROLE_PERMISSIONS["muqeem_admin"]
+    assert "muqeem.super" in ROLE_PERMISSIONS["muqeem_super_admin"]
     for role, codes in ROLE_PERMISSIONS.items():
-        if role not in {"admin", "super_admin"}:
-            assert "muqeem.admin" not in codes
+        if role not in {"admin", "super_admin", "muqeem_admin", "muqeem_super_admin"}:
+            assert not {"muqeem.admin", "muqeem.super"} & codes
+
+
+def _person(*codes: str):
+    perms = [SimpleNamespace(code=code) for code in codes]
+    return SimpleNamespace(roles=[SimpleNamespace(name="r", permissions=perms)])
+
+
+def test_only_a_super_admin_can_touch_super_admins() -> None:
+    from app.api.routes.muqeem_team import SUPER_ROLE, _require_super_for
+
+    boss = _person("muqeem.view", "muqeem.admin", "muqeem.super")
+    admin = _person("muqeem.view", "muqeem.admin")
+    _require_super_for(boss, target_role=SUPER_ROLE)  # allowed
+    _require_super_for(admin, target_role="muqeem_admin")  # allowed
+    with pytest.raises(HTTPException) as exc:
+        _require_super_for(admin, target_role=SUPER_ROLE)
+    assert exc.value.status_code == 403
+    with pytest.raises(HTTPException):
+        _require_super_for(admin, target=boss)
 
 
 def test_verify_codes_are_unique_and_unguessable_length() -> None:
