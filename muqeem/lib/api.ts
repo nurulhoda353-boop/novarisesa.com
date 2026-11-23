@@ -118,6 +118,8 @@ export const records = {
 };
 
 export const team = {
+  updateMyName: (full_name: string) =>
+    api<{ id: string; email: string; full_name: string }>("/muqeem/team/me", { method: "PATCH", body: JSON.stringify({ full_name }) }),
   overview: () => api<TeamOverview>("/muqeem/team"),
   create: (body: { email: string; full_name: string; password: string; role: string; is_active: boolean }) =>
     api<TeamUser>("/muqeem/team/users", { method: "POST", body: JSON.stringify(body) }),

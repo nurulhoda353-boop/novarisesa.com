@@ -24,6 +24,7 @@ router = APIRouter(prefix="/muqeem/team")
 
 DBSession = Annotated[Session, Depends(get_db)]
 TeamAdmin = Annotated[User, Depends(require_permission("muqeem.admin"))]
+AnyMuqeemUser = Annotated[User, Depends(require_permission("muqeem.view", "muqeem.manage"))]
 
 SUPER_ROLE = "muqeem_super_admin"
 MUQEEM_ROLES = {
@@ -46,6 +47,10 @@ class TeamUserUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=2, max_length=160)
     role: str | None = Field(default=None, max_length=40)
     is_active: bool | None = None
+
+
+class ProfileUpdate(BaseModel):
+    full_name: str = Field(min_length=2, max_length=160)
 
 
 class TeamPasswordReset(BaseModel):
@@ -143,6 +148,21 @@ def _keep_a_super(
 def _check_password(actor: User, password: str) -> None:
     if not verify_password(password, actor.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Your password is incorrect")
+
+
+@router.patch("/me")
+def update_my_profile(
+    payload: ProfileUpdate, request: Request, db: DBSession, me: AnyMuqeemUser
+) -> dict[str, Any]:
+    """Every signed-in Muqeem user may change their own display name (the email stays their sign-in ID)."""
+    name = " ".join(payload.full_name.split())
+    if len(name) < 2:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Please enter your name")
+    before = {"full_name": me.full_name}
+    me.full_name = name
+    audit(db, request, me, "muqeem.profile_updated", "users", me.id, before=before, after={"full_name": name})
+    db.commit()
+    return {"id": str(me.id), "email": me.email, "full_name": me.full_name}
 
 
 @router.get("")

@@ -8,7 +8,7 @@ import { DEFAULT_KEYS, loadDefaults, saveDefaults, type DefaultKey, type EntryDe
 import { usePrefs, type Lang } from "@/lib/prefs";
 import type { TeamOverview, TeamRole, TeamUser } from "@/lib/types";
 
-type Tab = "team" | "roles" | "defaults" | "appearance";
+type Tab = "profile" | "team" | "roles" | "defaults" | "appearance";
 
 const DEFAULT_LABELS: Record<DefaultKey, string> = {
   operator_id: "Operator ID",
@@ -444,6 +444,63 @@ function DefaultsTab() {
   );
 }
 
+function ProfileTab() {
+  const { user, setDisplayName } = useAuth();
+  const [name, setName] = useState(user.full_name);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState("");
+  const clean = name.replace(/\s+/g, " ").trim();
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    setState("saving");
+    setError("");
+    try {
+      const updated = await team.updateMyName(clean);
+      setDisplayName(updated.full_name);
+      setName(updated.full_name);
+      setState("saved");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save your name");
+      setState("idle");
+    }
+  }
+
+  return (
+    <form className="panel panel-pad" onSubmit={save} style={{ maxWidth: 560 }}>
+      <h2>
+        <i /> My profile
+      </h2>
+      {error && <div className="alert error">{error}</div>}
+      {state === "saved" && <div className="alert ok">Your name was updated.</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <label className="field">
+          <span>Your name (shown to your team)</span>
+          <input
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setState("idle");
+            }}
+            minLength={2}
+            maxLength={160}
+            required
+          />
+        </label>
+        <label className="field">
+          <span>Sign-in email (cannot be changed here)</span>
+          <input value={user.email} disabled />
+        </label>
+        <div>
+          <button className="btn primary" disabled={state === "saving" || clean.length < 2 || clean === user.full_name}>
+            <Save size={16} /> {state === "saving" ? "Saving…" : "Save name"}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
 function AppearanceTab() {
   const { lang, setLang, theme, toggleTheme, t } = usePrefs();
   const langs: [Lang, string][] = [["en", "English"], ["bn", "বাংলা"], ["ar", "العربية"]];
@@ -479,7 +536,7 @@ function AppearanceTab() {
 
 export default function SettingsPage() {
   const { canAdmin, user } = useAuth();
-  const [tab, setTab] = useState<Tab>(canAdmin ? "team" : "defaults");
+  const [tab, setTab] = useState<Tab>(canAdmin ? "team" : "profile");
   const [data, setData] = useState<TeamOverview | null>(null);
   const [error, setError] = useState("");
 
@@ -499,6 +556,7 @@ export default function SettingsPage() {
   }, [canAdmin, reload]);
 
   const tabs: [Tab, string][] = [
+    ["profile", "My profile"],
     ...(canAdmin ? ([["team", "Team"], ["roles", "Roles & access"]] as [Tab, string][]) : []),
     ["defaults", "Entry defaults"],
     ["appearance", "Appearance"],
@@ -522,6 +580,7 @@ export default function SettingsPage() {
       {error && <div className="alert error">{error}</div>}
       {tab === "team" && canAdmin && (data ? <TeamTab data={data} reload={reload} /> : !error && <div className="skeleton" style={{ height: 260 }} />)}
       {tab === "roles" && canAdmin && (data ? <RolesTab data={data} /> : !error && <div className="skeleton" style={{ height: 260 }} />)}
+      {tab === "profile" && <ProfileTab />}
       {tab === "defaults" && <DefaultsTab />}
       {tab === "appearance" && <AppearanceTab />}
     </>

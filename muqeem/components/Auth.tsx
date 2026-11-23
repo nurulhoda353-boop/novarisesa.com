@@ -9,6 +9,7 @@ interface AuthValue {
   canManage: boolean;
   canAdmin: boolean;
   canSuper: boolean;
+  setDisplayName: (name: string) => void;
   signOut: () => Promise<void>;
 }
 
@@ -72,7 +73,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
   return (
-    <AuthContext.Provider value={{ user, canManage: permissions.has("muqeem.manage"), canAdmin: permissions.has("muqeem.admin"), canSuper: permissions.has("muqeem.super"), signOut }}>
+    <AuthContext.Provider value={{ user, canManage: permissions.has("muqeem.manage"), canAdmin: permissions.has("muqeem.admin"), canSuper: permissions.has("muqeem.super"), signOut, setDisplayName: (name) => setUser((current) => (current ? { ...current, full_name: name } : current)) }}>
       {children}
     </AuthContext.Provider>
   );
