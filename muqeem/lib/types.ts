@@ -37,6 +37,8 @@ export interface MuqeemRecord extends MuqeemFields {
 export interface CountItem {
   label: string;
   count: number;
+  /** Monthly series only: how many of that month's entries have status Valid. */
+  valid?: number;
 }
 
 export interface Stats {

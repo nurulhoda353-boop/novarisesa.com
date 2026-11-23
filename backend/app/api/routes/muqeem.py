@@ -211,13 +211,25 @@ def stats(db: DBSession, _: Viewer) -> dict[str, Any]:
     keys.reverse()
     first = datetime(keys[0][0], keys[0][1], 1, tzinfo=UTC)
     bucket = func.date_trunc("month", MuqeemRecord.created_at)
+    is_valid = func.lower(MuqeemRecord.status) == "valid"
     rows = db.execute(
-        select(bucket, func.count(MuqeemRecord.id))
+        select(
+            bucket,
+            func.count(MuqeemRecord.id),
+            func.count(MuqeemRecord.id).filter(is_valid),
+        )
         .where(active, MuqeemRecord.created_at >= first)
         .group_by(bucket)
     )
-    by_month = {(d.year, d.month): n for d, n in rows}
-    monthly = [{"label": f"{y}-{m:02d}", "count": by_month.get((y, m), 0)} for y, m in keys]
+    by_month = {(d.year, d.month): (n, ok) for d, n, ok in rows}
+    monthly = [
+        {
+            "label": f"{y}-{m:02d}",
+            "count": by_month.get((y, m), (0, 0))[0],
+            "valid": by_month.get((y, m), (0, 0))[1],
+        }
+        for y, m in keys
+    ]
 
     newest = select(MuqeemRecord).where(active).order_by(MuqeemRecord.created_at.desc()).limit(6)
     recent = list(db.scalars(newest))
