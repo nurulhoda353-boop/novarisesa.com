@@ -66,6 +66,7 @@ from app.schemas.mail import (
     AdminConnectGoogleMailboxRequest,
     AdminCreateMailboxRequest,
     AdminHostingerPasswordResponse,
+    AdminMoveToGoogleRequest,
     AdminProvisionMailboxRequest,
     AdminSetHostingerPassword,
     AdminSetPassword,
@@ -1662,6 +1663,40 @@ def admin_connect_google_mailbox(
     db.commit()
     db.refresh(account)
     return account
+
+
+@router.post("/admin/accounts/{account_id}/move-to-google", response_model=AdminAccountSummary)
+def admin_move_mailbox_to_google(
+    account_id: uuid.UUID, payload: AdminMoveToGoogleRequest, admin: CurrentAdminAccount, db: DBSession
+) -> MailAccount:
+    """Switches an existing Hostinger mailbox over to Google Workspace after
+    its hosting moved. Keeps the account (and its contacts, rules, drafts,
+    Novamail login) but swaps the IMAP/SMTP provider and credential, drops
+    the Hostinger linkage, and clears the cached message list - Google's UIDs
+    are unrelated to Hostinger's, so stale cache rows would point at the wrong
+    messages."""
+    target = db.get(MailAccount, account_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Mailbox not found")
+    if target.provider == "google":
+        raise HTTPException(status_code=409, detail="This mailbox is already on Google")
+    try:
+        HostingerMailboxClient(target.address, payload.app_password, provider="google").verify()
+    except MailConnectionError as exc:
+        raise HTTPException(
+            status_code=401, detail="Could not sign in to Google with that address and app password"
+        ) from exc
+
+    target.provider = "google"
+    target.credential_ciphertext = encrypt_mail_secret(payload.app_password)
+    target.credential_type = "app_password"
+    target.hostinger_mailbox_id = None
+    target.hostinger_order_id = None
+    db.execute(delete(MailMessageCache).where(MailMessageCache.account_id == target.id))
+    _audit(db, actor=admin, target=target, action="moved_to_google")
+    db.commit()
+    db.refresh(target)
+    return target
 
 
 @router.patch("/admin/accounts/{account_id}/role", response_model=AdminAccountSummary)
