@@ -68,3 +68,27 @@ def test_verify_codes_are_unique_and_unguessable_length() -> None:
     codes = {column.default.arg(None) for _ in range(50)}
     assert len(codes) == 50
     assert all(len(code) >= 8 for code in codes)
+
+
+def _with_roles(*roles):
+    return SimpleNamespace(
+        roles=[
+            SimpleNamespace(name=name, permissions=[SimpleNamespace(code=c) for c in codes])
+            for name, codes in roles
+        ]
+    )
+
+
+def test_muqeem_role_overrides_the_dashboard_role() -> None:
+    from app.core.muqeem_access import muqeem_level
+
+    dash_admin = _with_roles(("admin", ["cms.view", "muqeem.view", "muqeem.manage", "muqeem.admin"]))
+    assert muqeem_level(dash_admin) == "muqeem_admin"
+    demoted = _with_roles(
+        ("admin", ["muqeem.admin", "muqeem.manage", "muqeem.view"]),
+        ("muqeem_editor", ["muqeem.view", "muqeem.manage"]),
+    )
+    assert muqeem_level(demoted) == "muqeem_editor"
+    assert muqeem_level(_with_roles(("editor", ["cms.view"]))) is None
+    boss = _with_roles(("super_admin", ["muqeem.view", "muqeem.manage", "muqeem.admin", "muqeem.super"]))
+    assert muqeem_level(boss) == "muqeem_super_admin"

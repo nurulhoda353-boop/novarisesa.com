@@ -1,8 +1,10 @@
-"""Muqeem Control user management: add people by email + password, give them a role, suspend, reset.
+"""Muqeem Control team: give anyone a Muqeem level (Super Admin / Admin / Editor).
 
-Only people whose role is one of the three Muqeem roles are managed here. Dashboard team members
-(Super Admin / Admin / Editor / NovaFin roles) can use Muqeem through their own permissions but are
-listed read-only; they are managed in the main dashboard.
+* New people are added by email + password and get a Muqeem-only role (no dashboard or NovaFin rights).
+* People who already have a dashboard account can be given a Muqeem level too. It overrides whatever their
+  dashboard role would give them inside Muqeem, and never changes their dashboard rights.
+* Account-wide actions (suspend, remove, password, sign-out) stay with the owner of the account: Muqeem-only
+  people are managed here, dashboard team members in the NOVARISE Control Center.
 """
 
 import uuid
@@ -15,30 +17,32 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.routes.cms import audit, revoke_user_sessions
-from app.core.auth import require_permission, user_permission_codes
 from app.core.database import get_db
+from app.core.muqeem_access import (
+    LEVEL_LABELS,
+    MUQEEM_ROLES,
+    muqeem_level,
+    muqeem_override_role,
+    muqeem_permissions,
+    require_muqeem,
+)
 from app.core.security import hash_password, verify_password
 from app.models import AuditLog, Permission, RefreshToken, Role, User
 
 router = APIRouter(prefix="/muqeem/team")
 
 DBSession = Annotated[Session, Depends(get_db)]
-TeamAdmin = Annotated[User, Depends(require_permission("muqeem.admin"))]
-AnyMuqeemUser = Annotated[User, Depends(require_permission("muqeem.view", "muqeem.manage"))]
+TeamAdmin = Annotated[User, Depends(require_muqeem("muqeem.admin"))]
+AnyMuqeemUser = Annotated[User, Depends(require_muqeem("muqeem.view", "muqeem.manage"))]
 
 SUPER_ROLE = "muqeem_super_admin"
-MUQEEM_ROLES = {
-    "muqeem_editor": "Editor",
-    "muqeem_admin": "Admin",
-    SUPER_ROLE: "Super Admin",
-}
-ROLE_ORDER = {"muqeem_editor": 2, "muqeem_admin": 1, SUPER_ROLE: 0}
+ROLE_ORDER = {name: index for index, name in enumerate(MUQEEM_ROLES)}
 
 
 class TeamUserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=2, max_length=160)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(default="", max_length=128)
     role: str = Field(default="muqeem_editor", max_length=40)
     is_active: bool = True
 
@@ -62,17 +66,21 @@ class TeamConfirm(BaseModel):
     current_password: str = Field(min_length=1, max_length=128)
 
 
-def _muqeem_role(user: User) -> str | None:
-    return next((role.name for role in user.roles if role.name in MUQEEM_ROLES), None)
+def _has_muqeem_role(user: User) -> bool:
+    return muqeem_override_role(user) is not None
+
+
+def _is_dashboard_member(user: User) -> bool:
+    """Has a dashboard / NovaFin role, so account-wide actions belong to the Control Center."""
+    return any(role.name not in MUQEEM_ROLES for role in user.roles)
 
 
 def _is_super(user: User) -> bool:
-    """Muqeem Super Admins and the dashboard Super Admin / Developer hold muqeem.super."""
-    return "muqeem.super" in user_permission_codes(user)
+    return "muqeem.super" in muqeem_permissions(user)
 
 
 def _require_super_for(actor: User, *, target_role: str | None = None, target: User | None = None) -> None:
-    """An Admin may never create, promote, edit, reset or remove a Super Admin."""
+    """An Admin may never create, promote, change, reset or remove a Super Admin."""
     if _is_super(actor):
         return
     if target_role == SUPER_ROLE or (target is not None and _is_super(target)):
@@ -80,8 +88,8 @@ def _require_super_for(actor: User, *, target_role: str | None = None, target: U
 
 
 def _serialize(item: User, sessions: int = 0, actor: User | None = None) -> dict[str, Any]:
-    role = _muqeem_role(item)
-    other_roles = [r.name for r in item.roles if r.name not in MUQEEM_ROLES]
+    level = muqeem_level(item)
+    dashboard = _is_dashboard_member(item)
     if item.deleted_at:
         state = "deleted"
     elif not item.is_active:
@@ -92,22 +100,20 @@ def _serialize(item: User, sessions: int = 0, actor: User | None = None) -> dict
         "id": str(item.id),
         "email": item.email,
         "full_name": item.full_name,
-        "role": role,
-        "role_label": MUQEEM_ROLES.get(
-            role or "", ", ".join(r.replace("_", " ").title() for r in other_roles)
-        ),
-        # Muqeem roles are managed here; dashboard roles are shown read-only.
-        "managed": role is not None,
-        # What the signed-in person may do with this row (the server enforces it again on every action).
-        "editable": role is not None and (actor is None or _is_super(actor) or not _is_super(item)),
+        "role": level,
+        "role_label": LEVEL_LABELS.get(level or "", "No access"),
+        "source": "override" if _has_muqeem_role(item) else ("dashboard" if dashboard else "none"),
+        "dashboard": dashboard,
         "status": state,
         "last_login_at": item.last_login_at.isoformat() if item.last_login_at else None,
         "created_at": item.created_at.isoformat(),
         "active_sessions": sessions,
+        # What the signed-in person may do with this row (the server enforces it again on every action).
+        "editable": actor is None or _is_super(actor) or not _is_super(item),
     }
 
 
-def _managed_target(db: Session, item_id: uuid.UUID, actor: User, *, allow_deleted: bool = False) -> User:
+def _load(db: Session, item_id: uuid.UUID, *, allow_deleted: bool = False) -> User:
     item = db.scalar(
         select(User)
         .options(selectinload(User.roles).selectinload(Role.permissions))
@@ -115,39 +121,60 @@ def _managed_target(db: Session, item_id: uuid.UUID, actor: User, *, allow_delet
     )
     if item is None or (item.deleted_at is not None and not allow_deleted):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
-    if _muqeem_role(item) is None:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "This person is part of the main dashboard team. Manage them in the NOVARISE Control Center.",
-        )
-    _require_super_for(actor, target=item)
     return item
 
 
+def _own_account_only(item: User) -> None:
+    if _is_dashboard_member(item):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This person has a dashboard account. Manage them in the NOVARISE Control Center.",
+        )
+
+
+def _other_active_supers(db: Session, exclude: uuid.UUID) -> int:
+    people = db.scalars(
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.is_active.is_(True), User.deleted_at.is_(None), User.id != exclude)
+    )
+    return sum(1 for person in people if _is_super(person))
+
+
 def _keep_a_super(
-    db: Session, item: User, *, final_role: str, final_active: bool, deleting: bool = False
+    db: Session, item: User, *, final_role: str | None, final_active: bool, deleting: bool = False
 ) -> None:
-    """The last active Super Admin cannot be demoted, suspended or removed."""
-    if _muqeem_role(item) != SUPER_ROLE:
+    """The last active Muqeem Super Admin cannot be demoted, suspended or removed."""
+    if not _is_super(item):
         return
     if final_role == SUPER_ROLE and final_active and not deleting:
         return
-    supers = (
-        db.scalar(
-            select(func.count(User.id))
-            .join(User.roles)
-            .join(Role.permissions)
-            .where(Permission.code == "muqeem.super", User.is_active.is_(True), User.deleted_at.is_(None))
-        )
-        or 0
-    )
-    if supers <= 1:
+    if _other_active_supers(db, item.id) == 0:
         raise HTTPException(status.HTTP_409_CONFLICT, "At least one active Super Admin is required")
 
 
 def _check_password(actor: User, password: str) -> None:
     if not verify_password(password, actor.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Your password is incorrect")
+
+
+def _set_level(db: Session, item: User, role_name: str) -> None:
+    """Replace the person's Muqeem role (keeping any dashboard roles they have)."""
+    role = db.scalar(select(Role).where(Role.name == role_name))
+    if role is None:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Role is not set up yet; redeploy the API")
+    item.roles = [r for r in item.roles if r.name not in MUQEEM_ROLES] + [role]
+
+
+@router.get("/access")
+def my_access(me: AnyMuqeemUser) -> dict[str, Any]:
+    """The signed-in person's effective Muqeem permissions (what the portal screens rely on)."""
+    level = muqeem_level(me)
+    return {
+        "level": level,
+        "label": LEVEL_LABELS.get(level or "", ""),
+        "permissions": sorted(muqeem_permissions(me)),
+    }
 
 
 @router.patch("/me")
@@ -168,27 +195,22 @@ def update_my_profile(
 @router.get("")
 def team_overview(db: DBSession, actor: TeamAdmin) -> dict[str, Any]:
     roles = list(
-        db.scalars(
-            select(Role)
-            .options(selectinload(Role.permissions))
-            .where(Role.name.in_(MUQEEM_ROLES))
-            .order_by(Role.name)
-        )
+        db.scalars(select(Role).options(selectinload(Role.permissions)).where(Role.name.in_(MUQEEM_ROLES)))
     )
     roles.sort(key=lambda role: ROLE_ORDER[role.name])
     permission_text = {
         p.code: p.description for p in db.scalars(select(Permission).where(Permission.code.like("muqeem.%")))
     }
-
     users = list(
         db.scalars(
             select(User)
             .options(selectinload(User.roles).selectinload(Role.permissions))
             .where(
+                User.deleted_at.is_(None),
                 or_(
                     User.roles.any(Role.name.in_(MUQEEM_ROLES)),
                     User.roles.any(Role.permissions.any(Permission.code.like("muqeem.%"))),
-                )
+                ),
             )
             .order_by(User.created_at.desc())
         )
@@ -201,11 +223,13 @@ def team_overview(db: DBSession, actor: TeamAdmin) -> dict[str, Any]:
             .group_by(RefreshToken.user_id)
         ).all()
     )
+    # Most powerful first (the sort is stable, so newest stays first within a level).
+    users.sort(key=lambda u: ROLE_ORDER.get(muqeem_level(u) or "", 9))
     return {
         "roles": [
             {
                 "name": role.name,
-                "label": MUQEEM_ROLES[role.name],
+                "label": LEVEL_LABELS[role.name],
                 "description": role.description,
                 "permissions": sorted(p.code for p in role.permissions),
                 # Roles the signed-in person is allowed to hand out.
@@ -223,6 +247,7 @@ def team_overview(db: DBSession, actor: TeamAdmin) -> dict[str, Any]:
 def create_team_user(
     payload: TeamUserCreate, request: Request, db: DBSession, actor: TeamAdmin
 ) -> dict[str, Any]:
+    """Add someone by email. A new email needs a password; an existing account just gets a Muqeem level."""
     if payload.role not in MUQEEM_ROLES:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Choose Editor, Admin or Super Admin")
     _require_super_for(actor, target_role=payload.role)
@@ -232,14 +257,31 @@ def create_team_user(
         .options(selectinload(User.roles).selectinload(Role.permissions))
         .where(User.email == email)
     )
-    if existing is not None and existing.deleted_at is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "That email already has an account")
-    if existing is not None and _muqeem_role(existing) is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "That email belongs to a removed dashboard account")
-    role = db.scalar(select(Role).where(Role.name == payload.role))
-    if role is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Role is not set up yet; redeploy the API")
 
+    if existing is not None and existing.deleted_at is None:
+        # Existing account: grant a Muqeem level only; password and dashboard rights stay as they are.
+        _require_super_for(actor, target=existing)
+        if existing.id == actor.id:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot change your own role")
+        _set_level(db, existing, payload.role)
+        revoke_user_sessions(db, existing.id)
+        audit(
+            db,
+            request,
+            actor,
+            "muqeem.access_granted",
+            "users",
+            existing.id,
+            after={"email": existing.email, "role": payload.role},
+        )
+        db.commit()
+        db.refresh(existing)
+        return {**_serialize(existing, 0, actor), "existing_account": True}
+
+    if len(payload.password) < 8:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Password must be at least 8 characters")
+    if existing is not None and _is_dashboard_member(existing):
+        raise HTTPException(status.HTTP_409_CONFLICT, "That email belongs to a removed dashboard account")
     item = existing or User(email=email)
     item.password_hash = hash_password(payload.password)
     item.full_name = payload.full_name.strip()
@@ -250,7 +292,8 @@ def create_team_user(
     item.suspended_at = None if payload.is_active else datetime.now(UTC)
     item.created_by_id = actor.id
     item.deleted_at = None
-    item.roles = [role]
+    item.roles = []
+    _set_level(db, item, payload.role)
     if existing is not None:
         revoke_user_sessions(db, item.id)
     db.add(item)
@@ -262,19 +305,20 @@ def create_team_user(
         "muqeem.user_created",
         "users",
         item.id,
-        after={"email": item.email, "role": role.name, "is_active": item.is_active},
+        after={"email": item.email, "role": payload.role, "is_active": item.is_active},
     )
     db.commit()
     db.refresh(item)
-    return _serialize(item, 0, actor)
+    return {**_serialize(item, 0, actor), "existing_account": False}
 
 
 @router.patch("/users/{item_id}")
 def update_team_user(
     item_id: uuid.UUID, payload: TeamUserUpdate, request: Request, db: DBSession, actor: TeamAdmin
 ) -> dict[str, Any]:
-    item = _managed_target(db, item_id, actor)
-    current = _muqeem_role(item) or "muqeem_editor"
+    item = _load(db, item_id)
+    _require_super_for(actor, target=item)
+    current = muqeem_level(item) or "muqeem_editor"
     final_role = payload.role or current
     final_active = payload.is_active if payload.is_active is not None else item.is_active
     if final_role not in MUQEEM_ROLES:
@@ -284,6 +328,10 @@ def update_team_user(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "You cannot change your own role or suspend yourself"
         )
+    if payload.is_active is not None and payload.is_active != item.is_active:
+        _own_account_only(item)
+    if payload.full_name is not None and payload.full_name.strip() != item.full_name:
+        _own_account_only(item)
     _keep_a_super(db, item, final_role=final_role, final_active=final_active)
 
     before = {"full_name": item.full_name, "role": current, "is_active": item.is_active}
@@ -293,12 +341,7 @@ def update_team_user(
         item.is_active = payload.is_active
         item.suspended_at = None if payload.is_active else datetime.now(UTC)
     if final_role != current:
-        role = db.scalar(select(Role).where(Role.name == final_role))
-        if role is None:
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, "Role is not set up yet; redeploy the API"
-            )
-        item.roles = [role]
+        _set_level(db, item, final_role)
     if payload.is_active is not None or final_role != current:
         revoke_user_sessions(db, item.id)  # new rights apply on the next sign-in
     audit(
@@ -315,6 +358,27 @@ def update_team_user(
     return _serialize(item, 0, actor)
 
 
+@router.post("/users/{item_id}/reset-access")
+def reset_to_dashboard_level(
+    item_id: uuid.UUID, request: Request, db: DBSession, actor: TeamAdmin
+) -> dict[str, Any]:
+    """Drop a Muqeem override so a dashboard team member falls back to what their dashboard role gives."""
+    item = _load(db, item_id)
+    _require_super_for(actor, target=item)
+    if item.id == actor.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot change your own role")
+    if not _is_dashboard_member(item):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Only dashboard team members have a level to fall back to"
+        )
+    _keep_a_super(db, item, final_role=None, final_active=True)
+    item.roles = [r for r in item.roles if r.name not in MUQEEM_ROLES]
+    revoke_user_sessions(db, item.id)
+    audit(db, request, actor, "muqeem.access_reset", "users", item.id)
+    db.commit()
+    return _serialize(item, 0, actor)
+
+
 @router.post("/users/{item_id}/reset-password")
 def reset_team_password(
     item_id: uuid.UUID, payload: TeamPasswordReset, request: Request, db: DBSession, actor: TeamAdmin
@@ -322,7 +386,9 @@ def reset_team_password(
     _check_password(actor, payload.current_password)
     if item_id == actor.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot reset your own password here")
-    item = _managed_target(db, item_id, actor)
+    item = _load(db, item_id)
+    _require_super_for(actor, target=item)
+    _own_account_only(item)
     item.password_hash = hash_password(payload.new_password)
     item.must_change_password = False
     item.password_changed_at = datetime.now(UTC)
@@ -345,7 +411,9 @@ def revoke_team_sessions(
     item_id: uuid.UUID, payload: TeamConfirm, request: Request, db: DBSession, actor: TeamAdmin
 ) -> dict[str, Any]:
     _check_password(actor, payload.current_password)
-    item = _managed_target(db, item_id, actor)
+    item = _load(db, item_id)
+    _require_super_for(actor, target=item)
+    _own_account_only(item)
     revoked = revoke_user_sessions(db, item.id)
     audit(
         db,
@@ -362,11 +430,13 @@ def revoke_team_sessions(
 
 @router.delete("/users/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_team_user(item_id: uuid.UUID, request: Request, db: DBSession, actor: TeamAdmin) -> None:
-    item = _managed_target(db, item_id, actor)
+    item = _load(db, item_id)
+    _require_super_for(actor, target=item)
     if item.id == actor.id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "You cannot remove your own account")
-    _keep_a_super(db, item, final_role="", final_active=False, deleting=True)
-    before = {"email": item.email, "role": _muqeem_role(item), "is_active": item.is_active}
+    _own_account_only(item)
+    _keep_a_super(db, item, final_role=None, final_active=False, deleting=True)
+    before = {"email": item.email, "role": muqeem_level(item), "is_active": item.is_active}
     item.deleted_at = datetime.now(UTC)
     item.is_active = False
     item.suspended_at = item.deleted_at
@@ -379,9 +449,11 @@ def remove_team_user(item_id: uuid.UUID, request: Request, db: DBSession, actor:
 def restore_team_user(
     item_id: uuid.UUID, request: Request, db: DBSession, actor: TeamAdmin
 ) -> dict[str, Any]:
-    item = _managed_target(db, item_id, actor, allow_deleted=True)
+    item = _load(db, item_id, allow_deleted=True)
     if item.deleted_at is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Removed user not found")
+    _require_super_for(actor, target=item)
+    _own_account_only(item)
     item.deleted_at = None
     item.is_active = False  # comes back suspended; an admin turns them on deliberately
     item.suspended_at = datetime.now(UTC)

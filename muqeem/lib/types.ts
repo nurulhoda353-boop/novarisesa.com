@@ -155,12 +155,14 @@ export interface TeamUser {
   full_name: string;
   role: string | null;
   role_label: string;
-  managed: boolean;
+  source: "override" | "dashboard" | "none";
+  dashboard: boolean;
   editable: boolean;
   status: "active" | "suspended" | "deleted";
   last_login_at: string | null;
   created_at: string;
   active_sessions: number;
+  existing_account?: boolean;
 }
 
 export interface TeamOverview {

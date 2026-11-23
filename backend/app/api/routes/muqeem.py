@@ -9,16 +9,16 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.routes.cms import audit
-from app.core.auth import require_permission, user_permission_codes
 from app.core.database import get_db
+from app.core.muqeem_access import muqeem_permissions, require_muqeem
 from app.models import AuditLog, MuqeemRecord, User
 
 router = APIRouter(prefix="/muqeem")
 
 DBSession = Annotated[Session, Depends(get_db)]
-Viewer = Annotated[User, Depends(require_permission("muqeem.view", "muqeem.manage"))]
-Manager = Annotated[User, Depends(require_permission("muqeem.manage"))]
-Admin = Annotated[User, Depends(require_permission("muqeem.admin"))]
+Viewer = Annotated[User, Depends(require_muqeem("muqeem.view", "muqeem.manage"))]
+Manager = Annotated[User, Depends(require_muqeem("muqeem.manage"))]
+Admin = Annotated[User, Depends(require_muqeem("muqeem.admin"))]
 
 HIJRI = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATE_FIELDS = (
@@ -426,7 +426,7 @@ def delete_record(
     """Archives by default. `?permanent=true` erases the row and needs the muqeem.admin permission."""
     record = _get_or_404(db, record_id)
     if permanent:
-        if "muqeem.admin" not in user_permission_codes(user):
+        if "muqeem.admin" not in muqeem_permissions(user):
             raise HTTPException(status.HTTP_403_FORBIDDEN, "Permanent delete needs Muqeem admin permission")
         audit(db, request, user, "muqeem.delete", "muqeem_record", record.id, before=_snapshot(record))
         db.delete(record)

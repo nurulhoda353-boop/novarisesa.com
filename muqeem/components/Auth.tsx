@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { ApiError, auth } from "@/lib/api";
+import { ApiError, auth, team } from "@/lib/api";
 import type { SessionUser } from "@/lib/types";
 
 interface AuthValue {
@@ -26,8 +26,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    auth
-      .me()
+    loadSession()
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setChecked(true));
@@ -79,6 +78,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** The signed-in user with their *Muqeem* permissions (a Muqeem role overrides the dashboard role). */
+async function loadSession(): Promise<SessionUser> {
+  const me = await auth.me();
+  try {
+    const access = await team.access();
+    return { ...me, permissions: access.permissions };
+  } catch {
+    return { ...me, permissions: me.permissions.filter((code) => !code.startsWith("muqeem.")) };
+  }
+}
+
 function Login({ onSignedIn }: { onSignedIn: (user: SessionUser) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -91,7 +101,7 @@ function Login({ onSignedIn }: { onSignedIn: (user: SessionUser) => void }) {
     setError("");
     try {
       const session = await auth.login(email.trim(), password);
-      onSignedIn(session.user);
+      onSignedIn(await loadSession().catch(() => session.user));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not sign in");
     } finally {

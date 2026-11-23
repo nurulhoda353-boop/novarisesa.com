@@ -33,14 +33,14 @@ function when(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "Never";
 }
 
-function PasswordField({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+function PasswordField({ value, onChange, label, required = true }: { value: string; onChange: (v: string) => void; label: string; required?: boolean }) {
   const [show, setShow] = useState(false);
   const [copied, setCopied] = useState(false);
   return (
     <label className="field">
       <span>{label}</span>
       <div className="with-btn">
-        <input type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} minLength={8} autoComplete="new-password" required />
+        <input type={show ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} minLength={required ? 8 : undefined} autoComplete="new-password" required={required} />
         <button type="button" className="btn" title="Show / hide" onClick={() => setShow((v) => !v)}>
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
@@ -97,8 +97,9 @@ function AddUserModal({ roles, onClose, onDone }: { roles: TeamRole[]; onClose: 
     setBusy(true);
     setError("");
     try {
+      if (form.password && form.password.length < 8) throw new ApiError(422, "Password must be at least 8 characters");
       const created = await team.create({ ...form, email: form.email.trim() });
-      onDone(`${created.full_name} can now sign in as ${created.role_label}.`);
+      onDone(created.existing_account ? `${created.full_name} now has Muqeem access as ${created.role_label}. Their password was not changed.` : `${created.full_name} can now sign in as ${created.role_label}.`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not add the user");
       setBusy(false);
@@ -124,7 +125,7 @@ function AddUserModal({ roles, onClose, onDone }: { roles: TeamRole[]; onClose: 
             <span>Email (they sign in with this)</span>
             <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required autoComplete="off" />
           </label>
-          <PasswordField label="Password (at least 8 characters)" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+          <PasswordField label="Password (new people only, at least 8 characters)" value={form.password} onChange={(password) => setForm({ ...form, password })} required={false} />
           <div className="field">
             <span>Role</span>
             <RoleSelect roles={roles} value={form.role} onChange={(role) => setForm({ ...form, role })} />
@@ -195,16 +196,21 @@ function ManageModal({ user, roles, isSelf, onClose, onChanged }: { user: TeamUs
             </button>
           ) : (
             <>
+              {user.dashboard && (
+                <div className="alert warn" style={{ margin: 0 }}>
+                  Dashboard team member. You can set their Muqeem level here. Their name, password, suspension and removal are managed in the NOVARISE Control Center.
+                </div>
+              )}
               <label className="field">
                 <span>Full name</span>
-                <input value={name} onChange={(e) => setName(e.target.value)} />
+                <input value={name} onChange={(e) => setName(e.target.value)} disabled={user.dashboard} />
               </label>
               <div className="field">
                 <span>Role</span>
                 <RoleSelect roles={isSelf ? roles.filter((r) => r.name === user.role) : roles} value={role} onChange={setRole} />
               </div>
               <label className="toggle">
-                <input type="checkbox" checked={active} disabled={isSelf} onChange={(e) => setActive(e.target.checked)} /> Account active (can sign in)
+                <input type="checkbox" checked={active} disabled={isSelf || user.dashboard} onChange={(e) => setActive(e.target.checked)} /> Account active (can sign in)
               </label>
               <div>
                 <button
@@ -216,7 +222,17 @@ function ManageModal({ user, roles, isSelf, onClose, onChanged }: { user: TeamUs
                 </button>
               </div>
 
-              {!isSelf && (
+              {!isSelf && user.dashboard && user.source === "override" && (
+                <button
+                  className="btn"
+                  disabled={!!busy}
+                  onClick={() => void run("fallback", () => team.resetAccess(user.id), "Back to the level their dashboard role gives.")}
+                >
+                  <RotateCcw size={16} /> Use their dashboard level again
+                </button>
+              )}
+
+              {!isSelf && !user.dashboard && (
                 <fieldset className="danger-zone">
                   <legend>Password &amp; sessions</legend>
                   <PasswordField label="New password for this person" value={newPassword} onChange={setNewPassword} />
@@ -328,7 +344,7 @@ function TeamTab({ data, reload }: { data: TeamOverview; reload: () => Promise<v
                 </td>
                 <td>
                   <span className={`role-badge r-${u.role ?? "dash"}`}>{u.role_label}</span>
-                  {!u.managed && <div className="cell-sub">Dashboard team</div>}
+                  {u.dashboard && <div className="cell-sub">Dashboard team{u.source === "override" ? " · Muqeem level set" : ""}</div>}
                 </td>
                 <td>
                   <span className={`badge${u.status === "active" ? "" : " off"}`}>{u.status}</span>
@@ -341,7 +357,7 @@ function TeamTab({ data, reload }: { data: TeamOverview; reload: () => Promise<v
                         Manage
                       </button>
                     ) : (
-                      <span className="cell-sub">{u.managed ? "Super Admin only" : "Managed in Control Center"}</span>
+                      <span className="cell-sub">Super Admin only</span>
                     )}
                   </div>
                 </td>

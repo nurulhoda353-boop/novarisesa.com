@@ -118,6 +118,8 @@ export const records = {
 };
 
 export const team = {
+  access: () => api<{ level: string | null; label: string; permissions: string[] }>("/muqeem/team/access"),
+  resetAccess: (id: string) => api<TeamUser>(`/muqeem/team/users/${id}/reset-access`, { method: "POST" }),
   updateMyName: (full_name: string) =>
     api<{ id: string; email: string; full_name: string }>("/muqeem/team/me", { method: "PATCH", body: JSON.stringify({ full_name }) }),
   overview: () => api<TeamOverview>("/muqeem/team"),
