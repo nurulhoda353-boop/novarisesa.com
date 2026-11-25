@@ -92,3 +92,19 @@ def test_muqeem_role_overrides_the_dashboard_role() -> None:
     assert muqeem_level(_with_roles(("editor", ["cms.view"]))) is None
     boss = _with_roles(("super_admin", ["muqeem.view", "muqeem.manage", "muqeem.admin", "muqeem.super"]))
     assert muqeem_level(boss) == "muqeem_super_admin"
+
+
+def test_only_super_admin_can_open_the_team_panel() -> None:
+    from app.core.muqeem_access import require_muqeem
+
+    gate = require_muqeem("muqeem.super")
+    boss = _with_roles(
+        ("muqeem_super_admin", ["muqeem.view", "muqeem.manage", "muqeem.admin", "muqeem.super"])
+    )
+    admin = _with_roles(("muqeem_admin", ["muqeem.view", "muqeem.manage", "muqeem.admin"]))
+    editor = _with_roles(("muqeem_editor", ["muqeem.view", "muqeem.manage"]))
+    assert gate(boss) is boss
+    for person in (admin, editor):
+        with pytest.raises(HTTPException) as exc:
+            gate(person)
+        assert exc.value.status_code == 403

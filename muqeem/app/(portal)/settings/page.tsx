@@ -551,8 +551,8 @@ function AppearanceTab() {
 }
 
 export default function SettingsPage() {
-  const { canAdmin, user } = useAuth();
-  const [tab, setTab] = useState<Tab>(canAdmin ? "team" : "profile");
+  const { canSuper, user } = useAuth();
+  const [tab, setTab] = useState<Tab>(canSuper ? "team" : "profile");
   const [data, setData] = useState<TeamOverview | null>(null);
   const [error, setError] = useState("");
 
@@ -566,14 +566,14 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (!canAdmin) return;
+    if (!canSuper) return;
     const timer = window.setTimeout(() => void reload(), 0);
     return () => window.clearTimeout(timer);
-  }, [canAdmin, reload]);
+  }, [canSuper, reload]);
 
   const tabs: [Tab, string][] = [
     ["profile", "My profile"],
-    ...(canAdmin ? ([["team", "Team"], ["roles", "Roles & access"]] as [Tab, string][]) : []),
+    ...(canSuper ? ([["team", "Team"], ["roles", "Roles & access"]] as [Tab, string][]) : []),
     ["defaults", "Entry defaults"],
     ["appearance", "Appearance"],
   ];
@@ -594,8 +594,8 @@ export default function SettingsPage() {
         </div>
       </div>
       {error && <div className="alert error">{error}</div>}
-      {tab === "team" && canAdmin && (data ? <TeamTab data={data} reload={reload} /> : !error && <div className="skeleton" style={{ height: 260 }} />)}
-      {tab === "roles" && canAdmin && (data ? <RolesTab data={data} /> : !error && <div className="skeleton" style={{ height: 260 }} />)}
+      {tab === "team" && canSuper && (data ? <TeamTab data={data} reload={reload} /> : !error && <div className="skeleton" style={{ height: 260 }} />)}
+      {tab === "roles" && canSuper && (data ? <RolesTab data={data} /> : !error && <div className="skeleton" style={{ height: 260 }} />)}
       {tab === "profile" && <ProfileTab />}
       {tab === "defaults" && <DefaultsTab />}
       {tab === "appearance" && <AppearanceTab />}

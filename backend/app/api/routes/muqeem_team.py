@@ -32,7 +32,8 @@ from app.models import AuditLog, Permission, RefreshToken, Role, User
 router = APIRouter(prefix="/muqeem/team")
 
 DBSession = Annotated[Session, Depends(get_db)]
-TeamAdmin = Annotated[User, Depends(require_muqeem("muqeem.admin"))]
+# Only a Super Admin may see or change who has which role; Admins and Editors just sign in and work.
+TeamAdmin = Annotated[User, Depends(require_muqeem("muqeem.super"))]
 AnyMuqeemUser = Annotated[User, Depends(require_muqeem("muqeem.view", "muqeem.manage"))]
 
 SUPER_ROLE = "muqeem_super_admin"
