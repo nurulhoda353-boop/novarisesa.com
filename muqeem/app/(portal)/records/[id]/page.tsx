@@ -8,6 +8,7 @@ import { useAuth } from "@/components/Auth";
 import { verifyUrlFor } from "@/components/BatchSheets";
 import { MuqeemSheet, SHEET_HEIGHT, SHEET_WIDTH } from "@/components/MuqeemSheet";
 import { ApiError, records } from "@/lib/api";
+import { QR_ENABLED } from "@/lib/features";
 import { downloadSheetPdf } from "@/lib/pdf";
 import { usePrefs } from "@/lib/prefs";
 import type { HistoryEntry, MuqeemRecord } from "@/lib/types";
@@ -22,7 +23,7 @@ export default function RecordDetailPage() {
   const [history, setHistory] = useState<HistoryEntry[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [qr, setQr] = useState(true);
+  const [qr, setQr] = useState(QR_ENABLED);
   const [scale, setScale] = useState(1);
   const stage = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -103,7 +104,7 @@ export default function RecordDetailPage() {
     }
   }
 
-  const verifyUrl = record && qr ? verifyUrlFor(record) : undefined;
+  const verifyUrl = QR_ENABLED && record && qr ? verifyUrlFor(record) : undefined;
   const archived = !!record?.archived_at;
 
   return (
@@ -124,9 +125,11 @@ export default function RecordDetailPage() {
                   <Pencil size={16} /> {t("common.edit")}
                 </Link>
               )}
-              <label className="toggle">
-                <input type="checkbox" checked={qr} onChange={(e) => setQr(e.target.checked)} /> {t("detail.qr")}
-              </label>
+              {QR_ENABLED && (
+                <label className="toggle">
+                  <input type="checkbox" checked={qr} onChange={(e) => setQr(e.target.checked)} /> {t("detail.qr")}
+                </label>
+              )}
               <button className="btn" onClick={() => window.print()}>
                 <Printer size={16} /> {t("common.print")}
               </button>

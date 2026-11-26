@@ -23,6 +23,7 @@ import {
 import { useAuth } from "@/components/Auth";
 import { BatchSheets } from "@/components/BatchSheets";
 import { ApiError, records } from "@/lib/api";
+import { QR_ENABLED } from "@/lib/features";
 import { sheetPdfBlob } from "@/lib/pdf";
 import { usePrefs } from "@/lib/prefs";
 import { exportCsv, exportXlsx, saveBlob } from "@/lib/sheetio";
@@ -47,7 +48,7 @@ export default function RecordsPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
-  const [qr, setQr] = useState(true);
+  const [qr, setQr] = useState(QR_ENABLED);
   const [batch, setBatch] = useState<MuqeemRecord[] | null>(null);
   const batchRef = useRef<HTMLDivElement>(null);
 
@@ -272,9 +273,11 @@ export default function RecordsPage() {
             <button className="btn small" onClick={() => void printBatch()} disabled={!!busy}>
               <Printer size={14} /> {t("list.printbatch")}
             </button>
-            <label className="toggle">
-              <input type="checkbox" checked={qr} onChange={(e) => setQr(e.target.checked)} /> QR
-            </label>
+            {QR_ENABLED && (
+              <label className="toggle">
+                <input type="checkbox" checked={qr} onChange={(e) => setQr(e.target.checked)} /> QR
+              </label>
+            )}
             {canManage &&
               (archived ? (
                 <button className="btn small" onClick={() => void act("restore", picked.map((row) => row.id))}>
@@ -381,7 +384,7 @@ export default function RecordsPage() {
         )}
       </div>
 
-      {batch && <BatchSheets ref={batchRef} rows={batch} qr={qr} />}
+      {batch && <BatchSheets ref={batchRef} rows={batch} qr={QR_ENABLED && qr} />}
     </>
   );
 }
